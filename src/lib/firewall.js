@@ -94,7 +94,7 @@ function intToIp(n) {
   return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join(".");
 }
 
-// "192.168.0.17/24" -> "192.168.0.0/24"
+// "192.168.1.50/24" -> "192.168.1.0/24"
 function networkOf(cidr) {
   if (typeof cidr !== "string" || !cidr.includes("/")) return null;
   const [ip, bitsRaw] = cidr.split("/");
