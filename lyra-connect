@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# lyra-connect — laptop tarafi SSH tunnel + browser opener.
+#
+# Lyra'yi localhost mode'da uzak sunucuda calistiriyorsan, bu script
+# tek komutla tunnel acar ve tarayicida acar.
+#
+# Kullanim:
+#   ./lyra-connect ubuntu@server-ip          # one-shot
+#   ./lyra-connect add hetzner ubuntu@5.75.222.111
+#   ./lyra-connect hetzner                   # kayitli config'le
+#   ./lyra-connect list
+#   ./lyra-connect remove hetzner
+
+set -euo pipefail
+
+CONFIG="$HOME/.lyra-connect.conf"
+DEFAULT_PORT=3000
+
+# Renk kodlari
+if [[ -t 1 ]]; then
+  C_RESET='\033[0m'; C_GREEN='\033[0;32m'; C_RED='\033[0;31m'
+  C_CYAN='\033[0;36m'; C_DIM='\033[2m'
+else
+  C_RESET=''; C_GREEN=''; C_RED=''; C_CYAN=''; C_DIM=''
+fi
+
+ok()   { printf '%b %s\n' "${C_GREEN}✓${C_RESET}" "$*"; }
+fail() { printf '%b %s\n' "${C_RED}✗${C_RESET}" "$*" >&2; exit 1; }
+info() { printf '%b%s%b\n' "${C_DIM}" "$*" "${C_RESET}"; }
+
+usage() {
+  cat <<EOF
+lyra-connect — Lyra (uzak sunucu) icin SSH tunnel + browser
+
+Kullanim:
+  lyra-connect <name|user@host> [port]   Tunnel ac ve browser'da ac
+  lyra-connect add <name> <user@host> [port]   Kaydet
+  lyra-connect list                       Kayitli sunuculari listele
+  lyra-connect remove <name>              Kaydi sil
+  lyra-connect help                       Bu yardim
+
+Ornekler:
+  lyra-connect ubuntu@5.75.222.111
+  lyra-connect add hetzner ubuntu@5.75.222.111 3000
+  lyra-connect hetzner
+EOF
+}
+
+ensure_config() {
+  [[ -f "$CONFIG" ]] || { touch "$CONFIG"; chmod 600 "$CONFIG"; }
+}
+
+cmd_add() {
+  local name="$1"
+  local target="$2"
+  local port="${3:-$DEFAULT_PORT}"
+  ensure_config
+  if grep -q "^${name}=" "$CONFIG" 2>/dev/null; then
+    fail "'$name' zaten kayitli. Once: lyra-connect remove $name"
+  fi
+  echo "${name}=${target}|${port}" >> "$CONFIG"
+  ok "Kaydedildi: $name → $target:$port"
+}
+
+cmd_list() {
+  ensure_config
+  if [[ ! -s "$CONFIG" ]]; then
+    info "Kayitli sunucu yok. 'lyra-connect add <name> <user@host>' ile ekle."
+    return
+  fi
+  printf '%-20s %-30s %s\n' "AD" "HEDEF" "PORT"
+  printf '%-20s %-30s %s\n' "──" "─────" "────"
+  while IFS='=' read -r name rest; do
+    [[ -z "$name" ]] && continue
+    local target="${rest%|*}"
+    local port="${rest##*|}"
+    printf '%-20s %-30s %s\n' "$name" "$target" "$port"
+  done < "$CONFIG"
+}
+
+cmd_remove() {
+  local name="$1"
+  ensure_config
+  if ! grep -q "^${name}=" "$CONFIG" 2>/dev/null; then
+    fail "'$name' kayitli degil"
+  fi
+  local tmp; tmp=$(mktemp)
+  grep -v "^${name}=" "$CONFIG" > "$tmp" || true
+  mv "$tmp" "$CONFIG"
+  chmod 600 "$CONFIG"
+  ok "Silindi: $name"
+}
+
+resolve_target() {
+  local input="$1"
+  ensure_config
+  # Kayitli isim mi?
+  if [[ "$input" != *"@"* ]] && grep -q "^${input}=" "$CONFIG" 2>/dev/null; then
+    local rest
+    rest=$(grep "^${input}=" "$CONFIG" | head -1 | cut -d= -f2-)
+    echo "${rest%|*}|${rest##*|}"
+  elif [[ "$input" == *"@"* ]]; then
+    echo "${input}|${DEFAULT_PORT}"
+  else
+    fail "'$input' bulunamadi. lyra-connect list ile bak veya user@host yaz."
+  fi
+}
+
+open_browser() {
+  local url="$1"
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url" >/dev/null 2>&1 &
+  elif command -v open >/dev/null 2>&1; then
+    open "$url"
+  elif command -v wslview >/dev/null 2>&1; then
+    wslview "$url"
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -c "Start-Process '$url'" >/dev/null 2>&1
+  else
+    info "Tarayicida ac: $url"
+  fi
+}
+
+cmd_connect() {
+  local target_spec; target_spec=$(resolve_target "$1")
+  local target="${target_spec%|*}"
+  local port="${target_spec##*|}"
+  if [[ -n "${2:-}" ]]; then port="$2"; fi
+
+  local url="http://localhost:${port}"
+
+  printf '%b SSH tunnel aciliyor: %slocalhost:%s%b → %s%s%b\n' \
+    "${C_CYAN}»${C_RESET}" "${C_GREEN}" "$port" "${C_RESET}" "${C_GREEN}" "$target" "${C_RESET}"
+  info "    (Ctrl+C ile kapat)"
+  echo
+
+  # Browser'i 2 saniye gecikmeyle ac (tunnel kurulmaya zaman tani)
+  ( sleep 2 && open_browser "$url" ) &
+
+  # SSH tunnel — foreground, exit-on-forward-failure
+  exec ssh -N \
+    -L "${port}:127.0.0.1:${port}" \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=60 \
+    -o ServerAliveCountMax=3 \
+    "$target"
+}
+
+# ─── Main ───
+case "${1:-}" in
+  ""|help|-h|--help)
+    usage
+    ;;
+  add)
+    [[ $# -ge 3 ]] || fail "Kullanim: lyra-connect add <name> <user@host> [port]"
+    cmd_add "$2" "$3" "${4:-}"
+    ;;
+  list|ls)
+    cmd_list
+    ;;
+  remove|rm)
+    [[ $# -eq 2 ]] || fail "Kullanim: lyra-connect remove <name>"
+    cmd_remove "$2"
+    ;;
+  *)
+    cmd_connect "$@"
+    ;;
+esac

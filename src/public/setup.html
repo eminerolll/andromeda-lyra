@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lyra Kurulum</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/css/fonts.css">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #050508;
+    --surface: #0a0a10;
+    --card: #0f0f18;
+    --card-border: #1a1a2e;
+    --text: #eaeaf0;
+    --text-dim: #8b8ba0;
+    --text-faint: #4a4a5e;
+    --accent: #00e5ff;
+    --accent-rgb: 0, 229, 255;
+    --danger: #ff4070;
+    --warning: #ffb84d;
+    --success: #00d68f;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', -apple-system, sans-serif;
+  }
+
+  html, body { height: 100%; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent);
+    pointer-events: none;
+  }
+  .bg-glow {
+    position: fixed;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.05;
+    pointer-events: none;
+  }
+  .bg-glow.a { background: var(--accent); top: -20%; left: -10%; }
+  .bg-glow.b { background: #7b61ff; bottom: -20%; right: -10%; }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .brand {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .brand-logo {
+    width: 56px;
+    height: 56px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .brand-logo img { width: 32px; height: 32px; }
+  .brand-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .brand-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-top: 4px;
+    letter-spacing: -0.3px;
+  }
+
+  /* Stepper */
+  .stepper {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding: 0 8px;
+    position: relative;
+  }
+  .stepper::before {
+    content: '';
+    position: absolute;
+    top: 12px; left: 24px; right: 24px;
+    height: 2px;
+    background: var(--card-border);
+    z-index: 0;
+  }
+  .step-dot {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 2px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-faint);
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s;
+  }
+  .step-dot.done { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .step-dot.active { background: var(--card); color: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.15); }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .card-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .card-subtitle {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  /* Form */
+  .field { margin-bottom: 18px; }
+  .field-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .field-hint {
+    display: block;
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+  .input, .select {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input:focus, .select:focus {
+    border-color: rgba(var(--accent-rgb), 0.5);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
+  }
+  .input::placeholder { color: var(--text-faint); }
+
+  /* Mode select cards */
+  .mode-list { display: flex; flex-direction: column; gap: 10px; }
+  .mode-card {
+    display: flex;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .mode-card:hover { border-color: rgba(var(--accent-rgb), 0.3); }
+  .mode-card.selected {
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.04);
+  }
+  .mode-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    width: 32px;
+    text-align: center;
+    line-height: 1;
+  }
+  .mode-content { flex: 1; }
+  .mode-title { font-weight: 600; font-size: 14px; }
+  .mode-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+
+  /* Buttons */
+  .btn {
+    padding: 12px 24px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary {
+    background: var(--card-border);
+    color: var(--text);
+  }
+  .btn-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; }
+
+  /* Alerts */
+  .alert {
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .alert-icon { font-size: 16px; flex-shrink: 0; }
+  .alert-error { background: rgba(255, 64, 112, 0.08); border: 1px solid rgba(255, 64, 112, 0.2); color: #ffb0c5; }
+  .alert-success { background: rgba(0, 214, 143, 0.08); border: 1px solid rgba(0, 214, 143, 0.2); color: #80f0c8; }
+  .alert-warning { background: rgba(255, 184, 77, 0.08); border: 1px solid rgba(255, 184, 77, 0.2); color: #ffd699; }
+  .alert-info { background: rgba(var(--accent-rgb), 0.06); border: 1px solid rgba(var(--accent-rgb), 0.15); color: #80f0ff; }
+
+  /* QR */
+  .qr-container {
+    background: white;
+    padding: 16px;
+    border-radius: 10px;
+    width: fit-content;
+    margin: 16px auto;
+  }
+  .qr-container img { display: block; max-width: 200px; }
+  .totp-secret {
+    font-family: var(--mono);
+    background: var(--bg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    word-break: break-all;
+    border: 1px solid var(--card-border);
+    text-align: center;
+    color: var(--text-dim);
+  }
+
+  /* Service list */
+  .service-list { display: flex; flex-direction: column; gap: 8px; }
+  .service-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .service-item.disabled { opacity: 0.4; cursor: not-allowed; }
+  .service-checkbox {
+    width: 18px; height: 18px;
+    accent-color: var(--accent);
+  }
+  .service-info { flex: 1; }
+  .service-name { font-weight: 500; font-size: 14px; }
+  .service-detail { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-family: var(--mono); }
+
+  /* Code block */
+  .code-block {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg);
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* Post-setup ilerleme listesi (step 6) */
+  .progress-list { display: flex; flex-direction: column; gap: 8px; margin: 20px 0; text-align: left; }
+  .progress-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .progress-mark { width: 18px; flex-shrink: 0; text-align: center; font-family: var(--mono); color: var(--text-faint); }
+  .progress-body { flex: 1; }
+  .progress-label { color: var(--text-faint); }
+  .progress-row.running .progress-label, .progress-row.ok .progress-label { color: var(--text); }
+  .progress-row.ok .progress-mark { color: var(--success); }
+  .progress-row.failed { border-color: rgba(255, 64, 112, 0.3); }
+  .progress-row.failed .progress-mark { color: var(--danger); }
+  .progress-note { font-size: 12px; color: var(--text-faint); margin-top: 3px; font-family: var(--mono); word-break: break-word; }
+  .progress-error { font-size: 12px; color: #ffb0c5; margin-top: 4px; word-break: break-word; }
+
+  /* DNS kayit listesi */
+  .dns-row { display: flex; gap: 10px; align-items: baseline; font-family: var(--mono); font-size: 12px; padding: 3px 0; }
+  .dns-host { flex: 1; word-break: break-all; }
+  .dns-state { flex-shrink: 0; }
+  .dns-ok { color: var(--success); }
+  .dns-bad { color: var(--warning); }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--card-border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Inline help */
+  details {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  details summary {
+    cursor: pointer;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  details summary:hover { color: var(--text); }
+  details[open] summary { margin-bottom: 8px; color: var(--text); }
+  details code {
+    font-family: var(--mono);
+    background: var(--card);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11.5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow a"></div>
+<div class="bg-glow b"></div>
+
+<div class="container">
+  <div class="brand">
+    <div class="brand-logo"><img src="/favicon.ico" alt=""></div>
+    <div class="brand-name">LYRA</div>
+    <div class="brand-title">Kurulum Sihirbazı</div>
+  </div>
+
+  <div class="stepper" id="stepper">
+    <div class="step-dot active" data-step="0">1</div>
+    <div class="step-dot" data-step="1">2</div>
+    <div class="step-dot" data-step="2">3</div>
+    <div class="step-dot" data-step="3">4</div>
+    <div class="step-dot" data-step="4">5</div>
+    <div class="step-dot" data-step="5">6</div>
+  </div>
+
+  <!-- STEP 0 — Token -->
+  <div class="card step" id="step-0">
+    <div class="card-title">🔐 Kurulum Token'ı</div>
+    <div class="card-subtitle">
+      SSH terminalde <code style="font-family:var(--mono); background:var(--bg); padding:1px 6px; border-radius:4px; font-size:12px;">npm run setup</code>
+      çıktısında gösterilen token'ı yapıştır.
+    </div>
+    <div class="alert alert-error" id="step-0-error" style="display:none;">
+      <span class="alert-icon">✗</span><span id="step-0-error-text"></span>
+    </div>
+    <div class="field">
+      <label class="field-label">Token</label>
+      <input type="text" class="input" id="setup-token" placeholder="ABCD-EFGH-JKLM-NPQR" autofocus
+             style="text-align:center; font-size:18px; letter-spacing:2px;">
+      <span class="field-hint">SSH terminalde gösterilen 16 karakterli token (4 grup, dash ile ayrılmış)</span>
+    </div>
+    <div class="btn-row" style="justify-content:flex-end;">
+      <button class="btn" onclick="verifyToken()">Devam Et →</button>
+    </div>
+  </div>
+
+  <!-- STEP 1 — Erişim modu -->
+  <div class="card step" id="step-1" style="display:none;">
+    <div class="card-title">🌐 Erişim Modu</div>
+    <div class="card-subtitle">
+      Lyra'ya nasıl erişeceğini seç. Daha sonra ayarlar menüsünden değiştirebilirsin.
+    </div>
+    <div class="mode-list" id="mode-list">
+      <div class="mode-card" data-mode="public">
+        <div class="mode-icon">🌍</div>
+        <div class="mode-content">
+          <div class="mode-title">Public — Domain ile (önerilen)</div>
+          <div class="mode-desc">Kendi domain'inle erişirsin (örn. lyra.example.com). Caddy otomatik HTTPS sertifikası alır.</div>
+        </div>
+      </div>
+      <div class="mode-card" data-mode="lan">
+        <div class="mode-icon">🏠</div>
+        <div class="mode-content">
+          <div class="mode-title">LAN — Yerel ağ</div>
+          <div class="mode-desc">Ağındaki tüm cihazlardan erişebilir. Ev/ofis sunucusu için ideal.</div>
+        </div>
+      </div>
+      <div class="mode-card" data-mode="cf-api">
+        <div class="mode-icon">☁️</div>
+        <div class="mode-content">
+          <div class="mode-title">Cloudflare Tunnel — otomatik (API token ile)</div>
+          <div class="mode-desc">
+            Sunucunun public IP'si yoksa (NAT/CGNAT) veya CF koruması istiyorsan.
+            Bir API token + domain verirsin; tunnel, yönlendirme ve DNS kayıtlarını Lyra kendisi oluşturur.
+            Cloudflare panelinde elle iş yok.
+          </div>
+        </div>
+      </div>
+      <div class="mode-card" data-mode="localhost">
+        <div class="mode-icon">🔒</div>
+        <div class="mode-content">
+          <div class="mode-title">Localhost — Sadece bu makineden</div>
+          <div class="mode-desc">SSH tunnel ile uzaktan erişirsin. En güvenli, ek kurulum gerektirmez.</div>
+        </div>
+      </div>
+      <div class="mode-card" data-mode="cf-tunnel">
+        <div class="mode-icon">⚙️</div>
+        <div class="mode-content">
+          <div class="mode-title">Cloudflare Tunnel — connector token (ileri seçenek)</div>
+          <div class="mode-desc">
+            Tunnel'ı Cloudflare dashboard'da kendin oluşturup public hostname'leri kendin eklemek istiyorsan.
+            Lyra sadece connector token'ı alıp cloudflared'i kurar. Çoğu kullanıcı için yukarıdaki otomatik mod daha kolaydır.
+          </div>
+        </div>
+      </div>
+      <div class="mode-card" data-mode="manual">
+        <div class="mode-icon">🔧</div>
+        <div class="mode-content">
+          <div class="mode-title">Manuel — Kendi reverse proxy'm var</div>
+          <div class="mode-desc">Kendi nginx/traefik/HAProxy'ni kullanacaksan. Lyra 127.0.0.1'e bind olur, gerisi sende.</div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(0)">← Geri</button>
+      <button class="btn" id="step-1-next" onclick="nextFromMode()" disabled>Devam Et →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2 — Domain / CF Token / vs (mode'a göre) -->
+  <div class="card step" id="step-2" style="display:none;">
+    <div class="card-title" id="step-2-title">📡 Bağlantı Ayarları</div>
+    <div class="card-subtitle" id="step-2-subtitle"></div>
+    <div class="alert alert-error" id="step-2-error" style="display:none;">
+      <span class="alert-icon">✗</span><span id="step-2-error-text"></span>
+    </div>
+    <div id="step-2-content"></div>
+
+    <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--card-border);">
+      <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Panel ayarları</div>
+      <div style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">
+        İkisi de sonradan Ayarlar → Genel'den değiştirilebilir.
+      </div>
+      <div class="field">
+        <label class="field-label">Uygulama adı</label>
+        <input type="text" class="input" id="conn-appname" value="Lyra">
+        <span class="field-hint">Panel başlığında ve login ekranında görünür.</span>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label class="field-label">Projeler dizini</label>
+        <input type="text" class="input" id="conn-projectsdir" placeholder="/home/kullanici/projects">
+        <span class="field-hint" id="conn-projectsdir-hint">
+          Repo'ların klonlanacağı dizin. Lyra'nın çalıştığı Linux kullanıcısı buraya yazabilmeli.
+        </span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(1)">← Geri</button>
+      <button class="btn" id="step-2-next" onclick="nextFromConn()">Devam Et →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 — Admin user + 2FA -->
+  <div class="card step" id="step-3" style="display:none;">
+    <div class="card-title">👤 Yönetici Hesabı</div>
+    <div class="card-subtitle">Login bilgilerini belirle. 2FA güçlü tavsiyemizdir.</div>
+    <div class="alert alert-error" id="step-3-error" style="display:none;">
+      <span class="alert-icon">✗</span><span id="step-3-error-text"></span>
+    </div>
+    <div class="field">
+      <label class="field-label">Kullanıcı Adı</label>
+      <input type="text" class="input" id="adm-user" value="admin" autocomplete="username">
+    </div>
+    <div class="field">
+      <label class="field-label">Şifre</label>
+      <input type="password" class="input" id="adm-pass" placeholder="En az 12 karakter" autocomplete="new-password">
+      <span class="field-hint">Brute-force koruması var. Yine de güçlü olsun.</span>
+    </div>
+    <div class="field">
+      <label class="field-label">Şifre (tekrar)</label>
+      <input type="password" class="input" id="adm-pass2" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px;">
+        <input type="checkbox" id="adm-2fa" checked style="accent-color:var(--accent); width:18px; height:18px;">
+        2FA (TOTP) aktif et — önerilir
+      </label>
+    </div>
+    <div id="totp-section" style="display:none; margin-top:20px; padding:20px; background:var(--bg); border-radius:10px; border:1px solid var(--card-border);">
+      <div style="text-align:center; margin-bottom:12px; font-weight:600;">Authenticator uygulamana ekle</div>
+      <div class="qr-container"><img id="totp-qr" alt=""></div>
+      <div style="font-size:12px; color:var(--text-dim); text-align:center; margin-bottom:8px;">
+        Veya manuel olarak gir:
+      </div>
+      <div class="totp-secret" id="totp-secret"></div>
+      <div class="field" style="margin-top:16px; margin-bottom:0;">
+        <label class="field-label">Doğrulama kodu</label>
+        <input type="text" class="input" id="totp-code" placeholder="000000" maxlength="6"
+               inputmode="numeric" pattern="[0-9]*" style="text-align:center; letter-spacing:8px; font-size:18px;">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(2)">← Geri</button>
+      <button class="btn" onclick="nextFromAdmin()">Devam Et →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4 — Servisler -->
+  <div class="card step" id="step-4" style="display:none;">
+    <div class="card-title">🧩 Servisler</div>
+    <div class="card-subtitle">Sunucuda bulunan servisler tespit edildi. Lyra ile yönetmek istediklerini seç.</div>
+    <div id="services-list" class="service-list">
+      <div style="text-align:center; padding:20px; color:var(--text-dim);"><span class="spinner"></span> Taraniyor...</div>
+    </div>
+    <div class="alert alert-info" style="margin-top:16px;">
+      <span class="alert-icon">ℹ</span>
+      <span>Servisleri sonradan ayarlardan ekleyebilir/çıkarabilirsin.</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(3)">← Geri</button>
+      <button class="btn" onclick="nextFromServices()">Devam Et →</button>
+    </div>
+  </div>
+
+  <!-- STEP 5 — Entegrasyonlar (opsiyonel) + Finalize -->
+  <div class="card step" id="step-5" style="display:none;">
+    <div class="card-title">🔌 Opsiyonel Entegrasyonlar</div>
+    <div class="card-subtitle">Bunlar opsiyonel — atlasan da olur, sonra ekleyebilirsin.</div>
+
+    <details>
+      <summary>Telegram bildirimleri</summary>
+      <div style="margin-top:12px;">
+        <div class="field">
+          <label class="field-label">Bot Token</label>
+          <input type="password" class="input" id="tg-token" placeholder="123456789:ABC...">
+        </div>
+        <div class="field">
+          <label class="field-label">Chat ID</label>
+          <input type="text" class="input" id="tg-chatid" placeholder="123456789">
+        </div>
+      </div>
+    </details>
+
+    <details style="margin-top:8px;">
+      <summary>GitHub kişisel access token</summary>
+      <div style="margin-top:12px;">
+        <div class="field">
+          <label class="field-label">Token (repo:read)</label>
+          <input type="password" class="input" id="gh-token" placeholder="ghp_...">
+          <span class="field-hint">Sadece private repo klonlamak içindir. Atla, sonra ekle.</span>
+        </div>
+      </div>
+    </details>
+
+    <div class="alert alert-warning" id="step-5-error" style="display:none;">
+      <span class="alert-icon">⚠</span><span id="step-5-error-text"></span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(4)">← Geri</button>
+      <button class="btn" id="finalize-btn" onclick="finalize()">Kurulumu Tamamla ✓</button>
+    </div>
+  </div>
+
+  <!-- STEP 6 — Kurulum sonrasi ilerleme -->
+  <div class="card step" id="step-6" style="display:none;">
+    <div style="text-align:center;">
+      <div style="font-size:52px; margin-bottom:8px;" id="step-6-icon">⏳</div>
+      <div class="card-title" id="step-6-title">Kurulum tamamlanıyor</div>
+      <div class="card-subtitle" id="step-6-msg">Ayarlar kaydedildi. Arka plan işleri sürüyor…</div>
+    </div>
+
+    <div class="progress-list" id="step-6-steps"></div>
+
+    <div class="alert alert-error" id="step-6-error" style="display:none;">
+      <span class="alert-icon">✗</span><span id="step-6-error-text"></span>
+    </div>
+
+    <div id="step-6-hint" style="display:none;"></div>
+
+    <div style="text-align:center; margin-top:8px;">
+      <a class="btn" id="step-6-link" href="#" style="display:none;">Lyra'ya Git →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const wizard = {
+  mode: null,
+  conn: {},
+  panel: {},
+  admin: {},
+  services: [],
+  integrations: {}
+};
+
+// Lyra'nin calistigi Linux kullanicisi — projeler dizini onerisi buradan gelir.
+// Panel kullanici adiyla ("admin") ilgisi yok.
+let sysUser = null;
+
+function goStep(n) {
+  for (let i = 0; i <= 6; i++) {
+    const el = $(`step-${i}`);
+    if (el) el.style.display = i === n ? "" : "none";
+  }
+  document.querySelectorAll(".step-dot").forEach(d => {
+    const idx = parseInt(d.dataset.step);
+    d.classList.remove("active", "done");
+    if (idx < n) d.classList.add("done");
+    else if (idx === n) d.classList.add("active");
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showError(stepNum, msg) {
+  const el = $(`step-${stepNum}-error`);
+  const txt = $(`step-${stepNum}-error-text`);
+  if (el && txt) {
+    txt.textContent = msg;
+    el.style.display = "";
+  }
+}
+
+function hideError(stepNum) {
+  const el = $(`step-${stepNum}-error`);
+  if (el) el.style.display = "none";
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// ─── Step 0: Token ───
+async function verifyToken() {
+  hideError(0);
+  const token = $("setup-token").value.trim().toUpperCase();
+  if (!token) return showError(0, "Token gerekli");
+  try {
+    await api("/api/setup/verify-token", {
+      method: "POST",
+      body: { token }
+    });
+    goStep(1);
+  } catch (err) {
+    showError(0, err.message);
+  }
+}
+
+// ─── Step 1: Mode ───
+document.querySelectorAll(".mode-card").forEach(card => {
+  card.addEventListener("click", () => {
+    document.querySelectorAll(".mode-card").forEach(c => c.classList.remove("selected"));
+    card.classList.add("selected");
+    wizard.mode = card.dataset.mode;
+    $("step-1-next").disabled = false;
+  });
+});
+
+function nextFromMode() {
+  buildConnStep();
+  loadSystemUser();
+  goStep(2);
+}
+
+// Projeler dizini onerisini sunucudan al (SUDO_USER / os.userInfo()).
+async function loadSystemUser() {
+  if (sysUser) return;
+  try {
+    sysUser = await api("/api/setup/system-user");
+  } catch (_) {
+    return;
+  }
+  const input = $("conn-projectsdir");
+  if (input && !input.value.trim()) input.value = sysUser.suggestedProjectsDir;
+  const hint = $("conn-projectsdir-hint");
+  if (hint) {
+    hint.textContent =
+      `Repo'ların klonlanacağı dizin. Lyra "${sysUser.user}" Linux kullanıcısı olarak çalışıyor ` +
+      `(home: ${sysUser.home}); dizin bu kullanıcı tarafından yazılabilir olmalı.`;
+  }
+}
+
+// ─── Step 2: Bağlantı (mode'a göre) ───
+function buildConnStep() {
+  const m = wizard.mode;
+  const title = $("step-2-title");
+  const sub = $("step-2-subtitle");
+  const content = $("step-2-content");
+
+  if (m === "public") {
+    title.textContent = "🌍 Domain Ayarları";
+    sub.innerHTML = `
+      A record'unu sunucuya yönlendirmiş olduğundan emin ol.
+      Caddy bu domain için <strong>otomatik Let's Encrypt sertifikası</strong> alacak.
+    `;
+    content.innerHTML = `
+      <div class="field">
+        <label class="field-label">Domain (FQDN)</label>
+        <input type="text" class="input" id="conn-domain" placeholder="lyra.example.com">
+        <span class="field-hint">Subdomain (lyra.example.com) veya apex domain (example.com) olabilir.</span>
+      </div>
+      <div class="field">
+        <label class="field-label">Email (Let's Encrypt için)</label>
+        <input type="email" class="input" id="conn-email" placeholder="you@example.com">
+        <span class="field-hint">Sertifika süresi dolma uyarıları buraya gelir.</span>
+      </div>
+      <div id="conn-dnscheck" style="display:none;"></div>
+    `;
+  } else if (m === "cf-api") {
+    title.textContent = "☁️ Cloudflare Tunnel (otomatik)";
+    sub.innerHTML = `
+      Bir API token ve domain yeter. Tunnel'ı, ingress yönlendirmesini ve DNS kayıtlarını Lyra oluşturur.
+      <div style="margin-top:10px;">
+        Token: Cloudflare → <strong>My Profile → API Tokens → Create Token → Create Custom Token</strong>.
+        Gereken izinler:
+        <code>Account · Cloudflare Tunnel · Edit</code>,
+        <code>Zone · DNS · Edit</code>,
+        <code>Zone · Zone · Read</code>.
+        <em>Account Resources</em> = hesabın, <em>Zone Resources</em> = bu domain.
+        Hesap listeleme izni (<code>Account Settings · Read</code>) <strong>gerekmez</strong> —
+        hesap kimliğini domain'in zone kaydından alıyoruz.
+      </div>
+    `;
+    content.innerHTML = `
+      <div class="field">
+        <label class="field-label">API Token</label>
+        <textarea class="input" id="conn-cfapitoken" rows="2"
+                  style="font-family:var(--mono); font-size:12px;"
+                  placeholder="Cloudflare API token"></textarea>
+        <span class="field-hint">Token sunucuda saklanır, log'lanmaz. Sadece Cloudflare'e gönderilir.</span>
+      </div>
+      <div class="field">
+        <label class="field-label">Domain (zone apex)</label>
+        <input type="text" class="input" id="conn-cfdomain" placeholder="example.com">
+        <span class="field-hint">Cloudflare'e ekli domain'in kendisi. <code>alt.example.com</code> değil, <code>example.com</code>.</span>
+      </div>
+      <button class="btn btn-secondary" id="cf-check-btn" onclick="cfPreflight()">Cloudflare'i Kontrol Et</button>
+      <div id="conn-cfresult" style="margin-top:14px;"></div>
+    `;
+    cfCheck = null;
+  } else if (m === "cf-tunnel") {
+    title.textContent = "⚙️ Cloudflare Tunnel";
+    sub.innerHTML = `
+      <ol style="padding-left:18px; line-height:1.7;">
+        <li>Cloudflare Dashboard → Zero Trust → Networks → Tunnels</li>
+        <li>"Create a tunnel" → Cloudflared → İsim ver → Save</li>
+        <li>Connector token'ı kopyala (uzun string)</li>
+        <li>Public Hostname ekle: <code>http://localhost:3000</code></li>
+        <li>Token'ı aşağıya yapıştır</li>
+      </ol>
+    `;
+    content.innerHTML = `
+      <div class="field">
+        <label class="field-label">Connector Token</label>
+        <textarea class="input" id="conn-cftoken" rows="3" style="font-family:var(--mono); font-size:12px;"
+                  placeholder="eyJhIjoiYWFhI..."></textarea>
+      </div>
+    `;
+  } else if (m === "lan" || m === "localhost" || m === "manual") {
+    title.textContent = m === "lan" ? "🏠 LAN Modu" : (m === "localhost" ? "🔒 Localhost Modu" : "🔧 Manuel Mod");
+    sub.textContent = "Bu mod için ek ayar gerekmez. Devam et.";
+    content.innerHTML = `
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ</span>
+        <span>${
+          m === "lan"
+            ? "Lyra 0.0.0.0:3000'e bind olacak. Ağındaki cihazlar http://&lt;sunucu-ip&gt;:3000 ile erişebilir."
+            : m === "localhost"
+            ? "Lyra 127.0.0.1:3000'e bind olacak. Uzaktan erişmek için: ssh -L 3000:127.0.0.1:3000 user@sunucu"
+            : "Lyra 127.0.0.1:3000'e bind olacak. Önüne nginx/traefik/HAProxy/Caddy ne istersen koy."
+        }</span>
+      </div>
+    `;
+  }
+}
+
+// ─── Cloudflare API modu ───
+// Preflight sonucu + kullanicinin secimleri. nextFromConn bunu zorunlu tutar:
+// dogrulama yapilmadan kuruluma gecilmez.
+let cfCheck = null;
+
+// Cloudflare'den gelen DNS icerigi ucuncu taraf verisidir; HTML'e basmadan once
+// kacir.
+function esc(s) {
+  return String(s === undefined || s === null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function cfPreflight(accountId) {
+  hideError(2);
+  const token = $("conn-cfapitoken").value.trim();
+  const domain = $("conn-cfdomain").value.trim();
+  const box = $("conn-cfresult");
+  if (!token) return showError(2, "API token gerekli");
+  if (!domain) return showError(2, "Domain gerekli");
+
+  const sub = cfCheck && cfCheck.panelSub ? cfCheck.panelSub : "lyra";
+  box.innerHTML = '<div class="alert alert-info"><span class="alert-icon"><span class="spinner"></span></span><span>Cloudflare kontrol ediliyor…</span></div>';
+
+  let r;
+  try {
+    r = await api("/api/setup/cf-preflight", {
+      method: "POST",
+      body: {
+        cfApiToken: token,
+        domain,
+        cfAccountId: accountId || null,
+        cfPanelSubdomain: sub
+      }
+    });
+  } catch (err) {
+    cfCheck = null;
+    box.innerHTML = `<div class="alert alert-error"><span class="alert-icon">✗</span><span>${esc(err.message)}</span></div>`;
+    return;
+  }
+
+  if (r.needsAccountChoice) {
+    cfCheck = null;
+    box.innerHTML = `
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ</span>
+        <span>Bu token birden fazla Cloudflare hesabına erişiyor. Hangisini kullanacağını seç — yanlış hesapta tunnel açmamak için otomatik seçmiyoruz.</span>
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label class="field-label">Hesap</label>
+        <select class="input" id="cf-account-select">
+          ${r.accounts.map(a => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")}
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="cfPreflight(document.getElementById('cf-account-select').value)">Bu Hesapla Devam</button>
+    `;
+    return;
+  }
+
+  cfCheck = {
+    ok: true,
+    account: r.account,
+    zone: r.zone,
+    records: r.records,
+    hostMode: r.recommendation,
+    panelSub: sub,
+    // Dogrulamanin hangi girdiyle yapildigi. Kullanici sonradan token/domain/
+    // alt alan degistirirse tekrar kontrol istenir.
+    checkedToken: token,
+    checkedDomain: domain,
+    checkedSub: sub,
+    overwrite: false
+  };
+  renderCfPlan();
+}
+
+// Secilen moda gore yazilacak DNS kayitlari ve her birinin mevcut cakismalari.
+function cfPlannedRecords() {
+  if (!cfCheck) return [];
+  const z = cfCheck.zone.name;
+  const panel = cfCheck.hostMode === "apex"
+    ? { scope: "apex", host: z }
+    : { scope: "panel", host: `${cfCheck.panelSub}.${z}` };
+  const wildcard = { scope: "wildcard", host: `*.${z}` };
+  return [panel, wildcard].map(p => ({
+    ...p,
+    existing: ((cfCheck.records && cfCheck.records[p.scope]) || []).filter(x => !x.isTunnel)
+  }));
+}
+
+function cfSetOverwrite(checked) {
+  if (cfCheck) cfCheck.overwrite = !!checked;
+}
+
+function cfSetHostMode(mode) {
+  if (!cfCheck) return;
+  cfCheck.hostMode = mode;
+  cfCheck.overwrite = false;
+  renderCfPlan();
+}
+
+// Alt alan adi degistiginde tam yeniden cizim yapmiyoruz (input odagi kaybolur);
+// sadece "tekrar kontrol et" uyarisini aciyoruz.
+function cfSubChanged(value) {
+  if (!cfCheck) return;
+  cfCheck.panelSub = String(value || "").trim().toLowerCase();
+  const stale = $("cf-stale");
+  if (stale) stale.style.display = cfCheck.panelSub === cfCheck.checkedSub ? "none" : "";
+}
+
+function renderCfPlan() {
+  const box = $("conn-cfresult");
+  if (!cfCheck) {
+    box.innerHTML = "";
+    return;
+  }
+  const z = cfCheck.zone;
+  const planned = cfPlannedRecords();
+  const conflicts = planned.filter(p => p.existing.length);
+
+  const zoneWarn = z.status === "active" ? "" : `
+    <div class="alert alert-warning">
+      <span class="alert-icon">⚠</span>
+      <span>Zone durumu "<strong>${esc(z.status)}</strong>". Nameserver'lar Cloudflare'e yönlenene kadar adres çalışmaz.</span>
+    </div>`;
+
+  const rows = planned.map(p => `
+    <div class="dns-row">
+      <span class="dns-host">CNAME ${esc(p.host)}</span>
+      <span class="dns-state ${p.existing.length ? "dns-bad" : "dns-ok"}">
+        ${p.existing.length ? "⚠ dolu" : "✓ boş"}
+      </span>
+    </div>
+    ${p.existing.map(r => `
+      <div style="font-size:12px; color:var(--text-dim); padding:0 0 8px 12px; line-height:1.6;">
+        şu an: <code>${esc(r.type)} ${esc(r.name)} → ${esc(r.content)}${r.proxied ? " (proxied)" : ""}</code>
+      </div>`).join("")}
+  `).join("");
+
+  const conflictBlock = conflicts.length ? `
+    <div class="alert alert-warning" style="margin-top:12px;">
+      <span class="alert-icon">⚠</span>
+      <span>
+        ${conflicts.map(c => `<strong>${esc(c.host)}</strong> için zaten kayıt var`).join(", ")}.
+        Bu kayıtlar başka bir yere işaret ediyor (çoğunlukla eski hosting sağlayıcısı).
+        Üzerine yazılmazsa tunnel bağlanır ama tarayıcı <code>523</code> hatası alır.
+        <br><br>
+        ${cfCheck.hostMode === "apex"
+          ? "Alternatif: apex'e hiç dokunmadan paneli bir alt alan adında açabilirsin (aşağıdan seç)."
+          : "Alternatif: farklı bir alt alan adı dene."}
+      </span>
+    </div>
+    <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; margin-top:10px;">
+      <input type="checkbox" id="cf-overwrite" ${cfCheck.overwrite ? "checked" : ""}
+             onchange="cfSetOverwrite(this.checked)"
+             style="accent-color:var(--accent); width:18px; height:18px; margin-top:2px;">
+      <span>Yukarıdaki mevcut kayıtların <strong>üzerine yazılmasını</strong> onaylıyorum.</span>
+    </label>
+  ` : "";
+
+  box.innerHTML = `
+    <div class="alert alert-success">
+      <span class="alert-icon">✓</span>
+      <span>Token geçerli. Hesap: <strong>${esc(cfCheck.account.name || cfCheck.account.id)}</strong> · Zone: <strong>${esc(z.name)}</strong></span>
+    </div>
+    ${zoneWarn}
+
+    <div style="margin-top:14px; font-weight:600; font-size:14px;">Panel adresi</div>
+    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; margin-top:8px;">
+      <input type="radio" name="cf-hostmode" value="apex" ${cfCheck.hostMode === "apex" ? "checked" : ""}
+             onchange="cfSetHostMode('apex')" style="accent-color:var(--accent);">
+      <span>Apex — <code>https://${esc(z.name)}</code></span>
+    </label>
+    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; margin-top:6px;">
+      <input type="radio" name="cf-hostmode" value="subdomain" ${cfCheck.hostMode === "subdomain" ? "checked" : ""}
+             onchange="cfSetHostMode('subdomain')" style="accent-color:var(--accent);">
+      <span>
+        Alt alan —
+        <input type="text" class="input" value="${esc(cfCheck.panelSub)}" oninput="cfSubChanged(this.value)"
+               ${cfCheck.hostMode === "subdomain" ? "" : "disabled"}
+               style="display:inline-block; width:120px; padding:4px 8px; margin:0 4px;">
+        <code>.${esc(z.name)}</code>
+      </span>
+    </label>
+    <div id="cf-stale" class="alert alert-warning" style="display:none; margin-top:10px;">
+      <span class="alert-icon">⚠</span>
+      <span>Alt alan adı değişti. "Cloudflare'i Kontrol Et" ile tekrar doğrula.</span>
+    </div>
+
+    <div style="margin-top:16px; font-weight:600; font-size:14px;">Oluşturulacak DNS kayıtları</div>
+    <div style="font-size:12px; color:var(--text-dim); margin:4px 0 10px;">
+      Hepsi tunnel'a (<code>&lt;tunnel-id&gt;.cfargotunnel.com</code>) proxied CNAME olarak yazılır.
+      Wildcard kaydı <code>code.</code>, <code>files.</code>, <code>dev-3000.</code> gibi alt adreslerin çalışması için gerekli.
+    </div>
+    ${rows}
+    ${conflictBlock}
+  `;
+}
+
+// Panel ayarlari (her modda ortak) — dogrula ve wizard'a yaz.
+function collectPanel() {
+  const appName = $("conn-appname").value.trim();
+  const projectsDir = $("conn-projectsdir").value.trim();
+  if (!appName) {
+    showError(2, "Uygulama adı gerekli");
+    return false;
+  }
+  if (!projectsDir.startsWith("/")) {
+    showError(2, "Projeler dizini mutlak bir yol olmalı (örn. /home/ubuntu/projects)");
+    return false;
+  }
+  wizard.panel = { appName, projectsDir };
+  return true;
+}
+
+// Caddy'nin sertifika alacagi tum host'lari goster. Eksik DNS kaydi olan
+// bloklar icin sertifika alinamaz — kullanici bunu onceden gormeli.
+function renderDnsResult(result) {
+  const subs = result.subdomains || [];
+  const rows = subs.map(s => `
+    <div class="dns-row">
+      <span class="dns-host">${s.host}</span>
+      <span class="dns-state ${s.ok ? "dns-ok" : "dns-bad"}">${s.ok ? "✓" : "⚠"} ${s.message}</span>
+    </div>
+  `).join("");
+
+  const subsBlock = subs.length ? `
+    <details open style="margin-top:10px;">
+      <summary>Servis subdomain'leri (${subs.filter(s => s.ok).length}/${subs.length} hazır)</summary>
+      <div style="margin-top:8px;">
+        ${rows}
+        <div style="font-size:12px; color:var(--text-faint); margin-top:10px; line-height:1.5;">
+          Bu kayıtlar code-server / dosya yöneticisi / DB arayüzü içindir. Eksik olanlar için
+          Caddy sertifika alamaz — o adres çalışmaz, panelin kendisi (apex) çalışmaya devam eder.
+          Aynı A kaydını sunucu IP'sine yönlendirip kurulumdan sonra
+          <code>sudo systemctl reload caddy</code> diyebilirsin.
+        </div>
+      </div>
+    </details>
+  ` : "";
+
+  const head = result.ok
+    ? `<div class="alert alert-success"><span class="alert-icon">✓</span><span>${result.message}</span></div>`
+    : `<div class="alert alert-warning">
+         <span class="alert-icon">⚠</span>
+         <span>${result.message}<br>
+           <strong>Domain</strong>: ${result.resolvedV4 && result.resolvedV4.length ? result.resolvedV4.join(", ") : "yok"}<br>
+           <strong>Sunucu IP</strong>: ${result.publicIp || "tespit edilemedi"}<br><br>
+           DNS yayılması 5-30 dakika alabilir. Yine de devam edersen Caddy sertifika alamayabilir.
+         </span>
+       </div>`;
+
+  const actions = result.ok ? "" : `
+    <button class="btn btn-secondary" onclick="document.getElementById('conn-domain').focus()" style="margin-top:8px;">Düzelt</button>
+    <button class="btn" onclick="proceedConn()" style="margin-top:8px;">Yine de Devam Et</button>
+  `;
+
+  return head + subsBlock + actions;
+}
+
+async function nextFromConn() {
+  hideError(2);
+  const m = wizard.mode;
+  if (!collectPanel()) return;
+
+  if (m === "public") {
+    const domain = $("conn-domain").value.trim();
+    const email = $("conn-email").value.trim();
+    if (!domain) return showError(2, "Domain gerekli");
+    if (!email || !email.includes("@")) return showError(2, "Geçerli email gerekli");
+
+    // DNS check (apex + servis subdomain'leri)
+    const dnsBox = $("conn-dnscheck");
+    dnsBox.style.display = "";
+    dnsBox.innerHTML = '<div class="alert alert-info"><span class="alert-icon"><span class="spinner"></span></span><span>DNS doğrulanıyor...</span></div>';
+    let result;
+    try {
+      result = await api("/api/setup/dns-check", { method: "POST", body: { domain } });
+    } catch (err) {
+      dnsBox.innerHTML = `<div class="alert alert-error"><span class="alert-icon">✗</span><span>${err.message}</span></div>`;
+      return;
+    }
+    dnsBox.innerHTML = renderDnsResult(result);
+    if (!result.ok) return; // kullanici "Yine de Devam Et" diyebilir
+
+    wizard.conn = { domain, email };
+    goStep(3);
+  } else if (m === "cf-api") {
+    if (!cfCheck || !cfCheck.ok) {
+      return showError(2, "Önce \"Cloudflare'i Kontrol Et\" ile token ve domain'i doğrula");
+    }
+    if (
+      cfCheck.panelSub !== cfCheck.checkedSub ||
+      $("conn-cfapitoken").value.trim() !== cfCheck.checkedToken ||
+      $("conn-cfdomain").value.trim() !== cfCheck.checkedDomain
+    ) {
+      return showError(2, "Girdiler doğrulamadan sonra değişti — \"Cloudflare'i Kontrol Et\" ile tekrar doğrula");
+    }
+    if (cfCheck.hostMode === "subdomain" && !cfCheck.panelSub) {
+      return showError(2, "Alt alan adı boş olamaz");
+    }
+    const conflicts = cfPlannedRecords().filter(p => p.existing.length);
+    if (conflicts.length && !cfCheck.overwrite) {
+      return showError(2, "Mevcut DNS kayıtlarının üzerine yazılmasını onaylamalısın ya da farklı bir panel adresi seçmelisin");
+    }
+    wizard.conn = {
+      cfApiToken: cfCheck.checkedToken,
+      domain: cfCheck.zone.name,
+      cfAccountId: cfCheck.account.id,
+      cfHostMode: cfCheck.hostMode,
+      cfPanelSubdomain: cfCheck.panelSub,
+      cfOverwriteDns: !!cfCheck.overwrite
+    };
+    goStep(3);
+  } else if (m === "cf-tunnel") {
+    const token = $("conn-cftoken").value.trim();
+    if (!token || token.length < 50) return showError(2, "Geçerli connector token gerekli");
+    wizard.conn = { cfToken: token };
+    goStep(3);
+  } else {
+    wizard.conn = {};
+    goStep(3);
+  }
+}
+
+function proceedConn() {
+  // DNS uyarısına rağmen devam
+  if (!collectPanel()) return;
+  const domain = $("conn-domain").value.trim();
+  const email = $("conn-email").value.trim();
+  wizard.conn = { domain, email };
+  goStep(3);
+}
+
+// ─── Step 3: Admin ───
+let totpInitialized = false;
+$("adm-2fa").addEventListener("change", async (e) => {
+  if (e.target.checked) {
+    $("totp-section").style.display = "";
+    if (!totpInitialized) {
+      const username = $("adm-user").value.trim() || "admin";
+      try {
+        const t = await api("/api/setup/totp-init", { method: "POST", body: { username } });
+        $("totp-qr").src = t.qr;
+        $("totp-secret").textContent = t.secret;
+        totpInitialized = true;
+      } catch (err) {
+        showError(3, err.message);
+      }
+    }
+  } else {
+    $("totp-section").style.display = "none";
+  }
+});
+
+async function nextFromAdmin() {
+  hideError(3);
+  const username = $("adm-user").value.trim();
+  const pass = $("adm-pass").value;
+  const pass2 = $("adm-pass2").value;
+  const enable2FA = $("adm-2fa").checked;
+
+  if (!username || username.length < 3) return showError(3, "Kullanıcı adı en az 3 karakter");
+  if (!pass || pass.length < 12) return showError(3, "Şifre en az 12 karakter olmalı");
+  if (pass !== pass2) return showError(3, "Şifreler eşleşmedi");
+
+  if (enable2FA) {
+    const code = $("totp-code").value.trim();
+    if (!/^\d{6}$/.test(code)) return showError(3, "6 haneli TOTP kodu gerekli");
+    try {
+      await api("/api/setup/totp-verify", { method: "POST", body: { code } });
+    } catch (err) {
+      return showError(3, err.message);
+    }
+  }
+
+  wizard.admin = { username, password: pass, enable2FA };
+  goStep(4);
+  loadServices();
+}
+
+// ─── Step 4: Servisler ───
+async function loadServices() {
+  const list = $("services-list");
+  try {
+    const r = await api("/api/setup/services-detected");
+    if (!r.services.length) {
+      list.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim);">Hiç servis tespit edilmedi.</div>';
+      return;
+    }
+    list.innerHTML = r.services.map(s => `
+      <label class="service-item ${s.installed ? '' : 'disabled'}">
+        <input type="checkbox" class="service-checkbox" data-type="${s.type}" ${s.installed ? '' : 'disabled'}>
+        <div class="service-info">
+          <div class="service-name">${s.display_name} ${s.installed ? '' : '<span style="color:var(--text-faint); font-weight:400;">(kurulu değil)</span>'}</div>
+          <div class="service-detail">${s.unit_name || s.type}${s.default_port ? ` · port ${s.default_port}` : ''}${s.active ? ' · <span style="color:var(--success)">active</span>' : ''}</div>
+        </div>
+      </label>
+    `).join("");
+  } catch (err) {
+    list.innerHTML = `<div class="alert alert-error"><span class="alert-icon">✗</span><span>${err.message}</span></div>`;
+  }
+}
+
+function nextFromServices() {
+  const checked = Array.from(document.querySelectorAll('.service-checkbox:checked'));
+  wizard.services = checked.map(c => c.dataset.type);
+  goStep(5);
+}
+
+// ─── Step 5: Entegrasyonlar + Finalize ───
+async function finalize() {
+  const btn = $("finalize-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Kuruluyor...';
+
+  // Integrations topla
+  const integrations = {};
+  const tgToken = $("tg-token").value.trim();
+  const tgChat = $("tg-chatid").value.trim();
+  if (tgToken && tgChat) integrations.telegram = { botToken: tgToken, ownerChatId: tgChat };
+  const ghToken = $("gh-token").value.trim();
+  if (ghToken) integrations.github = { token: ghToken };
+
+  const body = {
+    accessMode: wizard.mode,
+    // Moda ozel alanlar (domain/email, cfToken, cfApiToken + cf-api secimleri)
+    // nextFromConn'da wizard.conn'a yazildi.
+    ...wizard.conn,
+    appName: wizard.panel.appName,
+    projectsDir: wizard.panel.projectsDir,
+    user: wizard.admin,
+    services: wizard.services,
+    integrations
+  };
+
+  try {
+    const r = await api("/api/setup/finalize", { method: "POST", body });
+    showFinish(r);
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "Kurulumu Tamamla ✓";
+    $("step-5-error-text").textContent = err.message;
+    $("step-5-error").style.display = "";
+  }
+}
+
+// ─── Step 6: kurulum sonrasi canli ilerleme ───
+const MARKS = { pending: "·", running: "◌", ok: "✓", failed: "✗" };
+let finalUrl = "/";
+
+function renderSteps(steps) {
+  $("step-6-steps").innerHTML = (steps || []).map(s => `
+    <div class="progress-row ${s.status}">
+      <span class="progress-mark">${s.status === "running" ? '<span class="spinner"></span>' : MARKS[s.status] || "·"}</span>
+      <div class="progress-body">
+        <div class="progress-label">${s.label}</div>
+        ${s.note ? `<div class="progress-note">${s.note}</div>` : ""}
+        ${s.error ? `<div class="progress-error">${s.error}</div>` : ""}
+      </div>
+    </div>
+  `).join("");
+}
+
+function showFinish(result) {
+  goStep(6);
+  finalUrl = (result.finalUrl || "/").replace("<sunucu-ip>", location.hostname);
+  renderSteps(result.steps);
+  pollProgress();
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Final adres tarayicidan ulasilabilir mi? localhost/manual modda sunucunun
+// 127.0.0.1'i bizim makinemiz degil — yoklama yapmayiz.
+function finalUrlReachable() {
+  return wizard.mode === "public" || wizard.mode === "cf-tunnel" ||
+    wizard.mode === "cf-api" || wizard.mode === "lan";
+}
+
+// /healthz yoklamasi. Cross-origin oldugu icin cevabi okuyamayiz; no-cors ile
+// "baglanti kuruldu mu" bilgisi yeterli.
+async function probeFinal() {
+  if (!finalUrlReachable()) return false;
+  try {
+    await fetch(finalUrl.replace(/\/$/, "") + "/healthz", { mode: "no-cors", cache: "no-store" });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function pollProgress() {
+  // ~5 dakika: Caddy kurulumu + Let's Encrypt en yavas senaryo.
+  const MAX_TICKS = 200;
+  let restarting = false;
+  let disconnects = 0;
+
+  for (let tick = 0; tick < MAX_TICKS; tick++) {
+    await sleep(1500);
+
+    let data = null;
+    try {
+      data = await api("/api/setup/progress");
+      disconnects = 0;
+    } catch (_) {
+      // Restart sirasinda setup-mode sunucusu kapanir; kopukluk hata degil.
+      // LAN/localhost modunda kurulum portu firewall'da kapandigi icin de
+      // kopabilir — ikisi de beklenen.
+      disconnects++;
+      restarting = true;
+      showRestarting();
+      if (await probeFinal()) return showReady(true);
+      // Final adresi tarayicidan yoklanamiyor (localhost/manuel): bekleyip
+      // "ayaga kalkmadi" demek yaniltici olur, durumu durustce soyle.
+      if (!finalUrlReachable() && disconnects >= 4) return showReady(false);
+      continue;
+    }
+
+    renderSteps(data.steps);
+
+    if (data.failed) return showFailed(data);
+    if (data.restarting) {
+      restarting = true;
+      showRestarting();
+      if (await probeFinal()) return showReady(true);
+      continue;
+    }
+    if (data.finished) return showReady(true);
+  }
+
+  showTimeout(restarting);
+}
+
+function showRestarting() {
+  $("step-6-icon").textContent = "🔄";
+  $("step-6-title").textContent = "Lyra yeniden başlatılıyor";
+  $("step-6-msg").textContent = "Kurulum modu kapatıldı, servis normal moda geçiyor…";
+}
+
+function showReady(verified) {
+  $("step-6-icon").textContent = verified ? "✓" : "ℹ";
+  $("step-6-title").textContent = verified ? "Kurulum tamamlandı" : "Kurulum tamamlandı (doğrulanamadı)";
+  const link = $("step-6-link");
+
+  if (verified && finalUrlReachable()) {
+    $("step-6-msg").textContent = "Lyra ayakta. Yönetim paneline gidebilirsin.";
+    link.href = finalUrl;
+    link.style.display = "";
+    setTimeout(() => { location.href = finalUrl; }, 2500);
+    return;
+  }
+
+  $("step-6-msg").textContent = verified
+    ? "Lyra normal moda geçti. Bu adres sadece sunucunun kendisinden erişilebilir."
+    : "Ayarların kaydedildi ve geçiş başlatıldı, ama bu tarayıcıdan doğrulayamıyoruz.";
+
+  const hint = $("step-6-hint");
+  hint.style.display = "";
+  hint.innerHTML = `
+    <div class="alert alert-info">
+      <span class="alert-icon">ℹ</span>
+      <span>Lyra <code>${finalUrl}</code> adresinde çalışıyor. Laptop'undan erişmek için SSH tünel aç:
+        <div class="code-block" style="margin-top:8px;">ssh -L 3000:127.0.0.1:3000 &lt;kullanici&gt;@&lt;sunucu&gt;</div>
+        Sonra tarayıcıda <code>http://localhost:3000</code>.
+      </span>
+    </div>
+    <div class="alert alert-warning" style="margin-top:10px;">
+      <span class="alert-icon">⚠</span>
+      <span>Emin olmak için sunucuda:
+        <div class="code-block" style="margin-top:8px;">sudo systemctl status lyra</div>
+      </span>
+    </div>
+  `;
+}
+
+function showFailed(data) {
+  const failed = (data.steps || []).filter(s => s.status === "failed");
+  $("step-6-icon").textContent = "⚠";
+  $("step-6-title").textContent = "Kurulum yarım kaldı";
+  $("step-6-msg").textContent =
+    "Ayarların ve yönetici hesabın kaydedildi, ama aşağıdaki adım başarısız oldu.";
+  $("step-6-error-text").innerHTML = failed.map(s => `<strong>${s.label}</strong>: ${s.error}`).join("<br>");
+  $("step-6-error").style.display = "";
+
+  const hint = $("step-6-hint");
+  hint.style.display = "";
+  hint.innerHTML = `
+    <div class="alert alert-warning">
+      <span class="alert-icon">⚠</span>
+      <span>Kurulum modu <strong>açık bırakıldı</strong>, sunucuda hiçbir şey yarım kalmadı.
+        Sunucuda logu incele ve sorunu giderdikten sonra Lyra'yı normal moda al:
+        <div class="code-block" style="margin-top:8px;">sudo journalctl -u lyra -n 100 --no-pager
+sudo rm -f /etc/systemd/system/lyra.service.d/setup-mode.conf
+sudo rm -f /etc/sudoers.d/lyra-setup
+sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart lyra</div>
+        Yönetici hesabın oluşturuldu; normal moda geçince o hesapla giriş yapabilirsin.
+      </span>
+    </div>
+  `;
+}
+
+function showTimeout(restarting) {
+  $("step-6-icon").textContent = "⌛";
+  $("step-6-title").textContent = restarting ? "Servis hâlâ ayağa kalkmadı" : "İşlemler beklenenden uzun sürdü";
+  $("step-6-msg").textContent = "Durumu sunucudan kontrol et.";
+  const hint = $("step-6-hint");
+  hint.style.display = "";
+  hint.innerHTML = `
+    <div class="alert alert-warning">
+      <span class="alert-icon">⚠</span>
+      <span>Sunucuda:
+        <div class="code-block" style="margin-top:8px;">sudo systemctl status lyra
+sudo journalctl -u lyra -n 100 --no-pager</div>
+      </span>
+    </div>
+  `;
+}
+
+// ─── Init ───
+async function init() {
+  try {
+    const status = await api("/api/setup/status");
+    if (!status.open) {
+      document.querySelector(".container").innerHTML = `
+        <div class="card" style="text-align:center;">
+          <div class="card-title">Kurulum tamamlanmış</div>
+          <div class="card-subtitle">Lyra zaten yapılandırılmış. Login sayfasına yönlendiriliyorsun...</div>
+        </div>
+      `;
+      setTimeout(() => location.href = "/login", 2000);
+      return;
+    }
+    if (status.authorized) {
+      // Token zaten doğrulanmış (örn. yenilendi), step 1'den başla
+      goStep(1);
+    }
+    // Sunucu IP'yi göstermek için (opsiyonel)
+    const ipR = await api("/api/setup/public-ip").catch(() => ({}));
+    if (ipR.publicIp) {
+      console.log("Public IP:", ipR.publicIp);
+    }
+  } catch (err) {
+    console.error("Setup status hatası:", err);
+  }
+}
+init();
+
+// Token input formatting (auto-uppercase + dash)
+$("setup-token").addEventListener("input", (e) => {
+  let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (v.length > 16) v = v.slice(0, 16);
+  e.target.value = v.match(/.{1,4}/g)?.join("-") || v;
+});
+$("setup-token").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") verifyToken();
+});
+</script>
+</body>
+</html>

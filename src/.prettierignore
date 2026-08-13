@@ -1,0 +1,6 @@
+node_modules
+data
+package-lock.json
+public/css
+*.min.js
+*.min.css

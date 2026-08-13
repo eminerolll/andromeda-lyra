@@ -1,0 +1,24 @@
+# Satir sonu politikasi. Repo Windows'ta gelistiriliyor, Linux'a dagitiliyor.
+# core.autocrlf=true olan makinelerde bir sonraki checkout LF dosyalari CRLF'ye
+# cevirebilir; calistirilabilir shell scriptleri bu yuzden Linux'ta
+# "bad interpreter: /usr/bin/env bash^M" ile olur. Bu dosya bunu engeller.
+
+# Genel kural: metin dosyalari her platformda LF olarak saklanir/checkout edilir.
+* text=auto eol=lf
+
+# Calistirilabilir dosyalar: zorunlu LF (shebang'li scriptler CRLF ile calismaz).
+*.sh text eol=lf
+lyra-connect text eol=lf
+bin/* text eol=lf
+src/bin/* text eol=lf
+install.sh text eol=lf
+uninstall.sh text eol=lf
+
+# Ikili dosyalar: git satir sonu donusumune hic dokunmasin.
+*.woff2 binary
+*.ico binary
+*.png binary
+*.db binary
+
+# Vendor bundle: uc taraf dosyasi, git tarafindan degistirilmesin.
+src/public/vendor/* -text

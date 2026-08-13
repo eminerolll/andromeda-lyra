@@ -1,0 +1,49 @@
+{
+  "root": true,
+  "ignorePatterns": ["public/vendor/"],
+  "env": {
+    "node": true,
+    "es2022": true,
+    "browser": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "extends": ["eslint:recommended"],
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-empty": ["warn", { "allowEmptyCatch": true }],
+    "no-console": "off",
+    "prefer-const": "warn",
+    "no-var": "error",
+    "eqeqeq": ["warn", "smart"]
+  },
+  "overrides": [
+    {
+      "files": ["public/**/*.js"],
+      "env": { "browser": true, "node": false },
+      "globals": {
+        "marked": "readonly"
+      }
+    },
+    {
+      "files": ["**/*.cjs", "scripts/**/*.js", "db/**/*.js", "lib/**/*.js", "routes/**/*.js", "server.js"],
+      "env": { "node": true, "browser": false },
+      "parserOptions": { "sourceType": "script" }
+    },
+    {
+      "files": ["test/**/*.js"],
+      "env": { "node": true },
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly"
+      }
+    }
+  ]
+}

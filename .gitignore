@@ -1,0 +1,23 @@
+# Bagimliliklar ve runtime verisi (src/.gitignore da ayrica kapsiyor)
+node_modules/
+src/data/
+src/.env
+*.db
+*.db-wal
+*.db-shm
+
+# Loglar
+*.log
+
+# Editor / IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Ajan / arac artiklari
+.claude/
+.omc/
+
+# Test ve kapsam ciktilari
+coverage/
+.vitest/
