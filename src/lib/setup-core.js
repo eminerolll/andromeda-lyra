@@ -20,6 +20,7 @@ const cloudflared = require("./cloudflared-installer");
 const cfApi = require("./cloudflare-api");
 const firewall = require("./firewall");
 const detect = require("./service-detect");
+const installer = require("./service-installer");
 const config = require("./config");
 const { settings, services, users, integrations } = require("../db/repos");
 
@@ -307,6 +308,39 @@ function isCfProvisioned() {
   return !!cfProvisionedInfo();
 }
 
+// ─────────────────────────── Servis secimi ───────────────────────────
+//
+// Sihirbazin servis adimi TEK bir liste uzerinden calisir: kullanici neyi
+// isaretlerse o servis panelde yonetilir. Isaretlenen servis kurulu degilse
+// ve bu makinede kurulabiliyorsa Lyra onu KURAR (bkz. runPostSetup), sonra
+// kaydeder. Kurulu olan tekrar kurulmaz — secim idempotent.
+
+function normalizeSelection(selected) {
+  return Array.isArray(selected) ? selected.map(String).filter(Boolean) : [];
+}
+
+// Secilenlerden hangileri gercekten kurulacak?
+function servicesToInstall(selected, detected) {
+  const list = detected || detect.detectAll();
+  return normalizeSelection(selected).filter((type) => {
+    const d = list.find((s) => s.type === type);
+    return !!d && !d.installed && !!d.installable;
+  });
+}
+
+// Servisi services tablosuna yaz (varsa guncelle). Hem kurulum oncesi
+// (zaten kurulu servisler) hem kurulum sonrasi ayni yoldan gecer.
+function registerService({ type, unit_name, display_name, port }) {
+  const unit = unit_name || type;
+  const row = { display_name, type, port: port === undefined ? null : port, enabled: 1 };
+  const existing = services.getByUnit(unit);
+  if (existing) {
+    services.update(existing.id, row);
+  } else {
+    services.add({ unit_name: unit, subdomain: null, ...row });
+  }
+}
+
 // ─────────────────────────── Dogrulama + seed ───────────────────────────
 
 // Sihirbaz govdesini dogrula. Tarayici tarafinda 2FA dogrulamasi session'da,
@@ -314,7 +348,10 @@ function isCfProvisioned() {
 //
 // cfProvisioned: Cloudflare kurulumu sihirbazdan ONCE (install.sh) yapildiysa
 // cf-api modunda token/domain body'de gelmez — o alanlar burada da istenmez.
-function validateFinalize(body, { totpVerified = false, cfProvisioned = isCfProvisioned() } = {}) {
+function validateFinalize(
+  body,
+  { totpVerified = false, cfProvisioned = isCfProvisioned(), detected = null } = {}
+) {
   const errors = [];
   const appName = String(body.appName || "").trim();
   const projectsDir = String(body.projectsDir || "").trim();
@@ -346,6 +383,24 @@ function validateFinalize(body, { totpVerified = false, cfProvisioned = isCfProv
   }
   if (!appName) errors.push("Uygulama adi gerekli");
   if (!projectsDir) errors.push("Projeler dizini gerekli");
+
+  // Servis secimi. Bos listede sistem hic yoklanmaz (testler ve "servis
+  // istemiyorum" akisi bedava kalsin diye).
+  if (body.services !== undefined && !Array.isArray(body.services)) {
+    errors.push("services bir liste olmali");
+  } else if (Array.isArray(body.services) && body.services.length) {
+    const list = detected || detect.detectAll();
+    for (const type of normalizeSelection(body.services)) {
+      const d = list.find((s) => s.type === type);
+      if (!d) {
+        errors.push(`Bilinmeyen servis: ${type}`);
+      } else if (!d.installed && !d.installable) {
+        errors.push(
+          `${d.display_name} bu sunucuda kurulamaz: ${d.install_reason || "sebep bilinmiyor"}`
+        );
+      }
+    }
+  }
 
   return { errors, cfPlan, appName, projectsDir };
 }
@@ -399,30 +454,27 @@ function applyFinalize(body, { totpSecret = null, cfProvisioned = isCfProvisione
     totpEnabled: !!body.user.enable2FA
   });
 
-  // 3. Servisler
-  if (Array.isArray(body.services) && body.services.length) {
+  // 3. Servisler. Zaten kurulu olanlar HEMEN kaydedilir; kurulacak olanlar
+  //    kurulum adiminda basarili olduklarinda kaydedilir (bkz. runPostSetup) —
+  //    kurulmamis bir servisi "yonetiliyor" diye yazmak yalan olurdu.
+  const selected = normalizeSelection(body.services);
+  const pendingInstall = [];
+  if (selected.length) {
     const detected = detect.detectAll();
-    for (const type of body.services) {
+    for (const type of selected) {
       const s = detected.find((d) => d.type === type);
       if (!s) continue;
-      const existing = services.getByUnit(s.unit_name);
-      if (existing) {
-        services.update(existing.id, {
-          display_name: s.display_name,
-          type: s.type,
-          port: s.default_port,
-          enabled: 1
-        });
-      } else {
-        services.add({
-          unit_name: s.unit_name || s.type,
-          display_name: s.display_name,
-          type: s.type,
-          port: s.default_port,
-          subdomain: null,
-          enabled: 1
-        });
+      if (!s.installed && s.installable) {
+        pendingInstall.push(type);
+        continue;
       }
+      if (!s.installed) continue;
+      registerService({
+        type: s.type,
+        unit_name: s.unit_name,
+        display_name: s.display_name,
+        port: s.default_port
+      });
     }
   }
 
@@ -435,8 +487,19 @@ function applyFinalize(body, { totpSecret = null, cfProvisioned = isCfProvisione
     .list()
     .map((s) => s.port)
     .filter(Boolean);
+  // Kurulacak servislerin portlari da simdiden sistem portu sayilir: aksi
+  // halde kurulumdan sonra code-server "dev portu" gorunup panelden
+  // oldurulebilirdi.
+  const pendingPorts = pendingInstall
+    .map((type) => {
+      const svc = installer.get(type);
+      return svc ? svc.default_port : null;
+    })
+    .filter(Boolean);
   settings.setMany({
-    system_ports: [...new Set([...DEFAULT_SYSTEM_PORTS, config.PORT, ...registeredPorts])],
+    system_ports: [
+      ...new Set([...DEFAULT_SYSTEM_PORTS, config.PORT, ...registeredPorts, ...pendingPorts])
+    ],
     lyra_service_name: LYRA_UNIT_NAME
   });
 
@@ -460,7 +523,10 @@ function applyFinalize(body, { totpSecret = null, cfProvisioned = isCfProvisione
     accessMode,
     baseDomain: baseDomain || null,
     panelHost: panelHost || null,
-    finalUrl: deriveFinalUrl(accessMode, panelHost)
+    finalUrl: deriveFinalUrl(accessMode, panelHost),
+    // Kurulum sonrasi adimlara verilecek liste (buildSteps + runPostSetup
+    // AYNI listeyi almali, yoksa adim anahtarlari tutmaz).
+    installServices: pendingInstall
   };
 }
 
@@ -472,8 +538,21 @@ function applyFinalize(body, { totpSecret = null, cfProvisioned = isCfProvisione
 //
 // cfProvisioned: cf-api modunda Cloudflare adimlari kurulum oncesinde
 // tamamlandiysa listeye hic girmez (tekrar calistirilmaz).
-function buildSteps(mode, { cfProvisioned = false } = {}) {
+//
+// installServices: sihirbazda secilen ve kurulmasi gereken servisler. Her biri
+// AYRI bir adim olur (service-install:code-server gibi); biri patlarsa
+// digerleri ve kurulumun geri kalani devam eder.
+function buildSteps(mode, { cfProvisioned = false, installServices = [] } = {}) {
   const steps = [];
+  const serviceSteps = () => {
+    for (const type of installServices) {
+      const svc = installer.get(type);
+      steps.push({
+        key: `service-install:${type}`,
+        label: `${svc ? svc.display_name : type} kuruluyor`
+      });
+    }
+  };
   const cfApiSteps = () => {
     steps.push({ key: "cf-verify", label: "Cloudflare token ve domain dogrulaniyor" });
     steps.push({ key: "cf-tunnel", label: "Tunnel olusturuluyor" });
@@ -488,6 +567,11 @@ function buildSteps(mode, { cfProvisioned = false } = {}) {
     return steps.map((s) => ({ ...s, status: "pending", error: null, note: null }));
   }
 
+  // SIRA ONEMLI: servisler erisim katmanindan ONCE kurulur. Caddyfile
+  // subdomain bloklarini KAYITLI servislerden uretiyor (caddy.knownSubdomains);
+  // servisler sonra kurulsaydi yeni kurulanlarin subdomain'i Caddyfile'a
+  // hic girmezdi.
+  serviceSteps();
   if (mode === "public") {
     steps.push({ key: "caddy-install", label: "Caddy kuruluyor" });
     steps.push({ key: "caddy-config", label: "Caddyfile yaziliyor, sertifika isteniyor" });
@@ -747,6 +831,36 @@ async function provisionCloudflare(body, { log, onUpdate } = {}) {
   return { ok: true, progress, panelHost: plan.panelHost, finalUrl: `https://${plan.panelHost}` };
 }
 
+// Secilen servisleri kur. Her servis AYRI bir adim.
+//
+// BIRI PATLARSA DIGERLERI DEVAM EDER: donguden cikilmaz, hata yalnizca kendi
+// adiminda "failed" olarak durur. Kurulumun geri kalani (firewall / kurulum
+// modundan cikis / restart) da etkilenmez — bir servis yuzunden panel
+// kurulumu cokmez.
+//
+// Yalnizca BASARILI kurulum services tablosuna yazilir; kurulmamis bir
+// servisi "yonetiliyor" diye kaydetmek yalan olurdu.
+async function runServiceInstalls(installServices, progress, { log, user, home } = {}) {
+  const emit = log || (() => {});
+  const who = user && home ? { user, home } : systemUserInfo();
+  const results = [];
+  for (const type of installServices) {
+    const stepOk = await progress.runStep(`service-install:${type}`, async () => {
+      const r = await installer.install(type, { onLog: emit, user: who.user, home: who.home });
+      if (!r.ok) throw new Error(r.error || "Kurulum basarisiz");
+      registerService({
+        type,
+        unit_name: r.unit_name,
+        display_name: r.display_name,
+        port: r.port
+      });
+      return `${r.unit_name} · ${installer.LOOPBACK}:${r.port}`;
+    });
+    results.push({ type, ok: stepOk });
+  }
+  return results;
+}
+
 // Kurulum sonrasi zincir.
 //
 // transition:
@@ -759,10 +873,16 @@ async function runPostSetup(
   mode,
   body,
   progress,
-  { log, transition = "self", cfProvisioned = isCfProvisioned() } = {}
+  { log, transition = "self", cfProvisioned = isCfProvisioned(), installServices = [] } = {}
 ) {
   const emit = log || ((m) => console.log(`[setup-post] ${m}`));
   let ok = true;
+
+  // Servisler ONCE kurulur: Caddyfile'in subdomain bloklari kayitli
+  // servislerden uretiliyor (bkz. buildSteps'teki ayni not).
+  if (installServices.length) {
+    await runServiceInstalls(installServices, progress, { log: emit });
+  }
 
   if (mode === "public") {
     ok = await progress.runStep("caddy-install", async () => {
@@ -981,6 +1101,9 @@ module.exports = {
   cfPreflight,
   validateFinalize,
   applyFinalize,
+  servicesToInstall,
+  registerService,
+  runServiceInstalls,
   deriveFinalUrl,
   buildSteps,
   createProgress,

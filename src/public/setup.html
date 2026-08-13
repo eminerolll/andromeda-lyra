@@ -402,6 +402,30 @@
         margin-top: 2px;
         font-family: var(--mono);
       }
+      .service-desc {
+        font-weight: 400;
+        color: var(--text-dim);
+        font-size: 13px;
+      }
+      .service-status {
+        font-size: 12px;
+        font-family: var(--mono);
+        text-align: right;
+        max-width: 190px;
+        color: var(--text-dim);
+      }
+      .service-status.ready {
+        color: var(--success);
+      }
+      .service-status.todo {
+        color: var(--accent);
+      }
+      .service-host {
+        font-size: 12px;
+        font-family: var(--mono);
+        color: var(--text-dim);
+        margin-bottom: 12px;
+      }
 
       /* Code block */
       .code-block {
@@ -802,16 +826,23 @@
       <div class="card step" id="step-4" style="display: none">
         <div class="card-title">🧩 Servisler</div>
         <div class="card-subtitle">
-          Sunucuda bulunan servisler tespit edildi. Lyra ile yönetmek istediklerini seç.
+          Seçtiklerini Lyra kurar ve panele bağlar. Zaten kurulu olanlar tekrar kurulmaz.
         </div>
+        <div class="service-host" id="services-host"></div>
         <div id="services-list" class="service-list">
           <div style="text-align: center; padding: 20px; color: var(--text-dim)">
             <span class="spinner"></span> Taraniyor...
           </div>
         </div>
+        <div class="alert alert-warning" id="services-ram-warn" style="display: none">
+          <span class="alert-icon">⚠</span><span id="services-ram-warn-text"></span>
+        </div>
         <div class="alert alert-info" style="margin-top: 16px">
           <span class="alert-icon">ℹ</span>
-          <span>Servisleri sonradan ayarlardan ekleyebilir/çıkarabilirsin.</span>
+          <span
+            >Kurulan servisler yalnızca <code>127.0.0.1</code>'e bağlanır; dışarıya tek kapı
+            Lyra'dır. Sonradan ayarlardan ekleyip çıkarabilirsin.</span
+          >
         </div>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goStep(3)">← Geri</button>
@@ -1544,30 +1575,89 @@
       }
 
       // ─── Step 4: Servisler ───
+      // "Kurulu olanı kaydet" değil, "seç, kur, kaydet": kurulu olmayan ama
+      // bu makinede kurulabilen servisler de listede. Kurulamayanlar sebebiyle
+      // birlikte devre dışı gösterilir — sessizce gizlenmez.
+      let serviceHost = null;
+
+      const gb = (mb) => (mb === null || mb === undefined ? "?" : (mb / 1024).toFixed(1) + " GB");
+
+      function hostLine(host) {
+        if (!host) return "";
+        const parts = [`${gb(host.totalMemMb)} RAM (${gb(host.freeMemMb)} boş)`];
+        if (host.diskTotalMb)
+          parts.push(`${gb(host.diskTotalMb)} disk (${gb(host.diskFreeMb)} boş)`);
+        parts.push(host.archLabel || host.arch);
+        return `Sunucu: ${parts.join(" · ")}`;
+      }
+
+      function serviceStatus(s) {
+        if (s.installed) return { text: s.active ? "kurulu · çalışıyor" : "kurulu", cls: "ready" };
+        if (s.installable) return { text: "kurulacak", cls: "todo" };
+        return { text: s.install_reason || "kurulamıyor", cls: "" };
+      }
+
       async function loadServices() {
         const list = $("services-list");
         try {
           const r = await api("/api/setup/services-detected");
-          if (!r.services.length) {
+          serviceHost = r.host || null;
+          $("services-host").textContent = hostLine(serviceHost);
+
+          // cloudflared erişim modu adımında kuruluyor; burada yalnızca zaten
+          // kuruluysa (kayıt için) görünür.
+          const rows = (r.services || []).filter((s) => s.type !== "cloudflared" || s.installed);
+          if (!rows.length) {
             list.innerHTML =
               '<div style="text-align:center; padding:20px; color:var(--text-dim);">Hiç servis tespit edilmedi.</div>';
             return;
           }
-          list.innerHTML = r.services
-            .map(
-              (s) => `
-      <label class="service-item ${s.installed ? "" : "disabled"}">
-        <input type="checkbox" class="service-checkbox" data-type="${s.type}" ${s.installed ? "" : "disabled"}>
+          list.innerHTML = rows
+            .map((s) => {
+              const blocked = !s.installed && !s.installable;
+              const st = serviceStatus(s);
+              const checked = s.installed || s.default_selected ? "checked" : "";
+              const detail = [
+                s.unit_name || s.type,
+                s.default_port ? `port ${s.default_port}` : null,
+                s.est_ram_mb ? `~${s.est_ram_mb}MB` : null
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return `
+      <label class="service-item ${blocked ? "disabled" : ""}">
+        <input type="checkbox" class="service-checkbox" data-type="${s.type}"
+               data-ram="${s.est_ram_mb || 0}" data-installed="${s.installed ? "1" : "0"}"
+               ${blocked ? "disabled" : checked} onchange="updateServiceEstimate()">
         <div class="service-info">
-          <div class="service-name">${s.display_name} ${s.installed ? "" : '<span style="color:var(--text-faint); font-weight:400;">(kurulu değil)</span>'}</div>
-          <div class="service-detail">${s.unit_name || s.type}${s.default_port ? ` · port ${s.default_port}` : ""}${s.active ? ' · <span style="color:var(--success)">active</span>' : ""}</div>
+          <div class="service-name">${s.display_name} <span class="service-desc">${s.description || ""}</span></div>
+          <div class="service-detail">${detail}</div>
         </div>
+        <div class="service-status ${st.cls}">${st.text}</div>
       </label>
-    `
-            )
+    `;
+            })
             .join("");
+          updateServiceEstimate();
         } catch (err) {
           list.innerHTML = `<div class="alert alert-error"><span class="alert-icon">✗</span><span>${err.message}</span></div>`;
+        }
+      }
+
+      // Seçim boş RAM'i aşıyorsa UYARIR, engellemez — karar kullanıcının.
+      function updateServiceEstimate() {
+        const boxes = Array.from(document.querySelectorAll(".service-checkbox:checked")).filter(
+          (c) => c.dataset.installed !== "1"
+        );
+        const needMb = boxes.reduce((n, c) => n + (parseInt(c.dataset.ram, 10) || 0), 0);
+        const warn = $("services-ram-warn");
+        if (needMb && serviceHost && serviceHost.freeMemMb && needMb > serviceHost.freeMemMb) {
+          $("services-ram-warn-text").textContent =
+            `Seçili paketler ~${needMb}MB RAM ister, boş RAM ${serviceHost.freeMemMb}MB. ` +
+            "Yine de kurabilirsin.";
+          warn.style.display = "";
+        } else {
+          warn.style.display = "none";
         }
       }
 

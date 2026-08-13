@@ -20,6 +20,7 @@ const setupToken = require("../lib/setup-token");
 const auth = require("../lib/auth");
 const dnsCheck = require("../lib/dns-check");
 const detect = require("../lib/service-detect");
+const installer = require("../lib/service-installer");
 const config = require("../lib/config");
 const core = require("../lib/setup-core");
 const { users } = require("../db/repos");
@@ -115,9 +116,10 @@ router.post("/api/setup/cf-preflight", requireSetupAuth, async (req, res) => {
   }
 });
 
-// Servis tespit
+// Servis tespit + kurulabilirlik. host: sihirbazin RAM/disk/mimari satiri
+// (secim bos RAM'i asarsa uyarilir, engellenmez).
 router.get("/api/setup/services-detected", requireSetupAuth, (req, res) => {
-  res.json({ services: detect.detectAll() });
+  res.json({ services: detect.detectAll(), host: installer.hostInfo() });
 });
 
 // 2FA secret + QR uret (admin user adimi)
@@ -198,7 +200,9 @@ router.post("/api/setup/finalize", requireSetupAuth, async (req, res) => {
     // icin ayri bir izin bayragi.
     req.session.setupProgress = true;
 
-    postSetup.start(applied.accessMode, applied.finalUrl, { cfProvisioned });
+    // Adim listesi ile kurulum zinciri AYNI servis listesini kullanir.
+    const installServices = applied.installServices;
+    postSetup.start(applied.accessMode, applied.finalUrl, { cfProvisioned, installServices });
 
     res.json({
       success: true,
@@ -206,10 +210,14 @@ router.post("/api/setup/finalize", requireSetupAuth, async (req, res) => {
       steps: postSetup.payload().steps
     });
 
-    // Async: Caddy / cloudflared kurulumu + firewall + restart.
-    // Istemci /api/setup/progress ile canli izler.
+    // Async: Caddy / cloudflared kurulumu + secilen servisler + firewall +
+    // restart. Istemci /api/setup/progress ile canli izler.
     setImmediate(() =>
-      core.runPostSetup(applied.accessMode, body, postSetup, { transition: "self", cfProvisioned })
+      core.runPostSetup(applied.accessMode, body, postSetup, {
+        transition: "self",
+        cfProvisioned,
+        installServices
+      })
     );
   } catch (err) {
     console.error("[setup/finalize] hata:", err);

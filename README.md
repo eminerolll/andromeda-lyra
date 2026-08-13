@@ -75,10 +75,15 @@ giderme için: **[INSTALL.md](./INSTALL.md)**.
 - **root erişimi** (`sudo`)
 - Node.js 20, `git`, `ss` (iproute2), `build-essential` — `install.sh` eksikse
   kendisi kurar
-- Opsiyonel (otomatik tespit edilir): `code-server`, `cloudflared`,
-  `filebrowser`, `dbgate`, `mongod`, `docker`
+- Yönetilen servisler (`code-server`, `filebrowser`, `dbgate`, `mongod`):
+  kuruluysa tespit edilir, değilse **sihirbazda seçince Lyra kurar** —
+  amd64 ve arm64 için. `dbgate` Docker ister; Docker otomatik kurulmaz,
+  yoksa seçenek sebebiyle birlikte devre dışı kalır
 - Public mod seçilirse Caddy, CF Tunnel modu seçilirse cloudflared kurulum
   sırasında otomatik kurulur
+
+> Kurulan her servis yalnızca `127.0.0.1`'e bind edilir ve kendi auth'unu
+> kapatır: dışarıya tek kapı Lyra'nın login + 2FA + ban katmanıdır.
 
 ## Mimari
 

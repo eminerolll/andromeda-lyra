@@ -166,9 +166,35 @@ atlayıp sadece servisi yeniden başlatır.
 | 2 | **Erişim modu** | Public / LAN / Localhost / CF Tunnel / Manuel — *tunnel kurulumda hazırlandıysa bu adım atlanır ve "Cloudflare: yapılandırıldı ✓" gösterilir* |
 | 3 | **Bağlantı + panel** | Mode'a göre domain+email veya CF token; ayrıca **uygulama adı** ve **projeler dizini** |
 | 4 | **Yönetici hesabı** | kullanıcı adı + şifre (≥12) + TOTP QR |
-| 5 | **Servisler** | Sunucuda tespit edilen servisler (code-server, dbgate, …) |
+| 5 | **Servisler** | Seç → Lyra **kurar** → panele bağlar (code-server varsayılan açık) |
 | 6 | **Entegrasyonlar** | Telegram / GitHub token (opsiyonel) |
-| 7 | **İlerleme** | Caddy/cloudflared kurulumu, firewall, restart — **canlı adım listesi** |
+| 7 | **İlerleme** | Caddy/cloudflared, seçilen servislerin kurulumu, firewall, restart — **canlı adım listesi** |
+
+### Servisler adımı
+
+Lyra yönettiği servisleri kendisi kurar; SSH'a dönüp elle kurman gerekmez.
+
+| Servis | Ne | RAM | Kurulum kaynağı |
+|--------|-----|-----|-----------------|
+| `code-server` | Tarayıcıda VS Code (`/code/`) | ~200 MB | [code-server.dev/install.sh](https://code-server.dev/install.sh) (resmi `.deb`) |
+| `filebrowser` | Dosya yönetimi | ~30 MB | GitHub release tarball + Lyra'nın yazdığı systemd unit'i |
+| `dbgate` | Veritabanı arayüzü | ~150 MB | `docker.io/dbgate/dbgate` + systemd unit'i (**Docker gerekir**) |
+| `mongod` | MongoDB | ~500 MB | `repo.mongodb.org/apt` (mongodb-org 8.0) |
+
+- **`code-server` varsayılan açık**, diğerleri kapalı.
+- Zaten kurulu olan servis "kurulu" görünür ve **tekrar kurulmaz**.
+- Sunucunun gerçek RAM/disk/mimari değerleri adımın başında yazar; seçim boş
+  RAM'i aşarsa **uyarılırsın, engellenmezsin**.
+- **arm64 (Oracle A1 gibi)**: dört servisin de arm64 paketi var. Desteklenmeyen
+  bir mimaride seçenek **sebebiyle birlikte** devre dışı kalır, gizlenmez.
+- **Docker otomatik kurulmaz**: yoksa `dbgate` devre dışı kalır ve sebebi yazar.
+- Bir servisin kurulumu patlarsa **diğerleri ve kurulumun geri kalanı devam
+  eder**; hata kendi adımında görünür.
+
+> **Güvenlik:** kurulan her servis yalnızca `127.0.0.1`'e bind edilir ve kendi
+> auth'u kapalıdır — dışarıya tek kapı Lyra'nın login + 2FA + ban katmanıdır.
+> `mongod` yapılandırması değiştirilmez, yalnızca `bindIp` doğrulanır; loopback
+> dışındaysa servis **başlatılmaz** ve durum bildirilir.
 
 Son adım `/api/setup/progress`'i yoklar: her arka plan adımının durumunu
 (bekliyor / çalışıyor / tamam / hata) gerçek hata mesajıyla gösterir.
@@ -377,7 +403,7 @@ sudo -u <kullanici> LYRA_HOME=/var/lib/lyra \
 | `--app-name`, `--projects-dir` | Zorunlu |
 | `--user`, `--password` | Zorunlu (`LYRA_ADMIN_PASSWORD` env'i tercih edilir — komut satırı `ps` çıktısında görünür) |
 | `--2fa` / `--no-2fa` | **Biri zorunlu.** `--2fa` verilirse secret ekrana basılır ve 2FA açılır; kaybedersen `lyra reset-admin --disable-2fa` |
-| `--services a,b` / `--no-services` | Panelde yönetilecek servisler |
+| `--services a,b` / `--no-services` | Panelde yönetilecek servisler (`code-server,filebrowser,dbgate,mongod`). Kurulu olmayanları Lyra **kurar**; kurulu olanı tekrar kurmaz. Bu makinede kurulamayan bir servis verilirse kurulum **başlamaz** ve sebep yazılır |
 | `--telegram-token`, `--telegram-chat-id`, `--github-token` | Opsiyonel entegrasyonlar |
 
 Eksik zorunlu alan varsa kurulum **başlamaz**; hangi bayrağın eksik olduğu tek

@@ -153,8 +153,11 @@ Yonetici hesabi:
   --2fa | --no-2fa               non-interactive modda biri ZORUNLU
 
 Opsiyonel:
-  --services <tip,tip>           kaydedilecek servisler (ornek: code-server,mongod)
-  --no-services                  hicbir servis kaydetme
+  --services <tip,tip>           panelde yonetilecek servisler
+                                 (code-server, filebrowser, dbgate, mongod)
+                                 Kurulu olmayanlari Lyra KURAR; kurulu olani
+                                 tekrar kurmaz.
+  --no-services                  hicbir servis kurma/kaydetme
   --telegram-token <token>       Telegram bot token'i
   --telegram-chat-id <id>        Telegram sahibi chat id'si
   --github-token <token>         GitHub personal access token
@@ -190,6 +193,7 @@ const { migrate } = require("../db/migrate");
 const { users } = require("../db/repos");
 const auth = require("../lib/auth");
 const detect = require("../lib/service-detect");
+const installer = require("../lib/service-installer");
 const dnsCheck = require("../lib/dns-check");
 const config = require("../lib/config");
 const core = require("../lib/setup-core");
@@ -295,7 +299,7 @@ function buildBodyNonInteractive() {
 
   const services = args.noServices ? [] : parseServiceList(args.services);
   if (!args.noServices && !args.services) {
-    info("Servis kaydi yapilmayacak (--services ile ekleyebilirsin).");
+    info("Servis kurulmayacak/kaydedilmeyecek (--services ile ekleyebilirsin).");
   }
 
   const integrations = {};
@@ -611,31 +615,77 @@ async function askAdmin(body) {
   return null;
 }
 
+const gb = (mb) => (mb === null || mb === undefined ? "?" : (mb / 1024).toFixed(1) + " GB");
+
+function hostLine(host) {
+  const parts = [
+    `${gb(host.totalMemMb)} RAM (${gb(host.freeMemMb)} bos)`,
+    host.diskTotalMb ? `${gb(host.diskTotalMb)} disk (${gb(host.diskFreeMb)} bos)` : null,
+    host.archLabel
+  ].filter(Boolean);
+  return `Sunucu: ${parts.join(" · ")}`;
+}
+
+function serviceStatus(s) {
+  if (s.installed) return s.active ? "kurulu · calisiyor" : "kurulu";
+  if (s.installable) return "kurulacak";
+  return s.install_reason || "kurulamiyor";
+}
+
+// Servis adimi: "kurulu olani kaydet" degil, "sec, kur, kaydet".
+// Kurulu olmayan ama kurulabilen servisler de listede — Lyra onlari kurar.
 async function askServices(body) {
   head("Servisler");
   let detected = [];
   try {
-    detected = detect.detectAll().filter((s) => s.installed);
+    detected = detect.detectAll();
   } catch (err) {
     warn(`Servis tespiti yapilamadi: ${err.message}`);
-  }
-  if (!detected.length) {
-    info("Kurulu bilinen servis bulunamadi — atlaniyor.");
     body.services = [];
     return;
   }
+
+  const host = installer.hostInfo();
+  info(hostLine(host));
+
+  // cloudflared erisim modu adiminda kuruluyor; burada yalnizca zaten
+  // kuruluysa (kayit icin) gorunur.
+  const shown = detected.filter((s) => s.installed || s.installable || s.est_ram_mb);
+  const rows = shown.filter((s) => s.type !== "cloudflared" || s.installed);
+  if (!rows.length) {
+    info("Yonetilebilecek servis bulunamadi — atlaniyor.");
+    body.services = [];
+    return;
+  }
+
   const { picked } = await ask({
     type: "multiselect",
     name: "picked",
     message: "Panelde yonetilecek servisleri sec (bosluk ile isaretle)",
-    choices: detected.map((s) => ({
-      title: `${s.display_name}${s.active ? " (calisiyor)" : ""}`,
+    choices: rows.map((s) => ({
+      title:
+        `${s.display_name.padEnd(14)} ${(s.description || "").padEnd(22)} ` +
+        `${s.est_ram_mb ? `~${s.est_ram_mb}MB`.padEnd(8) : "".padEnd(8)} ${serviceStatus(s)}`,
       value: s.type,
-      selected: s.active
+      selected: s.installed ? true : s.default_selected,
+      disabled: !s.installed && !s.installable
     })),
     instructions: false
   });
   body.services = picked || [];
+
+  // Bos RAM'i asan secim UYARILIR, engellenmez — karar kullanicinin.
+  const willInstall = core.servicesToInstall(body.services, detected);
+  const needMb = willInstall.reduce((n, t) => n + (installer.estimateRamMb(t) || 0), 0);
+  if (needMb && host.freeMemMb && needMb > host.freeMemMb) {
+    warn(
+      `Secili paketler ~${needMb}MB RAM ister, bos RAM ${host.freeMemMb}MB. ` +
+        "Yine de kurulabilir (swap/sikismis calisma)."
+    );
+  }
+  if (willInstall.length) {
+    info(`Kurulacak: ${willInstall.join(", ")}`);
+  }
 }
 
 async function askIntegrations(body) {
@@ -766,8 +816,10 @@ async function run(body, totpSecret) {
   const applied = core.applyFinalize(body, { totpSecret, cfProvisioned });
   ok("Ayarlar, yonetici hesabi ve servis kayitlari yazildi.");
 
+  // Adim listesi ile kurulum zinciri AYNI servis listesini alir.
+  const installServices = applied.installServices;
   const progress = core.createProgress({ onUpdate: makeProgressPrinter() });
-  progress.start(applied.accessMode, applied.finalUrl, { cfProvisioned });
+  progress.start(applied.accessMode, applied.finalUrl, { cfProvisioned, installServices });
 
   console.log("");
   // transition "direct": bu process servisin kendisi degil, gecisi kendimiz
@@ -775,7 +827,8 @@ async function run(body, totpSecret) {
   const success = await core.runPostSetup(body.accessMode, body, progress, {
     log: (m) => console.log(`      ${dim(m)}`),
     transition: "direct",
-    cfProvisioned
+    cfProvisioned,
+    installServices
   });
 
   console.log("");

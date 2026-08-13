@@ -343,6 +343,180 @@ describe("setup-core kurulum oncesi Cloudflare (cf_provisioned)", () => {
   });
 });
 
+// Sihirbazin servis adimi: "sec, kur, kaydet". Testler MOCK'LU — hicbiri
+// gercekten paket kurmaz; service-detect ve service-installer'in ilgili
+// fonksiyonlari test icinde degistirilir (freshHome her testten once lib
+// modul cache'ini temizledigi icin degisiklik sizmaz).
+describe("setup-core servis secimi ve kurulumu", () => {
+  let home;
+  beforeEach(() => {
+    home = freshHome();
+    require("../db/migrate").migrate();
+  });
+  afterEach(() => cleanup(home));
+
+  // detectAll ciktisinin taklidi.
+  function svc(type, over = {}) {
+    return {
+      type,
+      display_name: type,
+      description: "",
+      unit_name: null,
+      binary_present: false,
+      installed: false,
+      active: false,
+      default_port: 1234,
+      installable: true,
+      arch_supported: true,
+      requires: [],
+      missing_requirements: [],
+      install_reason: null,
+      est_ram_mb: 100,
+      est_disk_mb: 100,
+      default_selected: false,
+      install_source: "test",
+      ...over
+    };
+  }
+
+  function mockDetect(rows) {
+    const detect = require("../lib/service-detect");
+    detect.detectAll = () => rows.map((r) => ({ ...r }));
+    return detect;
+  }
+
+  const DETECTED = [
+    svc("code-server", { default_selected: true }),
+    svc("filebrowser"),
+    svc("dbgate", {
+      installable: false,
+      requires: ["docker"],
+      missing_requirements: ["docker"],
+      install_reason: "Docker kurulu degil — Lyra Docker'i otomatik kurmaz."
+    }),
+    svc("mongod", { installed: true, unit_name: "mongod", active: true, default_port: 27017 })
+  ];
+
+  it("zaten kurulu servis tekrar kurulmaz, kurulamayan listeye girmez", () => {
+    const core = require("../lib/setup-core");
+    const pick = ["code-server", "filebrowser", "dbgate", "mongod", "yok-boyle"];
+    expect(core.servicesToInstall(pick, DETECTED)).toEqual(["code-server", "filebrowser"]);
+  });
+
+  it("kurulacak her servis AYRI bir adim olur", () => {
+    const core = require("../lib/setup-core");
+    const keys = core
+      .buildSteps("lan", { installServices: ["code-server", "filebrowser"] })
+      .map((s) => s.key);
+    expect(keys).toEqual([
+      "service-install:code-server",
+      "service-install:filebrowser",
+      "firewall",
+      "setup-mode-off",
+      "lyra-restart"
+    ]);
+  });
+
+  it("servisler erisim katmanindan ONCE kurulur (Caddyfile onlari gorsun)", () => {
+    const core = require("../lib/setup-core");
+    const keys = core.buildSteps("public", { installServices: ["code-server"] }).map((s) => s.key);
+    expect(keys.indexOf("service-install:code-server")).toBeLessThan(keys.indexOf("caddy-config"));
+  });
+
+  it("servis secilmezse adim listesi degismez", () => {
+    const core = require("../lib/setup-core");
+    expect(core.buildSteps("lan").map((s) => s.key)).toEqual([
+      "firewall",
+      "setup-mode-off",
+      "lyra-restart"
+    ]);
+  });
+
+  it("dogrulama kurulamayan servisi sebebiyle reddeder", () => {
+    const core = require("../lib/setup-core");
+    const opts = { detected: DETECTED };
+    expect(
+      core.validateFinalize(baseBody({ services: ["code-server", "mongod"] }), opts).errors
+    ).toEqual([]);
+
+    const blocked = core.validateFinalize(baseBody({ services: ["dbgate"] }), opts).errors;
+    expect(blocked.join(" ")).toMatch(/kurulamaz/);
+    expect(blocked.join(" ")).toMatch(/Docker/);
+
+    const unknown = core.validateFinalize(baseBody({ services: ["redis"] }), opts).errors;
+    expect(unknown.join(" ")).toMatch(/Bilinmeyen servis: redis/);
+
+    expect(core.validateFinalize(baseBody({ services: "code-server" }), opts).errors).toContain(
+      "services bir liste olmali"
+    );
+  });
+
+  it("applyFinalize kurulu olani hemen kaydeder, kurulacagi kuruluma birakir", () => {
+    mockDetect(DETECTED);
+    const core = require("../lib/setup-core");
+    const { services, settings } = require("../db/repos");
+
+    const applied = core.applyFinalize(baseBody({ services: ["code-server", "mongod"] }));
+
+    // Kurulmamis servis "yonetiliyor" diye yazilmaz.
+    expect(applied.installServices).toEqual(["code-server"]);
+    expect(services.list().map((s) => s.type)).toEqual(["mongod"]);
+    // Kurulacak servisin portu simdiden sistem portu sayilir (Ports sekmesi
+    // onu "dev portu" gorup oldurmesin).
+    expect(settings.get("system_ports")).toContain(8080);
+  });
+
+  it("bir kurulum patlarken digerleri devam eder", async () => {
+    mockDetect(DETECTED);
+    const installer = require("../lib/service-installer");
+    const core = require("../lib/setup-core");
+    const { services } = require("../db/repos");
+
+    const calls = [];
+    installer.install = async (type) => {
+      calls.push(type);
+      if (type === "filebrowser") return { ok: false, error: "indirme basarisiz" };
+      return {
+        ok: true,
+        unit_name: type === "code-server" ? "code-server@lyra" : type,
+        port: 9000,
+        display_name: type
+      };
+    };
+
+    const progress = core.createProgress();
+    progress.start("lan", "http://127.0.0.1:3000", {
+      installServices: ["code-server", "filebrowser", "mongod"]
+    });
+
+    const results = await core.runServiceInstalls(
+      ["code-server", "filebrowser", "mongod"],
+      progress,
+      { user: "lyra", home }
+    );
+
+    // Ortadaki hata sonrakileri durdurmaz.
+    expect(calls).toEqual(["code-server", "filebrowser", "mongod"]);
+    expect(results).toEqual([
+      { type: "code-server", ok: true },
+      { type: "filebrowser", ok: false },
+      { type: "mongod", ok: true }
+    ]);
+    expect(progress.step("service-install:code-server").status).toBe("ok");
+    expect(progress.step("service-install:filebrowser").status).toBe("failed");
+    expect(progress.step("service-install:filebrowser").error).toBe("indirme basarisiz");
+    expect(progress.step("service-install:mongod").status).toBe("ok");
+
+    // Yalnizca basarili kurulumlar kaydedilir.
+    expect(
+      services
+        .list()
+        .map((s) => s.unit_name)
+        .sort()
+    ).toEqual(["code-server@lyra", "mongod"]);
+  });
+});
+
 describe("setup-core ensureProjectsDir", () => {
   let home;
   beforeEach(() => {

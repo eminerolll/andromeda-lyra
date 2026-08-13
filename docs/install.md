@@ -118,11 +118,14 @@ Sihirbaz adımları:
 3. **Bağlantı + panel** — moda göre domain+email ya da CF connector
    token'ı; ayrıca uygulama adı ve projeler dizini
 4. **Yönetici hesabı** — kullanıcı adı, şifre (≥12 karakter), TOTP QR
-5. **Servisler** — sunucuda tespit edilen servisler (code-server,
-   dbgate, filebrowser, cloudflared, mongod, docker, …)
+5. **Servisler** — seç, Lyra kursun, panele bağlansın (`code-server`,
+   `filebrowser`, `dbgate`, `mongod`). Kurulu olan tekrar kurulmaz;
+   kurulamayan seçenek sebebiyle birlikte devre dışı kalır
+   (bkz. [Servis kurulumu](#22-servis-kurulumu))
 6. **Entegrasyonlar** (opsiyonel) — Telegram bot, GitHub token
-7. **İlerleme** — Caddy/cloudflared kurulumu, firewall, restart; her
-   adımın durumu `/api/setup/progress` üzerinden canlı gösterilir
+7. **İlerleme** — Caddy/cloudflared, seçilen servislerin kurulumu,
+   firewall, restart; her adımın durumu `/api/setup/progress`
+   üzerinden canlı gösterilir
 
 Son adımda Lyra kurulum modu drop-in'ini ve geçici sudoers dosyasını
 kendisi siler, `daemon-reload` yapar ve **kendini yeniden başlatır** —
@@ -131,6 +134,55 @@ yorumlar ve yeni adreste `/healthz` yanıt verene kadar bekler.
 
 Bir adım başarısız olursa kurulum modu **açık bırakılır**, ekranda ne
 yapılması gerektiği net şekilde yazar.
+
+### 2.2 Servis kurulumu
+
+Lyra bir geliştirici ortamı yöneticisi; yönettiği servisleri de kendisi
+kurar (`lib/service-installer.js`). Taze bir sunucuda sihirbazın servis
+adımı boş kalmaz.
+
+| Servis | RAM | Kurulum kaynağı | arm64 |
+|--------|-----|-----------------|-------|
+| `code-server` | ~200 MB | `https://code-server.dev/install.sh` (resmi `.deb`), unit: `code-server@<kullanıcı>` | ✓ |
+| `filebrowser` | ~30 MB | `github.com/filebrowser/filebrowser` release tarball (`linux-<arch>-filebrowser.tar.gz`) + Lyra'nın yazdığı `filebrowser.service` | ✓ |
+| `dbgate` | ~150 MB | `docker.io/dbgate/dbgate` imajı + Lyra'nın yazdığı `dbgate.service` | ✓ |
+| `mongod` | ~500 MB | `repo.mongodb.org/apt` (`mongodb-org` 8.0; ubuntu focal/jammy/noble, debian bookworm) | ✓ |
+
+Kurallar:
+
+- **`code-server` varsayılan açık** (panelin `/code/` linki ona bakar),
+  diğerleri kapalı. MongoDB bir veritabanı motoru, DbGate ise bir
+  istemci — "her ihtimale karşı" kurulmazlar.
+- **İdempotent**: kurulu servis "kurulu" görünür, tekrar kurulmaz.
+  Karar `setup-core.servicesToInstall` içinde tek yerde verilir.
+- **Mimari kontrolü**: `x64`/`arm64` dışında bir mimaride seçenek
+  *"Bu mimaride (…) paket yok."* diyerek devre dışı kalır — gizlenmez.
+- **Docker gerektiren servis**: `dbgate`. Docker yoksa seçenek devre dışı
+  ve sebep yazılı; **Docker otomatik kurulmaz** (ağır ve kullanıcının
+  sistem tercihi).
+- **Kısmi başarısızlık**: her servis ayrı bir ilerleme adımıdır
+  (`service-install:code-server`). Biri patlarsa döngüden çıkılmaz;
+  diğer servisler ve kurulumun geri kalanı (firewall, kurulum modundan
+  çıkış, restart) devam eder. Yalnızca **başarılı** kurulum `services`
+  tablosuna yazılır.
+- **RAM/disk uyarısı**: sunucunun gerçek değerleri adımda gösterilir;
+  seçim boş RAM'i aşarsa uyarılır ama engellenmez.
+
+**Loopback değişmezi (pazarlık yok).** Kurulan her servis yalnızca
+`127.0.0.1`'e bind edilir. Servisler kendi auth'unu kapatır çünkü
+dışarıya tek kapı Lyra'nın login + 2FA + ban katmanıdır; bu yalnızca
+loopback'te doğrudur.
+
+| Servis | Nasıl garanti ediliyor |
+|--------|------------------------|
+| `code-server` | `~/.config/code-server/config.yaml` → `bind-addr: 127.0.0.1:8080`, `auth: none`, `cert: false` |
+| `filebrowser` | unit `ExecStart=… -a 127.0.0.1 -p 8082 … --noauth` |
+| `dbgate` | `docker run … -p 127.0.0.1:8081:3000` (host'suz `-p` üretilmez) |
+| `mongod` | varsayılan zaten loopback; **değiştirilmez, doğrulanır**. `bindIp` loopback dışındaysa servis başlatılmaz ve hata bildirilir |
+
+Yapılandırmaları üreten fonksiyonlar saf ve test altındadır
+(`test/service-installer.test.js` → "loopback degismezi"): `0.0.0.0`
+içeren bir direktif üretilirse test kırılır.
 
 ## 3. Erişim katmanları
 
@@ -165,9 +217,9 @@ sınırsız olabileceğinden); dev server önizlemesi her zaman
 - **Yönetici hesabı** — kullanıcı adı (≥3 karakter), şifre (≥12
   karakter), opsiyonel TOTP 2FA (QR + 6 haneli kod doğrulaması
   zorunlu, atlanamaz)
-- **Servis tespiti** — Lyra sunucuda `code-server`, `cloudflared`,
-  `filebrowser`, `dbgate`, `mongod`, `docker` arar; hangilerini
-  kaydedeceğini sen seçersin
+- **Servisler** — Lyra sunucuda `code-server`, `cloudflared`,
+  `filebrowser`, `dbgate`, `mongod` arar; kurulu olmayanları da
+  listeler ve seçersen **kurar** (bkz. [Servis kurulumu](#22-servis-kurulumu))
 - **Opsiyonel entegrasyonlar** — Telegram bot, GitHub personal access
   token
 
@@ -181,8 +233,9 @@ sınırsız olabileceğinden); dev server önizlemesi her zaman
 | `validateFinalize` | Alan doğrulaması (mod, şifre uzunluğu, moda özel zorunlular, 2FA) |
 | `ensureProjectsDir` | Projeler dizinini yaratır ve gerçekten yazma denemesi yapar |
 | `cfPlanFromBody` / `cfPreflight` | Cloudflare token/zone/hesap doğrulaması, mevcut DNS kayıtlarını okuma, apex-mi-subdomain önerisi |
-| `applyFinalize` | Settings + admin + servisler + entegrasyonlar + `system_ports` / `lyra_service_name` seed'i |
-| `buildSteps` / `createProgress` / `runPostSetup` | Caddy / cloudflared / firewall / kurulum modundan çıkış adımları |
+| `applyFinalize` | Settings + admin + servisler + entegrasyonlar + `system_ports` / `lyra_service_name` seed'i. Kurulacak servisleri `installServices` olarak döner |
+| `servicesToInstall` / `runServiceInstalls` | Seçilenlerden hangileri kurulacak; kurulum döngüsü (biri patlarsa diğerleri devam eder) |
+| `buildSteps` / `createProgress` / `runPostSetup` | Caddy / cloudflared / servis kurulumları / firewall / kurulum modundan çıkış adımları |
 | `provisionCloudflare` | Tunnel'ı **sihirbazdan önce** kurar (`install.sh` yöntem 1). `runCfApiSteps` ile aynı zinciri çalıştırır, sonra `access_mode` / `base_domain` / `panel_host` / `public_access` ve `cf_provisioned` ayarlarını yazar |
 | `isCfProvisioned` / `cfProvisionedInfo` | "Cloudflare zaten kuruldu mu?" — üç yer de (HTTP, CLI, `buildSteps`) buna bakar |
 
