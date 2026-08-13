@@ -30,7 +30,7 @@ Let's Encrypt).
 ssh ubuntu@<vps-public-ip>
 
 # 3. Kurulum — tek komut, sistem paketlerini de kendisi kurar
-git clone <repo-url> lyra && cd lyra
+git clone https://github.com/eminerolll/andromeda-lyra.git lyra && cd lyra
 sudo ./install.sh
 ```
 
@@ -98,7 +98,7 @@ Sadece ev ağındaki cihazlarından erişeceksen:
 
 ```bash
 # 1. Kurulum
-git clone <repo-url> lyra && cd lyra
+git clone https://github.com/eminerolll/andromeda-lyra.git lyra && cd lyra
 sudo ./install.sh
 # 2. Tarayıcıda: Erişim modu → 🏠 LAN
 ```
@@ -133,7 +133,7 @@ hata mesajlarına yazmaz.
 #### Sunucu hazırlığı
 
 ```bash
-git clone <repo-url> lyra && cd lyra
+git clone https://github.com/eminerolll/andromeda-lyra.git lyra && cd lyra
 sudo ./install.sh
 ```
 
@@ -189,7 +189,7 @@ istiyorsan. Lyra sadece cloudflared'i kurup verdiğin token ile başlatır.
 #### Sunucu hazırlığı
 
 ```bash
-git clone <repo-url> lyra && cd lyra
+git clone https://github.com/eminerolll/andromeda-lyra.git lyra && cd lyra
 sudo ./install.sh
 ```
 

@@ -2,7 +2,7 @@
 # Lyra kurulum scripti — temiz bir Ubuntu/Debian sunucuya tek komutla kurar.
 #
 # Kullanim (root gerekir):
-#   sudo LYRA_REPO=https://github.com/<kullanici>/lyra.git bash install.sh
+#   sudo LYRA_REPO=https://github.com/eminerolll/andromeda-lyra.git bash install.sh
 #   # veya repo'yu kendin klonladiysan, klasorun icinden:
 #   sudo ./install.sh
 #
@@ -84,6 +84,9 @@ confirm() {
 }
 
 # ------- Konfig -------
+# Kanonik repo. Yerel bir checkout icinden calistirilirsa o oncelikli (bkz. LOCAL_SRC);
+# bu varsayilan yalnizca "curl | bash" gibi kaynaksiz calistirmalarda devreye girer.
+LYRA_REPO="${LYRA_REPO:-https://github.com/eminerolll/andromeda-lyra.git}"
 LYRA_DIR="${LYRA_DIR:-/opt/lyra}"
 LYRA_BRANCH="${LYRA_BRANCH:-main}"
 LYRA_HOME="${LYRA_HOME:-/var/lib/lyra}"
@@ -157,7 +160,7 @@ fi
 if [[ -z "$LOCAL_SRC" && -z "${LYRA_REPO:-}" && ! -d "$LYRA_DIR/.git" ]]; then
   fail "Kaynak kodu bulunamadi.
     Ya repo URL'i ver:
-      sudo LYRA_REPO=https://github.com/<kullanici>/lyra.git bash $0
+      sudo LYRA_REPO=https://github.com/eminerolll/andromeda-lyra.git bash $0
     ya da repo'yu klonlayip klasorun icinden calistir:
       git clone <repo> lyra && cd lyra && sudo ./install.sh"
 fi

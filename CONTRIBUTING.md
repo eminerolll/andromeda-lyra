@@ -11,7 +11,7 @@ o, systemd + sudoers + firewall ister ve makineni değiştirir.
 Geliştirirken Lyra'yı doğrudan çalıştır:
 
 ```bash
-git clone <repo-url> lyra          # repo henuz yayinlanmadi
+git clone https://github.com/eminerolll/andromeda-lyra.git lyra
 cd lyra/src
 cp .env.example .env               # LYRA_HOME=./data yeterli
 npm install

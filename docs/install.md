@@ -9,7 +9,7 @@ ayrıntılı anlatır.
 ## 1. Tek komut installer
 
 ```bash
-git clone <repo-url> lyra
+git clone https://github.com/eminerolll/andromeda-lyra.git lyra
 cd lyra
 sudo ./install.sh
 ```
@@ -17,7 +17,7 @@ sudo ./install.sh
 Repo'yu klonlamadan, tek satırda:
 
 ```bash
-curl -fsSL <raw-install-url> | sudo LYRA_REPO=<repo-url> bash
+curl -fsSL https://raw.githubusercontent.com/eminerolll/andromeda-lyra/main/install.sh | sudo LYRA_REPO=https://github.com/eminerolll/andromeda-lyra.git bash
 ```
 
 `curl | sudo bash` akışında stdin script'in kendisi olduğu için hiçbir

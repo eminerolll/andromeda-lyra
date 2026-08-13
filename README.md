@@ -28,7 +28,7 @@ ile (Cloudflare Tunnel, Tailscale Funnel, Caddy, …).
 Temiz bir Ubuntu sunucuda tek komut:
 
 ```bash
-git clone <repo-url> lyra && cd lyra
+git clone https://github.com/eminerolll/andromeda-lyra.git lyra && cd lyra
 sudo ./install.sh
 ```
 
