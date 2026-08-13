@@ -6,12 +6,40 @@ const config = require("./config");
 const pathProxy = require("./path-proxy");
 const { services } = require("../db/repos");
 
-const proxy = httpProxy.createProxyServer({ ws: true, changeOrigin: true });
+// changeOrigin GLOBAL OLARAK KAPALI. Yonetilen servisler orijinal Host'u gormeli:
+// code-server WebSocket upgrade'ini authenticateOrigin() ile korur ve
+// getHost(req) !== new URL(origin).host oldugunda 403 doner (kaynak:
+// coder/code-server src/node/http.ts, wsRouter'da ensureOrigin middleware'i).
+// Host'u 127.0.0.1:8080'e yeniden yazmak upgrade'i dusurur; HTTP calistigi icin
+// arayuz gelir ama tarayici "WebSocket close with status code 1006" gosterir.
+// Host yeniden yazimi sadece dev-{port} hedeflerinde yapilir (bkz. targetOptions).
+const proxy = httpProxy.createProxyServer({ ws: true });
 
 proxy.on("error", (err, req, res) => {
-  if (res && res.writeHead) res.writeHead(502, { "Content-Type": "text/plain" });
-  if (res && res.end) res.end("Proxy hata: " + (err.message || "bilinmeyen"));
+  const msg = (err && err.message) || "bilinmeyen";
+  console.error(
+    `[proxy] ${(req && req.headers && req.headers.host) || "?"}${(req && req.url) || ""}: ${msg}`
+  );
+  if (res && typeof res.writeHead === "function") {
+    res.writeHead(502, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Proxy hata: " + msg);
+  } else {
+    // WebSocket yolunda ucuncu parametre ham socket'tir, response degil.
+    // Sokete duz metin yazmak tarayiciya bozuk cerceve gonderir.
+    failSocket(res);
+  }
 });
+
+// WS upgrade'i basarisiz oldugunda soketi duzgun kapat. Handshake henuz
+// gonderilmediyse (bytesWritten === 0) hala gecerli bir HTTP yaniti yazilabilir;
+// 101 gonderildikten sonra HTTP metni cerceveleri bozar, sadece kapatilir.
+function failSocket(socket) {
+  if (!socket || typeof socket.destroy !== "function" || socket.destroyed) return;
+  if (socket.writable && socket.bytesWritten === 0) {
+    socket.write("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+  }
+  socket.destroy();
+}
 
 // parseHostname tipi -> services tablosundaki tip
 const HOST_TYPE_TO_SERVICE = { code: "code-server", files: "filebrowser", db: "dbgate" };
@@ -80,18 +108,36 @@ function isPublicBypassPath(host, url) {
   return false;
 }
 
+// Dev server'lar (Vite, webpack-dev-server) gelen Host'u allowedHosts listesine
+// karsi kontrol eder; dev-3000.alanadi.com gibi bir Host'u reddederler ama
+// 127.0.0.1'i her zaman kabul ederler. Bu yuzden Host yeniden yazimi SADECE
+// dev-{port} hedeflerinde korunur. Yonetilen servisler (code-server, filebrowser,
+// dbgate) Origin/Host esitligi bekledigi icin orijinal Host'u alir.
+function isDevHost(host) {
+  const parsed = config.parseHostname((host || "").split(":")[0]);
+  return !!(parsed && parsed.type === "dev");
+}
+
+function targetOptions(req, port) {
+  return {
+    target: "http://127.0.0.1:" + port,
+    changeOrigin: isDevHost(req && req.headers && req.headers.host)
+  };
+}
+
 function forwardWeb(req, res, port) {
-  proxy.web(req, res, { target: "http://127.0.0.1:" + port });
+  proxy.web(req, res, targetOptions(req, port));
 }
 
 function forwardWs(req, socket, head, port) {
-  proxy.ws(req, socket, head, { target: "http://127.0.0.1:" + port });
+  proxy.ws(req, socket, head, targetOptions(req, port));
 }
 
 module.exports = {
   findTargetPort,
   serviceHostRoute,
   isPublicBypassPath,
+  targetOptions,
   forwardWeb,
   forwardWs,
   proxy

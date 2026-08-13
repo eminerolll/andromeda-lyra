@@ -155,3 +155,58 @@ aksi: ana app'e geç
 ```
 
 Bu `lib/proxy.js:findTargetPort()`'da implement edilmiş.
+
+## Proxy `Host` başlığı politikası
+
+Lyra iki proxy katmanı çalıştırır (host tabanlı `lib/proxy.js`, path tabanlı
+`lib/path-proxy.js`). İkisi de yukarı akıma giden `Host` başlığını **hedefin
+türüne göre** farklı ele alır:
+
+| Hedef | Giden `Host` | Neden |
+|-------|--------------|-------|
+| Yönetilen servisler (code-server, filebrowser, dbgate) | Tarayıcının gönderdiği orijinal `Host` (`code.alanadi.com`, `alanadi.com:3000` …) | code-server WebSocket upgrade'ini CSRF'e karşı `Origin` ≟ `Host` karşılaştırmasıyla korur |
+| Dev server önizlemeleri (`dev-{port}.alanadi.com`, `/dev/{port}/`) | `127.0.0.1:{port}` olarak yeniden yazılır | Vite/webpack-dev-server gelen `Host`'u `allowedHosts` listesine karşı doğrular |
+
+### Neden yönetilen servislerde `Host` korunur
+
+code-server'ın WebSocket route'u `ensureOrigin` middleware'i ile korunuyor
+(`coder/code-server`, `src/node/http.ts`). `authenticateOrigin()` şunu yapar:
+
+```
+origin = new URL(req.headers.origin).host
+host   = Forwarded: host=…  ||  X-Forwarded-Host  ||  Host
+host !== origin  →  403 Forbidden
+```
+
+`Host`'u `127.0.0.1:8080`'e yeniden yazan bir proxy'de tarayıcı
+`Origin: https://code.alanadi.com` gönderirken code-server `127.0.0.1:8080`
+görür; upgrade reddedilir. Düz HTTP istekleri `Origin` taşımadığı için arayüz
+sorunsuz yüklenir — belirti yalnızca terminal/LSP açılırken ortaya çıkar:
+
+```
+The workbench failed to connect to the server
+(Error: WebSocket close with status code 1006)
+```
+
+Caddy önde çalışırken `X-Forwarded-Host` eklendiği için bu hata maskelenebilir;
+Cloudflare Tunnel `X-Forwarded-Host` eklemez, bu yüzden orada mutlaka görülür.
+
+### Dev server ödünleşimi
+
+Dev önizlemelerinde `Host` yeniden yazılır, çünkü çoğu dev server bilinmeyen bir
+`Host` gördüğünde isteği reddeder ve `127.0.0.1` her zaman izinlidir. Bunun
+karşılığında, kendi `Origin`/`Host` doğrulamasını yapan bir dev server bu yolda
+çalışmayabilir. Böyle bir durumda dev server'ı kendi adresine izin verecek
+şekilde yapılandır:
+
+```js
+// vite.config.js
+export default {
+  server: {
+    allowedHosts: ["dev-5173.alanadi.com", "alanadi.com"]
+  }
+};
+```
+
+`/dev/{port}/` path yolunda tarayıcının `Host`'u zaten Lyra'nın kendi adresidir;
+oraya da aynı liste yazılır.

@@ -10,19 +10,36 @@ const config = require("./config");
 const { scanPorts } = require("./port-scanner");
 const { services } = require("../db/repos");
 
-const proxy = httpProxy.createProxyServer({ ws: true, changeOrigin: true });
+// changeOrigin global olarak kapali; sadece /dev/{port} hedeflerinde acilir.
+// Gerekcesi lib/proxy.js'te: code-server WS upgrade'inde Origin ile Host'u
+// karsilastirir, Host yeniden yazilirsa upgrade duser (1006). Path yolunda
+// tarayici Origin: https://alanadi.com + Host: alanadi.com gonderir; Host'a
+// dokunmayinca ikisi esit kalir.
+const proxy = httpProxy.createProxyServer({ ws: true });
 
 // Hedefe ozel hata mesaji: forward oncesi req.lyraProxyError'a yazilir.
 proxy.on("error", (err, req, res) => {
   const msg = (req && req.lyraProxyError) || "Baglanti hatasi";
+  console.error(`[path-proxy] ${(req && req.url) || "?"}: ${(err && err.message) || msg}`);
   if (res && typeof res.writeHead === "function") {
     res.writeHead(502, { "Content-Type": "text/plain; charset=utf-8" });
     res.end(msg);
-  } else if (res && typeof res.destroy === "function") {
-    // WebSocket yolunda ucuncu parametre ham socket
-    res.destroy();
+  } else {
+    // WebSocket yolunda ucuncu parametre ham socket'tir; HTTP govdesi yazmak
+    // tarayiciya bozuk cerceve gonderir.
+    failSocket(res);
   }
 });
+
+// Handshake gonderilmediyse gecerli bir HTTP yaniti hala mumkun; 101 sonrasi
+// HTTP metni cerceveleri bozacagi icin sadece kapatilir.
+function failSocket(socket) {
+  if (!socket || typeof socket.destroy !== "function" || socket.destroyed) return;
+  if (socket.writable && socket.bytesWritten === 0) {
+    socket.write("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+  }
+  socket.destroy();
+}
 
 // Prefix -> services tablosundaki tip. Kayitli/enabled degilse 503.
 const SERVICE_ROUTES = [
@@ -148,6 +165,12 @@ function errorLabel(m) {
   return m.kind === "dev" ? "Dev server calismiyor." : m.label + " baglanti hatasi";
 }
 
+// Dev server'lar Host'u allowedHosts'a karsi dogrular; yonetilen servisler
+// Origin ile Host'un esit olmasini bekler. Ayrim tek yerde.
+function targetOptions(m, port) {
+  return { target: "http://127.0.0.1:" + port, changeOrigin: m.kind === "dev" };
+}
+
 function forwardWeb(req, res, m) {
   resolvePort(m, (err, port) => {
     if (err) {
@@ -156,7 +179,7 @@ function forwardWeb(req, res, m) {
     }
     req.url = pathAfter(req.url, m.prefix);
     req.lyraProxyError = errorLabel(m);
-    proxy.web(req, res, { target: "http://127.0.0.1:" + port });
+    proxy.web(req, res, targetOptions(m, port));
   });
 }
 
@@ -166,7 +189,7 @@ function forwardWs(req, socket, head, m) {
     if (err) return socket.destroy();
     req.url = pathAfter(req.url, m.prefix);
     req.lyraProxyError = errorLabel(m);
-    proxy.ws(req, socket, head, { target: "http://127.0.0.1:" + port });
+    proxy.ws(req, socket, head, targetOptions(m, port));
   });
 }
 
@@ -175,6 +198,7 @@ module.exports = {
   match,
   matchCodeProxy,
   isBypassPath,
+  targetOptions,
   forwardWeb,
   forwardWs,
   proxy

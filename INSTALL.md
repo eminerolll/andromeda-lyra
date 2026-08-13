@@ -626,3 +626,5 @@ sudo rm -rf /opt/lyra /var/lib/lyra
 | Public mode'da Caddy cert alamıyor | DNS hâlâ yayılmıyor olabilir; bekle (max 30dk). `sudo journalctl -u caddy -f` |
 | `code.<domain>` çalışmıyor | O subdomain için A kaydı yok. Kaydı ekle, `sudo systemctl reload caddy`. Bu arada `/code/` yolu çalışır. |
 | CF Tunnel "connector unhealthy" | Connector token doğru mu? `sudo systemctl status cloudflared` |
+| code-server açılıyor ama "WebSocket close with status code 1006" | Araya giren bir katman `Host` başlığını değiştiriyor. code-server upgrade'de `Origin` ile `Host`'u karşılaştırır. Lyra 0.0.1'den sonra `Host`'u olduğu gibi iletir (`sudo lyra update`). Kendi ters proxy'ni eklediysen `Host`'u yeniden yazma (nginx: `proxy_set_header Host $host`). Bkz. `docs/configuration.md` → "Proxy `Host` başlığı politikası" |
+| Dev önizlemesi "Blocked request. This host is not allowed" | Vite/webpack `Host`'u `allowedHosts`'a karşı doğruluyor. `vite.config.js` → `server.allowedHosts` listesine `dev-<port>.<domain>` ve `<domain>` ekle |
