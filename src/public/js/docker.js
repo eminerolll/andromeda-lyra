@@ -15,12 +15,16 @@ async function loadAll() {
     ]);
     projects = pData.projects || [];
     containers = cData.containers || [];
-    ingress = (iData.entries || []).filter(e => e.hostname && !e.isCatchAll && !e.isWildcard);
+    ingress = (iData.entries || []).filter((e) => e.hostname && !e.isCatchAll && !e.isWildcard);
     render();
     loadHealth();
   } catch (e) {
     const container = document.getElementById("dockerContent");
-    if (container) container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--red);">Docker yuklenemedi: ' + escapeHtml(e.message) + "</div>";
+    if (container)
+      container.innerHTML =
+        '<div style="text-align:center; padding:40px; color:var(--red);">Docker yuklenemedi: ' +
+        escapeHtml(e.message) +
+        "</div>";
   }
 }
 
@@ -28,12 +32,20 @@ async function loadHealth() {
   try {
     const h = await api("/api/cf/health");
     health = h.health || {};
-    document.querySelectorAll("[data-dock-health]").forEach(el => {
+    document.querySelectorAll("[data-dock-health]").forEach((el) => {
       const host = el.dataset.dockHealth;
       const hs = health[host];
-      if (!hs) { el.style.color = "var(--text-muted)"; return; }
-      el.style.color = hs.level === "green" ? "var(--green, #4ade80)" : hs.level === "yellow" ? "var(--yellow, #fbbf24)" : "var(--red, #f87171)";
-      el.title = hs.code ? hs.code + " (" + (hs.latency || "?") + "ms)" : (hs.reason || "");
+      if (!hs) {
+        el.style.color = "var(--text-muted)";
+        return;
+      }
+      el.style.color =
+        hs.level === "green"
+          ? "var(--green, #4ade80)"
+          : hs.level === "yellow"
+            ? "var(--yellow, #fbbf24)"
+            : "var(--red, #f87171)";
+      el.title = hs.code ? hs.code + " (" + (hs.latency || "?") + "ms)" : hs.reason || "";
     });
   } catch (e) {}
 }
@@ -53,7 +65,7 @@ function ingressForProject(project) {
   for (const c of project.containers || []) {
     for (const p of extractBoundPorts(c.ports)) ports.add(p);
   }
-  return ingress.filter(e => {
+  return ingress.filter((e) => {
     const m = e.service && e.service.match(/:(\d+)/);
     return m && ports.has(parseInt(m[1]));
   });
@@ -73,29 +85,44 @@ function render() {
   let html = "";
 
   // Prod projects section
-  html += '<div class="section-label" style="margin-bottom:12px;">Prod Projeleri (' + projects.length + ")</div>";
+  html +=
+    '<div class="section-label" style="margin-bottom:12px;">Prod Projeleri (' +
+    projects.length +
+    ")</div>";
 
   if (projects.length === 0) {
-    html += '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px;">/opt/prod-apps altinda proje yok</div>';
+    html +=
+      '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px;">/opt/prod-apps altinda proje yok</div>';
   } else {
     html += '<div class="projects-grid" style="margin-bottom:24px;">';
     for (const p of projects) {
-      const running = p.containers.filter(c => c.state === "running").length;
+      const running = p.containers.filter((c) => c.state === "running").length;
       const total = p.containers.length;
-      const statusBadge = total === 0
-        ? '<span style="color:var(--text-muted); font-size:12px;">Ayakta degil</span>'
-        : '<span style="color:' + stateColor(running > 0 ? "running" : "exited") + '; font-size:12px;">' + running + "/" + total + " calisiyor</span>";
+      const statusBadge =
+        total === 0
+          ? '<span style="color:var(--text-muted); font-size:12px;">Ayakta degil</span>'
+          : '<span style="color:' +
+            stateColor(running > 0 ? "running" : "exited") +
+            '; font-size:12px;">' +
+            running +
+            "/" +
+            total +
+            " calisiyor</span>";
 
       html += '<div class="side-card" style="padding:16px;">';
-      html += '<div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">';
+      html +=
+        '<div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">';
       html += '<div style="font-weight:600; font-size:14px;">' + escapeHtml(p.name) + "</div>";
       html += statusBadge;
       html += "</div>";
 
       html += '<div style="font-size:11px; color:var(--text-muted); margin-bottom:12px;">';
-      if (p.hasCompose) html += '<span style="margin-right:8px;">✓ ' + escapeHtml(p.composeFile || "compose") + "</span>";
-      if (p.hasDockerfile) html += '<span>✓ Dockerfile</span>';
-      if (!p.hasCompose && !p.hasDockerfile) html += '<span style="color:var(--yellow, #fbbf24)">⚠ compose/Dockerfile yok</span>';
+      if (p.hasCompose)
+        html +=
+          '<span style="margin-right:8px;">✓ ' + escapeHtml(p.composeFile || "compose") + "</span>";
+      if (p.hasDockerfile) html += "<span>✓ Dockerfile</span>";
+      if (!p.hasCompose && !p.hasDockerfile)
+        html += '<span style="color:var(--yellow, #fbbf24)">⚠ compose/Dockerfile yok</span>';
       html += "</div>";
 
       const tunnels = ingressForProject(p);
@@ -103,8 +130,16 @@ function render() {
         html += '<div style="font-size:12px; margin-bottom:12px;">';
         for (const t of tunnels) {
           html += '<div style="display:flex; align-items:center; gap:6px; padding:2px 0;">';
-          html += '<span data-dock-health="' + escapeHtml(t.hostname) + '" style="color:var(--text-muted);" title="kontrol ediliyor">●</span>';
-          html += '<a href="https://' + escapeHtml(t.hostname) + '" target="_blank" style="color:var(--accent, #60a5fa); text-decoration:none;">' + escapeHtml(t.hostname) + "</a>";
+          html +=
+            '<span data-dock-health="' +
+            escapeHtml(t.hostname) +
+            '" style="color:var(--text-muted);" title="kontrol ediliyor">●</span>';
+          html +=
+            '<a href="https://' +
+            escapeHtml(t.hostname) +
+            '" target="_blank" style="color:var(--accent, #60a5fa); text-decoration:none;">' +
+            escapeHtml(t.hostname) +
+            "</a>";
           html += "</div>";
         }
         html += "</div>";
@@ -113,10 +148,17 @@ function render() {
       if (p.containers.length > 0) {
         html += '<div style="font-size:12px; margin-bottom:12px;">';
         for (const c of p.containers) {
-          html += '<div style="display:flex; justify-content:space-between; padding:4px 0; border-top:1px solid var(--border);">';
+          html +=
+            '<div style="display:flex; justify-content:space-between; padding:4px 0; border-top:1px solid var(--border);">';
           html += '<span style="color:' + stateColor(c.state) + ';">●</span> ';
-          html += '<span style="flex:1; margin-left:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(c.name) + "</span>";
-          html += '<span style="color:var(--text-muted); font-size:11px;">' + escapeHtml(c.status) + "</span>";
+          html +=
+            '<span style="flex:1; margin-left:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
+            escapeHtml(c.name) +
+            "</span>";
+          html +=
+            '<span style="color:var(--text-muted); font-size:11px;">' +
+            escapeHtml(c.status) +
+            "</span>";
           html += "</div>";
         }
         html += "</div>";
@@ -126,14 +168,32 @@ function render() {
         const anyRunning = running > 0;
         html += '<div style="display:flex; gap:6px; flex-wrap:wrap;">';
         if (!anyRunning) {
-          html += '<button class="btn btn-sm btn-primary" data-compose="up" data-project="' + escapeHtml(p.name) + '">Baslat</button>';
-          html += '<button class="btn btn-sm" data-compose="build" data-project="' + escapeHtml(p.name) + '">Build</button>';
+          html +=
+            '<button class="btn btn-sm btn-primary" data-compose="up" data-project="' +
+            escapeHtml(p.name) +
+            '">Baslat</button>';
+          html +=
+            '<button class="btn btn-sm" data-compose="build" data-project="' +
+            escapeHtml(p.name) +
+            '">Build</button>';
         } else {
-          html += '<button class="btn btn-sm" data-compose="restart" data-project="' + escapeHtml(p.name) + '">Restart</button>';
-          html += '<button class="btn btn-sm" data-compose="up" data-project="' + escapeHtml(p.name) + '" title="Rebuild & up">Yeniden Deploy</button>';
-          html += '<button class="btn btn-sm" data-compose="down" data-project="' + escapeHtml(p.name) + '" style="color:var(--red);">Durdur</button>';
+          html +=
+            '<button class="btn btn-sm" data-compose="restart" data-project="' +
+            escapeHtml(p.name) +
+            '">Restart</button>';
+          html +=
+            '<button class="btn btn-sm" data-compose="up" data-project="' +
+            escapeHtml(p.name) +
+            '" title="Rebuild & up">Yeniden Deploy</button>';
+          html +=
+            '<button class="btn btn-sm" data-compose="down" data-project="' +
+            escapeHtml(p.name) +
+            '" style="color:var(--red);">Durdur</button>';
         }
-        html += '<button class="btn btn-sm" data-compose-logs="' + escapeHtml(p.name) + '">Loglar</button>';
+        html +=
+          '<button class="btn btn-sm" data-compose-logs="' +
+          escapeHtml(p.name) +
+          '">Loglar</button>';
         html += "</div>";
       }
 
@@ -143,15 +203,25 @@ function render() {
   }
 
   // All containers section
-  html += '<div class="section-label" style="margin-bottom:12px; margin-top:24px;">Tum Container\'lar (' + containers.length + ")</div>";
+  html +=
+    '<div class="section-label" style="margin-bottom:12px; margin-top:24px;">Tum Container\'lar (' +
+    containers.length +
+    ")</div>";
 
   if (containers.length === 0) {
-    html += '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px;">Container yok</div>';
+    html +=
+      '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px;">Container yok</div>';
   } else {
-    html += '<table class="ports-table"><thead><tr><th>Ad</th><th>Image</th><th>Durum</th><th>Portlar</th><th>CPU</th><th>RAM</th><th></th></tr></thead><tbody>';
+    html +=
+      '<table class="ports-table"><thead><tr><th>Ad</th><th>Image</th><th>Durum</th><th>Portlar</th><th>CPU</th><th>RAM</th><th></th></tr></thead><tbody>';
     for (const c of containers) {
       html += "<tr>";
-      html += '<td><span style="color:' + stateColor(c.state) + '; margin-right:6px;">●</span>' + escapeHtml(c.name) + "</td>";
+      html +=
+        '<td><span style="color:' +
+        stateColor(c.state) +
+        '; margin-right:6px;">●</span>' +
+        escapeHtml(c.name) +
+        "</td>";
       html += "<td>" + escapeHtml(c.image) + "</td>";
       html += "<td>" + escapeHtml(c.status) + "</td>";
       html += '<td style="font-size:11px;">' + escapeHtml(c.ports || "-") + "</td>";
@@ -159,12 +229,26 @@ function render() {
       html += "<td>" + escapeHtml(c.stats ? c.stats.mem : "-") + "</td>";
       html += '<td style="text-align:right; white-space:nowrap;">';
       if (c.state === "running") {
-        html += '<button class="btn btn-sm" data-container-action="restart" data-id="' + escapeHtml(c.id) + '" style="margin-right:4px;">Restart</button>';
-        html += '<button class="btn btn-sm" data-container-action="stop" data-id="' + escapeHtml(c.id) + '" style="color:var(--red); margin-right:4px;">Durdur</button>';
+        html +=
+          '<button class="btn btn-sm" data-container-action="restart" data-id="' +
+          escapeHtml(c.id) +
+          '" style="margin-right:4px;">Restart</button>';
+        html +=
+          '<button class="btn btn-sm" data-container-action="stop" data-id="' +
+          escapeHtml(c.id) +
+          '" style="color:var(--red); margin-right:4px;">Durdur</button>';
       } else {
-        html += '<button class="btn btn-sm btn-primary" data-container-action="start" data-id="' + escapeHtml(c.id) + '" style="margin-right:4px;">Baslat</button>';
+        html +=
+          '<button class="btn btn-sm btn-primary" data-container-action="start" data-id="' +
+          escapeHtml(c.id) +
+          '" style="margin-right:4px;">Baslat</button>';
       }
-      html += '<button class="btn btn-sm" data-container-logs="' + escapeHtml(c.id) + '" data-name="' + escapeHtml(c.name) + '">Log</button>';
+      html +=
+        '<button class="btn btn-sm" data-container-logs="' +
+        escapeHtml(c.id) +
+        '" data-name="' +
+        escapeHtml(c.name) +
+        '">Log</button>';
       html += "</td></tr>";
     }
     html += "</tbody></table>";
@@ -175,7 +259,7 @@ function render() {
 }
 
 function attachHandlers(root) {
-  root.querySelectorAll("[data-container-action]").forEach(btn => {
+  root.querySelectorAll("[data-container-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const action = btn.dataset.containerAction;
       const id = btn.dataset.id;
@@ -192,7 +276,7 @@ function attachHandlers(root) {
     });
   });
 
-  root.querySelectorAll("[data-compose]").forEach(btn => {
+  root.querySelectorAll("[data-compose]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const action = btn.dataset.compose;
       const project = btn.dataset.project;
@@ -213,7 +297,7 @@ function attachHandlers(root) {
     });
   });
 
-  root.querySelectorAll("[data-compose-logs]").forEach(btn => {
+  root.querySelectorAll("[data-compose-logs]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const project = btn.dataset.composeLogs;
       try {
@@ -225,7 +309,7 @@ function attachHandlers(root) {
     });
   });
 
-  root.querySelectorAll("[data-container-logs]").forEach(btn => {
+  root.querySelectorAll("[data-container-logs]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.containerLogs;
       const name = btn.dataset.name;
@@ -252,8 +336,12 @@ function showOutput(title, text) {
       '<div class="modal-actions"><button class="btn" id="dockerOutputClose">Kapat</button></div>' +
       "</div>";
     document.body.appendChild(modal);
-    modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("active"); });
-    modal.querySelector("#dockerOutputClose").addEventListener("click", () => modal.classList.remove("active"));
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.classList.remove("active");
+    });
+    modal
+      .querySelector("#dockerOutputClose")
+      .addEventListener("click", () => modal.classList.remove("active"));
   }
   modal.querySelector("#dockerOutputTitle").textContent = title;
   modal.querySelector("#dockerOutputBody").textContent = text || "(bos)";

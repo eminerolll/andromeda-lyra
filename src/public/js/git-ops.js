@@ -29,7 +29,9 @@ function ensureModal() {
   `;
   document.body.appendChild(modal);
   modal.querySelector("#gitOpCloseBtn").addEventListener("click", closeModal);
-  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
   return modal;
 }
 
@@ -43,15 +45,20 @@ function openModal(title, subtitle) {
   modal.classList.add("active");
   document.getElementById("gitOpTitle").textContent = title || "Git Islemi";
   document.getElementById("gitOpSubtitle").textContent = subtitle || "";
-  document.getElementById("gitOpOutput").innerHTML = '<div class="git-op-spinner">Calisiyor...</div>';
+  document.getElementById("gitOpOutput").innerHTML =
+    '<div class="git-op-spinner">Calisiyor...</div>';
   document.getElementById("gitOpConflict").style.display = "none";
   document.getElementById("gitOpConflictButtons").innerHTML = "";
 }
 
 function renderOutput(result) {
   const out = document.getElementById("gitOpOutput");
-  const stdout = result.stdout ? `<div class="git-op-stdout">${escapeHtml(result.stdout)}</div>` : "";
-  const stderr = result.stderr ? `<div class="git-op-stderr">${escapeHtml(result.stderr)}</div>` : "";
+  const stdout = result.stdout
+    ? `<div class="git-op-stdout">${escapeHtml(result.stdout)}</div>`
+    : "";
+  const stderr = result.stderr
+    ? `<div class="git-op-stderr">${escapeHtml(result.stderr)}</div>`
+    : "";
   const statusBadge = result.ok
     ? '<span class="git-op-status ok">BASARILI (exit 0)</span>'
     : `<span class="git-op-status fail">BASARISIZ (exit ${result.exitCode})</span>`;
@@ -103,7 +110,7 @@ function renderConflict(result) {
     buttons.innerHTML = html;
     container.style.display = "";
 
-    buttons.querySelectorAll("[data-resolve]").forEach(btn => {
+    buttons.querySelectorAll("[data-resolve]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const resolveAction = btn.dataset.resolve;
         let newAction = resolveAction;
@@ -118,18 +125,18 @@ function renderConflict(result) {
 
 function actionTitle(action) {
   const titles = {
-    "pull": "Git Pull",
-    "push": "Git Push",
-    "fetch": "Git Fetch",
-    "stash": "Git Stash",
+    pull: "Git Pull",
+    push: "Git Push",
+    fetch: "Git Fetch",
+    stash: "Git Stash",
     "stash-pop": "Stash Pop",
-    "commit": "Git Commit",
+    commit: "Git Commit",
     "reset-hard": "Hard Reset",
     "stash-pull": "Stash + Pull + Pop",
     "discard-pull": "Discard + Pull",
     "pull-then-push": "Pull then Push",
     "force-push": "Force Push",
-    "checkout": "Checkout",
+    checkout: "Checkout",
     "create-branch": "Yeni Branch"
   };
   return titles[action] || action;
@@ -183,6 +190,9 @@ export async function promptAndCreateBranch(project) {
 }
 
 export async function confirmAndResetHard(project) {
-  if (!confirm(`${project}: TUM yerel degisiklikler silinecek (git reset --hard HEAD). Emin misin?`)) return;
+  if (
+    !confirm(`${project}: TUM yerel degisiklikler silinecek (git reset --hard HEAD). Emin misin?`)
+  )
+    return;
   await runGitOp(project, "reset-hard");
 }

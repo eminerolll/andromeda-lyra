@@ -51,19 +51,22 @@ if (SETUP_MODE) {
   app.get("/", (req, res) => {
     if (users.exists()) {
       // Setup zaten tamamlanmis, normal mode'a yonlendir
-      return res.type("text/plain").send(
-        "Kurulum tamamlanmis. Lyra'yi yeniden baslat (LYRA_SETUP_MODE=1 olmadan)."
-      );
+      return res
+        .type("text/plain")
+        .send("Kurulum tamamlanmis. Lyra'yi yeniden baslat (LYRA_SETUP_MODE=1 olmadan).");
     }
     res.sendFile(path.join(__dirname, "public", "setup.html"));
   });
 
   // 404 handler — diger her sey
   app.use((req, res) => {
-    res.status(404).type("text/plain").send(
-      "Lyra kurulum modunda. Sadece /setup ve /api/setup/* aktif.\n" +
-      "Tarayicidan: http://<sunucu-ip>"
-    );
+    res
+      .status(404)
+      .type("text/plain")
+      .send(
+        "Lyra kurulum modunda. Sadece /setup ve /api/setup/* aktif.\n" +
+          "Tarayicidan: http://<sunucu-ip>"
+      );
   });
 
   const server = http.createServer(app);
@@ -219,9 +222,13 @@ server.on("upgrade", (req, socket, head) => {
       if (req.session && req.session.userId) {
         pathProxy.forwardWs(req, socket, head, pathMatch);
       } else {
-        ban.noteUnauthorized(ban.requestIp(req), { path: req.url }, {
-          hasSession: auth.hasSessionCookie(req)
-        });
+        ban.noteUnauthorized(
+          ban.requestIp(req),
+          { path: req.url },
+          {
+            hasSession: auth.hasSessionCookie(req)
+          }
+        );
         socket.destroy();
       }
     });
@@ -235,9 +242,13 @@ server.on("upgrade", (req, socket, head) => {
       } else {
         // WS upgrade de auto-ban sayacini beslemeli; aksi halde saldirgan
         // login formuna hic dokunmadan sinirsiz deneme yapabilir.
-        ban.noteUnauthorized(ban.requestIp(req), { path: req.url }, {
-          hasSession: auth.hasSessionCookie(req)
-        });
+        ban.noteUnauthorized(
+          ban.requestIp(req),
+          { path: req.url },
+          {
+            hasSession: auth.hasSessionCookie(req)
+          }
+        );
         socket.destroy();
       }
     });
@@ -267,9 +278,10 @@ const bindAddr = config.get("bind_address") || "127.0.0.1";
 server.listen(config.PORT, bindAddr, () => {
   const setupOk = config.isSetupComplete();
   const status = setupOk ? "yapilandirilmis" : "KURULUM GEREKLI (npm run setup)";
-  const accessHint = bindAddr === "0.0.0.0"
-    ? `LAN'dan: http://<sunucu-ip>:${config.PORT}`
-    : `Localhost: http://${bindAddr}:${config.PORT}`;
+  const accessHint =
+    bindAddr === "0.0.0.0"
+      ? `LAN'dan: http://<sunucu-ip>:${config.PORT}`
+      : `Localhost: http://${bindAddr}:${config.PORT}`;
   console.log(`${config.get("app_name") || "Lyra"} ${accessHint} — ${status}`);
 });
 

@@ -112,7 +112,9 @@ function getWsUrl(source) {
 
 function connect(source) {
   if (ws) {
-    try { ws.close(); } catch (e) {}
+    try {
+      ws.close();
+    } catch (e) {}
     ws = null;
   }
 
@@ -164,7 +166,9 @@ async function loadSources() {
       selectSource(sources[0].name);
     } else if (sources.length === 0) {
       const container = document.getElementById("logsView");
-      if (container) container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">Sistemde log okunabilecek servis bulunamadi</div>';
+      if (container)
+        container.innerHTML =
+          '<div style="padding:20px; text-align:center; color:var(--text-muted);">Sistemde log okunabilecek servis bulunamadi</div>';
     }
   } catch (e) {
     toast(e.message, "error");
@@ -174,19 +178,42 @@ async function loadSources() {
 function renderSources() {
   const container = document.getElementById("logsSources");
   if (!container) return;
-  const items = sources.map(s => {
-    const dotClass = s.status === "active" ? "active" : s.status === "failed" ? "failed" : s.status === "activating" ? "activating" : "inactive";
-    const activeCls = s.name === activeSource ? " active" : "";
-    // unit adi / aciklama DB'den (servis tablosu) gelir ve tirnakli
-    // nitelik icine yazilir — escape sart.
-    return '<div class="logs-source' + activeCls + '" data-source="' + escapeHtml(s.name) + '" title="' + escapeHtml(s.description) + ' (' + escapeHtml(s.status) + ')">' +
-      '<span class="logs-source-dot ' + dotClass + '"></span>' +
-      '<span>' + escapeHtml(s.name) + '</span>' +
-      '</div>';
-  }).join("");
+  const items = sources
+    .map((s) => {
+      const dotClass =
+        s.status === "active"
+          ? "active"
+          : s.status === "failed"
+            ? "failed"
+            : s.status === "activating"
+              ? "activating"
+              : "inactive";
+      const activeCls = s.name === activeSource ? " active" : "";
+      // unit adi / aciklama DB'den (servis tablosu) gelir ve tirnakli
+      // nitelik icine yazilir — escape sart.
+      return (
+        '<div class="logs-source' +
+        activeCls +
+        '" data-source="' +
+        escapeHtml(s.name) +
+        '" title="' +
+        escapeHtml(s.description) +
+        " (" +
+        escapeHtml(s.status) +
+        ')">' +
+        '<span class="logs-source-dot ' +
+        dotClass +
+        '"></span>' +
+        "<span>" +
+        escapeHtml(s.name) +
+        "</span>" +
+        "</div>"
+      );
+    })
+    .join("");
   container.innerHTML = '<div class="logs-sources-title">Kaynaklar</div>' + items;
 
-  container.querySelectorAll("[data-source]").forEach(el => {
+  container.querySelectorAll("[data-source]").forEach((el) => {
     el.addEventListener("click", () => selectSource(el.dataset.source));
   });
 }
@@ -210,9 +237,9 @@ function setupToolbar() {
     });
   }
 
-  document.querySelectorAll(".logs-filter-btn").forEach(btn => {
+  document.querySelectorAll(".logs-filter-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".logs-filter-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".logs-filter-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       levelFilter = btn.dataset.level;
       applyFilters();

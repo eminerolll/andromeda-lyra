@@ -11,7 +11,7 @@ export function init() {
   initialized = true;
 
   // Tab switcher
-  document.querySelectorAll(".settings-tab-btn").forEach(btn => {
+  document.querySelectorAll(".settings-tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   });
 
@@ -59,10 +59,10 @@ export async function openSettings() {
 
 function switchTab(name) {
   currentTab = name;
-  document.querySelectorAll(".settings-tab-btn").forEach(b => {
+  document.querySelectorAll(".settings-tab-btn").forEach((b) => {
     b.classList.toggle("active", b.dataset.tab === name);
   });
-  document.querySelectorAll(".settings-tab-pane").forEach(p => {
+  document.querySelectorAll(".settings-tab-pane").forEach((p) => {
     p.style.display = p.id === `settings-tab-${name}` ? "" : "none";
   });
 }
@@ -95,7 +95,7 @@ async function loadHealthSummary() {
     ];
 
     const allServices = [...(h.services || []), ...(h.auxServices || [])];
-    const serviceRows = allServices.map(s => [
+    const serviceRows = allServices.map((s) => [
       s.display_name + (s.port ? ` :${s.port}` : ""),
       `<span style="color:${s.status === "active" ? "var(--green)" : "var(--red)"}">${escapeHtml(s.status || "bilinmiyor")}</span>`
     ]);
@@ -133,7 +133,9 @@ async function loadGeneral() {
     setVal("setProjects_dir", data.projects_dir);
     setVal("setSecondary_disk", data.secondary_disk);
     setVal("setProd_apps_dir", data.prod_apps_dir);
-  } catch (e) { console.error("loadGeneral:", e); }
+  } catch (e) {
+    console.error("loadGeneral:", e);
+  }
 }
 
 async function saveGeneral() {
@@ -166,13 +168,16 @@ async function loadAccess() {
     setVal("setSubdomain_db", data.subdomain_db);
     setVal("setSubdomain_dev_pattern", data.subdomain_dev_pattern);
     document.getElementById("accessRestartHint").style.display = "none";
-  } catch (e) { console.error("loadAccess:", e); }
+  } catch (e) {
+    console.error("loadAccess:", e);
+  }
 }
 
 function checkRestartHint() {
   const newBind = getVal("setBind_address");
   const newPublic = document.getElementById("setPublic_access").checked;
-  const changed = newBind !== accessOriginal.bind_address || newPublic !== !!accessOriginal.public_access;
+  const changed =
+    newBind !== accessOriginal.bind_address || newPublic !== !!accessOriginal.public_access;
   document.getElementById("accessRestartHint").style.display = changed ? "" : "none";
 }
 
@@ -207,11 +212,15 @@ async function loadServices() {
   try {
     const data = await api("/api/services");
     if (!data.services.length) {
-      list.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Henüz servis kayıtlı değil.</div>';
+      list.innerHTML =
+        '<div style="text-align:center; padding:20px; color:var(--text-muted);">Henüz servis kayıtlı değil.</div>';
       return;
     }
-    list.innerHTML = '<table class="ports-table"><thead><tr><th>Unit</th><th>İsim</th><th>Type</th><th>Port</th><th>Durum</th><th></th></tr></thead><tbody>' +
-      data.services.map(s => `
+    list.innerHTML =
+      '<table class="ports-table"><thead><tr><th>Unit</th><th>İsim</th><th>Type</th><th>Port</th><th>Durum</th><th></th></tr></thead><tbody>' +
+      data.services
+        .map(
+          (s) => `
         <tr>
           <td><code style="font-family:var(--mono); font-size:12px;">${escapeHtml(s.unit_name)}</code></td>
           <td>${escapeHtml(s.display_name)}</td>
@@ -225,12 +234,15 @@ async function loadServices() {
           </td>
           <td><button class="btn btn-sm" data-remove-id="${s.id}" style="color:var(--red)">Sil</button></td>
         </tr>
-      `).join("") + "</tbody></table>";
+      `
+        )
+        .join("") +
+      "</tbody></table>";
 
-    list.querySelectorAll("[data-toggle-id]").forEach(el => {
+    list.querySelectorAll("[data-toggle-id]").forEach((el) => {
       el.addEventListener("change", () => toggleService(parseInt(el.dataset.toggleId), el.checked));
     });
-    list.querySelectorAll("[data-remove-id]").forEach(el => {
+    list.querySelectorAll("[data-remove-id]").forEach((el) => {
       el.addEventListener("click", () => removeService(parseInt(el.dataset.removeId)));
     });
   } catch (e) {
@@ -242,7 +254,9 @@ async function toggleService(id, enabled) {
   try {
     await api(`/api/services/${id}`, { method: "PUT", body: { enabled: enabled ? 1 : 0 } });
     loadServices();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function removeService(id) {
@@ -251,7 +265,9 @@ async function removeService(id) {
     await api(`/api/services/${id}`, { method: "DELETE" });
     toast("Servis silindi");
     loadServices();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function addServicePrompt() {
@@ -259,7 +275,10 @@ async function addServicePrompt() {
   if (!unit) return;
   const display = prompt("Görünen ad", unit);
   if (!display) return;
-  const type = prompt("Type (code-server / cloudflared / filebrowser / dbgate / mongod / custom)", "custom");
+  const type = prompt(
+    "Type (code-server / cloudflared / filebrowser / dbgate / mongod / custom)",
+    "custom"
+  );
   if (!type) return;
   const port = prompt("Port (opsiyonel)", "");
   try {
@@ -269,7 +288,9 @@ async function addServicePrompt() {
     });
     toast("Servis eklendi");
     loadServices();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 // ─── Güvenlik ───
@@ -283,7 +304,9 @@ async function loadSecurity() {
     setVal("setAuto_ban_window_minutes", data.auto_ban_window_minutes);
     setVal("setAuto_ban_duration_minutes", data.auto_ban_duration_minutes);
     setVal("setSession_ttl_days", data.session_ttl_days);
-  } catch (e) { console.error("loadSecurity:", e); }
+  } catch (e) {
+    console.error("loadSecurity:", e);
+  }
 }
 
 async function saveSecurity() {
@@ -299,7 +322,9 @@ async function saveSecurity() {
   try {
     await api("/api/settings/security", { method: "PUT", body });
     toast("Güvenlik ayarları kaydedildi");
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 // ─── Banlı IP'ler ───
@@ -312,8 +337,11 @@ async function loadBans() {
       list.innerHTML = '<div style="padding:12px 0; color:var(--text-muted);">Banlı IP yok.</div>';
       return;
     }
-    list.innerHTML = '<table class="ports-table"><thead><tr><th>IP</th><th>Sebep</th><th>Banlandı</th><th>Bitiş</th><th>Kaynak</th><th></th></tr></thead><tbody>' +
-      data.bans.map(b => `
+    list.innerHTML =
+      '<table class="ports-table"><thead><tr><th>IP</th><th>Sebep</th><th>Banlandı</th><th>Bitiş</th><th>Kaynak</th><th></th></tr></thead><tbody>' +
+      data.bans
+        .map(
+          (b) => `
         <tr>
           <td><code style="font-family:var(--mono); font-size:12px;">${escapeHtml(b.ip)}</code></td>
           <td>${escapeHtml(b.reason || "-")}</td>
@@ -322,9 +350,12 @@ async function loadBans() {
           <td>${escapeHtml(b.banned_by || "-")}</td>
           <td><button class="btn btn-sm" data-unban-ip="${escapeHtml(b.ip)}">Kaldır</button></td>
         </tr>
-      `).join("") + "</tbody></table>";
+      `
+        )
+        .join("") +
+      "</tbody></table>";
 
-    list.querySelectorAll("[data-unban-ip]").forEach(el => {
+    list.querySelectorAll("[data-unban-ip]").forEach((el) => {
       el.addEventListener("click", () => removeBan(el.dataset.unbanIp));
     });
   } catch (e) {
@@ -347,7 +378,9 @@ async function addBan() {
     setVal("banReason", "");
     setVal("banDuration", "");
     loadBans();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function removeBan(ip) {
@@ -356,7 +389,9 @@ async function removeBan(ip) {
     await api(`/api/bans/${encodeURIComponent(ip)}`, { method: "DELETE" });
     toast(`${ip} banı kaldırıldı`);
     loadBans();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 // ─── Olay geçmişi (audit log) ───
@@ -372,14 +407,18 @@ async function loadAuditLog() {
       el.innerHTML = '<div style="color:var(--text-muted);">Kayıt yok.</div>';
       return;
     }
-    el.innerHTML = data.events.map(ev => `
+    el.innerHTML = data.events
+      .map(
+        (ev) => `
       <div style="display:flex; gap:8px; padding:3px 0; border-bottom:1px solid var(--border);">
         <span style="color:var(--text-muted); white-space:nowrap;">${formatTs(ev.ts)}</span>
         <span style="color:var(--accent); white-space:nowrap;">${escapeHtml(ev.event_type)}</span>
         <span style="color:var(--text-muted); white-space:nowrap;">${escapeHtml(ev.ip || "-")}</span>
         <span style="opacity:0.8; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(ev.details ? JSON.stringify(ev.details) : "")}</span>
       </div>
-    `).join("");
+    `
+      )
+      .join("");
   } catch (e) {
     el.innerHTML = `<div style="color:var(--red)">${escapeHtml(e.message)}</div>`;
   }
@@ -420,12 +459,16 @@ async function loadIntegration(name, containerId, opts) {
   try {
     const data = await api(`/api/integrations/${name}`);
     const cfg = data.config || {};
-    const inputs = opts.fields.map(f => `
+    const inputs = opts.fields
+      .map(
+        (f) => `
       <div class="form-group">
         <label class="form-label">${f.label}</label>
         <input type="${f.type}" class="form-input" data-int-key="${f.key}" value="${escapeHtml(cfg[f.key] || "")}">
       </div>
-    `).join("");
+    `
+      )
+      .join("");
     el.innerHTML = `
       <div style="margin-bottom:8px;">
         <label style="display:flex; align-items:center; gap:8px;">
@@ -438,8 +481,12 @@ async function loadIntegration(name, containerId, opts) {
       <button class="btn btn-primary btn-sm" data-int-save="${name}">Kaydet</button>
       <button class="btn btn-sm" data-int-remove="${name}" style="color:var(--red);">Sil</button>
     `;
-    el.querySelector(`[data-int-save="${name}"]`).addEventListener("click", () => saveIntegration(name, el, opts));
-    el.querySelector(`[data-int-remove="${name}"]`).addEventListener("click", () => removeIntegration(name));
+    el.querySelector(`[data-int-save="${name}"]`).addEventListener("click", () =>
+      saveIntegration(name, el, opts)
+    );
+    el.querySelector(`[data-int-remove="${name}"]`).addEventListener("click", () =>
+      removeIntegration(name)
+    );
   } catch (e) {
     el.innerHTML = `<div style="color:var(--red)">${escapeHtml(e.message)}</div>`;
   }
@@ -454,7 +501,9 @@ async function saveIntegration(name, container, opts) {
   try {
     await api(`/api/integrations/${name}`, { method: "PUT", body: { enabled, config } });
     toast(`${name} kaydedildi`);
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function removeIntegration(name) {
@@ -463,7 +512,9 @@ async function removeIntegration(name) {
     await api(`/api/integrations/${name}`, { method: "DELETE" });
     toast("Silindi");
     loadIntegrations();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 // ─── 2FA ───
@@ -501,7 +552,9 @@ async function enable2FA() {
       <button class="btn btn-primary" id="btnVerify2FA">Aktif Et</button>
     `;
     document.getElementById("btnVerify2FA").addEventListener("click", verify2FA);
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function verify2FA() {
@@ -510,7 +563,9 @@ async function verify2FA() {
     await api("/api/2fa/verify", { method: "POST", body: { code } });
     toast("2FA aktif edildi");
     load2FA();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function disable2FA() {
@@ -519,7 +574,9 @@ async function disable2FA() {
     await api("/api/2fa/disable", { method: "POST", body: { code } });
     toast("2FA kapatıldı");
     load2FA();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 // ─── Şifre değiştirme ───
@@ -535,7 +592,9 @@ async function changePassword() {
     toast("Şifre değiştirildi");
     document.getElementById("currentPassword").value = "";
     document.getElementById("newPassword").value = "";
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 // ─── Yardımcılar ───

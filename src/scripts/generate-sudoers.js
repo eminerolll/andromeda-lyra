@@ -85,7 +85,7 @@ function buildPersistent() {
     "# Bu satirlar yalnizca burada listelenen komutlari sifresiz calistirma izni verir.",
     ""
   ];
-  const body = RULES.map(cmd => `${user} ALL=(root) NOPASSWD: ${cmd}`);
+  const body = RULES.map((cmd) => `${user} ALL=(root) NOPASSWD: ${cmd}`);
   return [...header, ...body, ""].join("\n");
 }
 
@@ -116,7 +116,9 @@ if (printOnly) {
 }
 
 if (process.getuid && process.getuid() !== 0) {
-  console.error("Bu script root yetkisi ister. `sudo node scripts/generate-sudoers.js` calistirin.");
+  console.error(
+    "Bu script root yetkisi ister. `sudo node scripts/generate-sudoers.js` calistirin."
+  );
   console.error("Veya icerigi gormek icin: node scripts/generate-sudoers.js --print");
   process.exit(1);
 }
@@ -143,4 +145,6 @@ fs.chmodSync(out, 0o440);
 
 console.log(`Yazildi: ${out}`);
 console.log(`Kullanici: ${user}`);
-console.log(setupMode ? "Kapsam: GECICI tam yetki (kurulum bitince silinir)" : `Komut sayisi: ${RULES.length}`);
+console.log(
+  setupMode ? "Kapsam: GECICI tam yetki (kurulum bitince silinir)" : `Komut sayisi: ${RULES.length}`
+);

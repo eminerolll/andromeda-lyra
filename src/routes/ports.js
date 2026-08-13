@@ -9,7 +9,15 @@ const { settings, services } = require("../db/repos");
 const router = express.Router();
 
 const DEFAULT_SYSTEM_PORTS = [22, 53, 80, 443, 631];
-const DEFAULT_HIDDEN_PROCESSES = ["sshd", "systemd-resolve", "systemd", "cloudflared", "nginx", "cupsd", "cups-browsed"];
+const DEFAULT_HIDDEN_PROCESSES = [
+  "sshd",
+  "systemd-resolve",
+  "systemd",
+  "cloudflared",
+  "nginx",
+  "cupsd",
+  "cups-browsed"
+];
 
 const SCAN_INTERVAL = 5000;
 let lastPorts = [];
@@ -21,7 +29,10 @@ function getSystemPorts() {
   // Kayitli servislerin portlari runtime'da da korunur: setup oncesi kurulmus
   // sistemlerde system_ports seed edilmemis olabilir, code-server "dev port"
   // gorunup panelden oldurulebiliyordu.
-  const servicePorts = services.list().map(s => s.port).filter(Boolean);
+  const servicePorts = services
+    .list()
+    .map((s) => s.port)
+    .filter(Boolean);
   // Lyra'nin kendisi de sistem portu sayilsin
   return [...new Set([...(fromSettings || []), ...servicePorts, config.PORT])];
 }
@@ -35,8 +46,8 @@ function classify(ports) {
   const hidden = new Set(getHiddenProcesses());
   const isSystem = (p) => sysPorts.has(p.port) || hidden.has(p.process);
   return {
-    user: ports.filter(p => !isSystem(p)),
-    system: ports.filter(p => isSystem(p))
+    user: ports.filter((p) => !isSystem(p)),
+    system: ports.filter((p) => isSystem(p))
   };
 }
 
@@ -52,12 +63,17 @@ router.post("/api/ports/:port/kill", (req, res) => {
   }
   const hidden = new Set(getHiddenProcesses());
   scanPorts((ports) => {
-    const entry = ports.find(p => p.port === port);
+    const entry = ports.find((p) => p.port === port);
     if (!entry || !entry.pid) return res.status(404).json({ error: "Port bulunamadi" });
-    if (hidden.has(entry.process)) return res.status(403).json({ error: "Sistem servisleri durdurulamaz" });
+    if (hidden.has(entry.process))
+      return res.status(403).json({ error: "Sistem servisleri durdurulamaz" });
     try {
       process.kill(entry.pid, "SIGTERM");
-      setTimeout(() => { try { process.kill(entry.pid, "SIGKILL"); } catch (_) {} }, 5000);
+      setTimeout(() => {
+        try {
+          process.kill(entry.pid, "SIGKILL");
+        } catch (_) {}
+      }, 5000);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: err.message });

@@ -122,7 +122,12 @@ router.post("/api/2fa/verify", auth.requireAuth, (req, res) => {
   }
   users.setTotp(req.session.userId, { secret, enabled: true });
   delete req.session.pendingTotpSecret;
-  notifier.settingChanged({ key: "totp_enabled", newValue: true, userId: req.session.userId, ip: req.ip });
+  notifier.settingChanged({
+    key: "totp_enabled",
+    newValue: true,
+    userId: req.session.userId,
+    ip: req.ip
+  });
   res.json({ success: true });
 });
 

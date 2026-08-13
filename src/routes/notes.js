@@ -27,7 +27,8 @@ function projectExists(projectName) {
 
 router.get("/api/notes/:project", (req, res) => {
   const projectName = req.params.project;
-  if (!isValidProjectName(projectName)) return res.status(400).json({ error: "Gecersiz proje adi" });
+  if (!isValidProjectName(projectName))
+    return res.status(400).json({ error: "Gecersiz proje adi" });
   if (!projectExists(projectName)) return res.status(404).json({ error: "Proje bulunamadi" });
   const p = notePath(projectName);
   if (!fs.existsSync(p)) return res.json({ content: "" });
@@ -40,11 +41,13 @@ router.get("/api/notes/:project", (req, res) => {
 
 router.put("/api/notes/:project", (req, res) => {
   const projectName = req.params.project;
-  if (!isValidProjectName(projectName)) return res.status(400).json({ error: "Gecersiz proje adi" });
+  if (!isValidProjectName(projectName))
+    return res.status(400).json({ error: "Gecersiz proje adi" });
   if (!projectExists(projectName)) return res.status(404).json({ error: "Proje bulunamadi" });
   const { content } = req.body || {};
   if (typeof content !== "string") return res.status(400).json({ error: "content string olmali" });
-  if (Buffer.byteLength(content, "utf8") > MAX_NOTE_SIZE) return res.status(413).json({ error: "Not cok buyuk (max 1MB)" });
+  if (Buffer.byteLength(content, "utf8") > MAX_NOTE_SIZE)
+    return res.status(413).json({ error: "Not cok buyuk (max 1MB)" });
   try {
     fs.writeFileSync(notePath(projectName), content, "utf8");
     res.json({ success: true, size: Buffer.byteLength(content, "utf8") });

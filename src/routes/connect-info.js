@@ -49,7 +49,7 @@ router.get("/api/connect-info", async (req, res) => {
     info.finalUrls = [`http://localhost:${port}`];
   } else if (bindAddr === "0.0.0.0") {
     // LAN modu
-    info.finalUrls = info.lanIps.map(ip => `http://${ip}:${port}`);
+    info.finalUrls = info.lanIps.map((ip) => `http://${ip}:${port}`);
     if (info.publicIp) info.finalUrls.push(`http://${info.publicIp}:${port}`);
   } else if (config.get("public_access") && config.get("base_domain")) {
     info.finalUrls = [`https://${config.get("base_domain")}`];

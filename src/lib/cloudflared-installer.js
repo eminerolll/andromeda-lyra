@@ -48,7 +48,9 @@ async function install({ onLog }) {
   } catch (err) {
     return { ok: false, error: `Kurulum basarisiz: ${err.message}` };
   } finally {
-    try { fs.unlinkSync(tmp); } catch (_) {}
+    try {
+      fs.unlinkSync(tmp);
+    } catch (_) {}
   }
 
   log(`cloudflared kuruldu: ${getVersion() || "version unknown"}`);
@@ -78,7 +80,8 @@ async function installService({ token, onLog }) {
   // birkac saniye boyunca cloudflared'in kendi argv'sinde, yani "ps"
   // ciktisinda gorunur. Kalici journal sizintisi giderildi, gecici ps
   // gorunurlugu duruyor. Bkz. SECURITY.md.
-  const privScript = 'IFS= read -r LYRA_CF_TOKEN; exec cloudflared service install "$LYRA_CF_TOKEN"';
+  const privScript =
+    'IFS= read -r LYRA_CF_TOKEN; exec cloudflared service install "$LYRA_CF_TOKEN"';
   try {
     execSync(`sudo -n /bin/sh -c '${privScript}'`, {
       input: `${token}\n`,
@@ -96,7 +99,9 @@ function isServiceActive() {
   try {
     const out = execSync("systemctl is-active cloudflared 2>/dev/null", {
       stdio: ["ignore", "pipe", "ignore"]
-    }).toString().trim();
+    })
+      .toString()
+      .trim();
     return out === "active";
   } catch (_) {
     return false;

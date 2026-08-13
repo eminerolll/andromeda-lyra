@@ -1,519 +1,663 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Giriş</title>
-<link rel="icon" href="/favicon.ico" type="image/x-icon">
-<link rel="stylesheet" href="/css/fonts.css">
-<style>
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Giriş</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/css/fonts.css" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-  :root {
-    --bg: #050508;
-    --surface: #0a0a10;
-    --card: #0f0f18;
-    --card-border: #1a1a2e;
-    --card-glow: rgba(0, 229, 255, 0.04);
-    --text: #eaeaf0;
-    --text-dim: #6b6b80;
-    --text-faint: #3d3d50;
-    --accent: #00e5ff;
-    --accent-rgb: 0, 229, 255;
-    --danger: #ff4070;
-    --success: #00d68f;
-    --mono: 'JetBrains Mono', monospace;
-    --sans: 'Inter', -apple-system, sans-serif;
-  }
+      :root {
+        --bg: #050508;
+        --surface: #0a0a10;
+        --card: #0f0f18;
+        --card-border: #1a1a2e;
+        --card-glow: rgba(0, 229, 255, 0.04);
+        --text: #eaeaf0;
+        --text-dim: #6b6b80;
+        --text-faint: #3d3d50;
+        --accent: #00e5ff;
+        --accent-rgb: 0, 229, 255;
+        --danger: #ff4070;
+        --success: #00d68f;
+        --mono: "JetBrains Mono", monospace;
+        --sans: "Inter", -apple-system, sans-serif;
+      }
 
-  html, body { height: 100%; }
+      html,
+      body {
+        height: 100%;
+      }
 
-  body {
-    font-family: var(--sans);
-    background: var(--bg);
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-  }
+      body {
+        font-family: var(--sans);
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
 
-  /* animated background */
-  .bg-grid {
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-    background-size: 60px 60px;
-    mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent);
-    pointer-events: none;
-  }
+      /* animated background */
+      .bg-grid {
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+        background-size: 60px 60px;
+        mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent);
+        pointer-events: none;
+      }
 
-  .bg-glow {
-    position: fixed;
-    width: 600px;
-    height: 600px;
-    border-radius: 50%;
-    filter: blur(120px);
-    opacity: 0.07;
-    pointer-events: none;
-    animation: float 15s ease-in-out infinite alternate;
-  }
-  .bg-glow.a { background: var(--accent); top: -20%; left: -10%; }
-  .bg-glow.b { background: #7b61ff; bottom: -20%; right: -10%; animation-delay: -7s; }
+      .bg-glow {
+        position: fixed;
+        width: 600px;
+        height: 600px;
+        border-radius: 50%;
+        filter: blur(120px);
+        opacity: 0.07;
+        pointer-events: none;
+        animation: float 15s ease-in-out infinite alternate;
+      }
+      .bg-glow.a {
+        background: var(--accent);
+        top: -20%;
+        left: -10%;
+      }
+      .bg-glow.b {
+        background: #7b61ff;
+        bottom: -20%;
+        right: -10%;
+        animation-delay: -7s;
+      }
 
-  @keyframes float {
-    0% { transform: translate(0, 0) scale(1); }
-    100% { transform: translate(40px, -30px) scale(1.15); }
-  }
+      @keyframes float {
+        0% {
+          transform: translate(0, 0) scale(1);
+        }
+        100% {
+          transform: translate(40px, -30px) scale(1.15);
+        }
+      }
 
-  /* container */
-  .container {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 420px;
-    padding: 24px;
-  }
+      /* container */
+      .container {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 420px;
+        padding: 24px;
+      }
 
-  /* logo */
-  .brand {
-    text-align: center;
-    margin-bottom: 40px;
-    animation: fadeDown 0.8s ease;
-  }
+      /* logo */
+      .brand {
+        text-align: center;
+        margin-bottom: 40px;
+        animation: fadeDown 0.8s ease;
+      }
 
-  .brand-icon {
-    width: 52px;
-    height: 52px;
-    margin: 0 auto 16px;
-    position: relative;
-  }
+      .brand-icon {
+        width: 52px;
+        height: 52px;
+        margin: 0 auto 16px;
+        position: relative;
+      }
 
-  .brand-icon .ring {
-    position: absolute;
-    inset: -4px;
-    border-radius: 18px;
-    border: 1px solid transparent;
-    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.3), transparent 60%) border-box;
-    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    -webkit-mask-composite: xor;
-    animation: spin 8s linear infinite;
-  }
+      .brand-icon .ring {
+        position: absolute;
+        inset: -4px;
+        border-radius: 18px;
+        border: 1px solid transparent;
+        background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.3), transparent 60%)
+          border-box;
+        mask:
+          linear-gradient(#fff 0 0) padding-box,
+          linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+        -webkit-mask-composite: xor;
+        animation: spin 8s linear infinite;
+      }
 
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
-  .brand-icon .inner {
-    width: 100%;
-    height: 100%;
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+      .brand-icon .inner {
+        width: 100%;
+        height: 100%;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-  .brand-icon svg {
-    width: 24px;
-    height: 24px;
-    stroke: var(--accent);
-    fill: none;
-    stroke-width: 1.5;
-  }
+      .brand-icon svg {
+        width: 24px;
+        height: 24px;
+        stroke: var(--accent);
+        fill: none;
+        stroke-width: 1.5;
+      }
 
-  .brand-name {
-    font-family: var(--mono);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 5px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-  }
+      .brand-name {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 5px;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
 
-  /* card */
-  .card {
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: 20px;
-    padding: 40px 36px;
-    position: relative;
-    overflow: hidden;
-    animation: fadeUp 0.6s ease;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 0 rgba(var(--accent-rgb), 0);
-    transition: box-shadow 0.4s ease;
-  }
+      /* card */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 40px 36px;
+        position: relative;
+        overflow: hidden;
+        animation: fadeUp 0.6s ease;
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.4),
+          0 0 0 0 rgba(var(--accent-rgb), 0);
+        transition: box-shadow 0.4s ease;
+      }
 
-  .card:focus-within {
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(var(--accent-rgb), 0.06);
-  }
+      .card:focus-within {
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.4),
+          0 0 40px rgba(var(--accent-rgb), 0.06);
+      }
 
-  .card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 10%, rgba(var(--accent-rgb), 0.4) 50%, transparent 90%);
-  }
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent 10%,
+          rgba(var(--accent-rgb), 0.4) 50%,
+          transparent 90%
+        );
+      }
 
-  .card-title {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-  }
+      .card-title {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+      }
 
-  .card-desc {
-    font-size: 14px;
-    color: var(--text-dim);
-    margin-top: 6px;
-    margin-bottom: 32px;
-    line-height: 1.5;
-  }
+      .card-desc {
+        font-size: 14px;
+        color: var(--text-dim);
+        margin-top: 6px;
+        margin-bottom: 32px;
+        line-height: 1.5;
+      }
 
-  /* steps */
-  .step { display: none; }
-  .step.active { display: block; animation: fadeUp 0.4s ease; }
+      /* steps */
+      .step {
+        display: none;
+      }
+      .step.active {
+        display: block;
+        animation: fadeUp 0.4s ease;
+      }
 
-  /* form */
-  .field { margin-bottom: 20px; }
+      /* form */
+      .field {
+        margin-bottom: 20px;
+      }
 
-  .field-label {
-    display: block;
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-  }
+      .field-label {
+        display: block;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+      }
 
-  .field-input {
-    width: 100%;
-    padding: 14px 16px;
-    background: var(--bg);
-    border: 1.5px solid var(--card-border);
-    border-radius: 12px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 15px;
-    outline: none;
-    transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
-  }
+      .field-input {
+        width: 100%;
+        padding: 14px 16px;
+        background: var(--bg);
+        border: 1.5px solid var(--card-border);
+        border-radius: 12px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 15px;
+        outline: none;
+        transition:
+          border-color 0.25s,
+          box-shadow 0.25s,
+          background 0.25s;
+      }
 
-  .field-input:focus {
-    border-color: rgba(var(--accent-rgb), 0.5);
-    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.08);
-    background: rgba(var(--accent-rgb), 0.02);
-  }
+      .field-input:focus {
+        border-color: rgba(var(--accent-rgb), 0.5);
+        box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.08);
+        background: rgba(var(--accent-rgb), 0.02);
+      }
 
-  .field-input::placeholder {
-    color: var(--text-faint);
-    font-weight: 400;
-  }
+      .field-input::placeholder {
+        color: var(--text-faint);
+        font-weight: 400;
+      }
 
-  /* 2FA code input */
-  .code-input {
-    text-align: center;
-    font-size: 28px;
-    font-weight: 600;
-    letter-spacing: 12px;
-    padding: 16px;
-  }
+      /* 2FA code input */
+      .code-input {
+        text-align: center;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 12px;
+        padding: 16px;
+      }
 
-  /* button */
-  .btn {
-    width: 100%;
-    padding: 14px;
-    margin-top: 4px;
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    border-radius: 12px;
-    font-family: var(--sans);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.15s, opacity 0.2s;
-  }
+      /* button */
+      .btn {
+        width: 100%;
+        padding: 14px;
+        margin-top: 4px;
+        background: var(--accent);
+        color: var(--bg);
+        border: none;
+        border-radius: 12px;
+        font-family: var(--sans);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition:
+          transform 0.15s,
+          opacity 0.2s;
+      }
 
-  .btn:hover { opacity: 0.9; }
-  .btn:active { transform: scale(0.97); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+      .btn:hover {
+        opacity: 0.9;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+      }
 
-  .btn .loader {
-    display: none;
-    width: 18px;
-    height: 18px;
-    border: 2px solid rgba(5,5,8,0.2);
-    border-top-color: var(--bg);
-    border-radius: 50%;
-    animation: rotate 0.6s linear infinite;
-    margin: 0 auto;
-  }
+      .btn .loader {
+        display: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(5, 5, 8, 0.2);
+        border-top-color: var(--bg);
+        border-radius: 50%;
+        animation: rotate 0.6s linear infinite;
+        margin: 0 auto;
+      }
 
-  .btn.loading .label { visibility: hidden; }
-  .btn.loading .loader { display: block; position: absolute; top: 50%; left: 50%; margin: -9px 0 0 -9px; }
+      .btn.loading .label {
+        visibility: hidden;
+      }
+      .btn.loading .loader {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        margin: -9px 0 0 -9px;
+      }
 
-  @keyframes rotate { to { transform: rotate(360deg); } }
+      @keyframes rotate {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
-  /* error */
-  .error-box {
-    margin-top: 16px;
-    padding: 12px 16px;
-    background: rgba(255, 64, 112, 0.06);
-    border: 1px solid rgba(255, 64, 112, 0.15);
-    border-radius: 10px;
-    font-size: 13px;
-    color: var(--danger);
-    display: none;
-    align-items: center;
-    gap: 8px;
-  }
+      /* error */
+      .error-box {
+        margin-top: 16px;
+        padding: 12px 16px;
+        background: rgba(255, 64, 112, 0.06);
+        border: 1px solid rgba(255, 64, 112, 0.15);
+        border-radius: 10px;
+        font-size: 13px;
+        color: var(--danger);
+        display: none;
+        align-items: center;
+        gap: 8px;
+      }
 
-  .error-box.show { display: flex; animation: shake 0.35s ease; }
-  .error-box svg { width: 16px; height: 16px; stroke: var(--danger); fill: none; stroke-width: 2; flex-shrink: 0; }
+      .error-box.show {
+        display: flex;
+        animation: shake 0.35s ease;
+      }
+      .error-box svg {
+        width: 16px;
+        height: 16px;
+        stroke: var(--danger);
+        fill: none;
+        stroke-width: 2;
+        flex-shrink: 0;
+      }
 
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20% { transform: translateX(-8px); }
-    40% { transform: translateX(6px); }
-    60% { transform: translateX(-4px); }
-    80% { transform: translateX(2px); }
-  }
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        20% {
+          transform: translateX(-8px);
+        }
+        40% {
+          transform: translateX(6px);
+        }
+        60% {
+          transform: translateX(-4px);
+        }
+        80% {
+          transform: translateX(2px);
+        }
+      }
 
-  /* back link for 2FA */
-  .back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--text-dim);
-    text-decoration: none;
-    cursor: pointer;
-    margin-bottom: 20px;
-    transition: color 0.2s;
-  }
-  .back-link:hover { color: var(--text); }
-  .back-link svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+      /* back link for 2FA */
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+        text-decoration: none;
+        cursor: pointer;
+        margin-bottom: 20px;
+        transition: color 0.2s;
+      }
+      .back-link:hover {
+        color: var(--text);
+      }
+      .back-link svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+      }
 
-  /* animations */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+      /* animations */
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-  @keyframes fadeDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+      @keyframes fadeDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-  /* responsive */
-  @media (max-width: 480px) {
-    .card { padding: 32px 24px; border-radius: 16px; }
-    .container { padding: 16px; }
-  }
-</style>
-</head>
-<body>
+      /* responsive */
+      @media (max-width: 480px) {
+        .card {
+          padding: 32px 24px;
+          border-radius: 16px;
+        }
+        .container {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow a"></div>
+    <div class="bg-glow b"></div>
 
-<div class="bg-grid"></div>
-<div class="bg-glow a"></div>
-<div class="bg-glow b"></div>
+    <div class="container">
+      <div class="brand">
+        <div class="brand-icon">
+          <div class="ring"></div>
+          <div class="inner">
+            <img src="/favicon.ico" alt="" style="width: 28px; height: 28px" />
+          </div>
+        </div>
+        <div class="brand-name" id="brandName">LYRA</div>
+      </div>
 
-<div class="container">
-  <div class="brand">
-    <div class="brand-icon">
-      <div class="ring"></div>
-      <div class="inner">
-        <img src="/favicon.ico" alt="" style="width:28px;height:28px;">
+      <div class="card">
+        <!-- Step 1: Password -->
+        <div class="step active" id="stepPassword">
+          <div class="card-title">Hoş geldin</div>
+          <div class="card-desc">Devam etmek için şifreni gir</div>
+          <form id="passwordForm" autocomplete="off">
+            <div class="field">
+              <label class="field-label">Kullanıcı Adı</label>
+              <input
+                type="text"
+                class="field-input"
+                id="username"
+                placeholder="admin"
+                autocomplete="username"
+                autofocus
+                required
+              />
+            </div>
+            <div class="field">
+              <label class="field-label">Şifre</label>
+              <input
+                type="password"
+                class="field-input"
+                id="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+            <button type="submit" class="btn" id="btnPassword">
+              <span class="label">Giriş Yap</span>
+              <div class="loader"></div>
+            </button>
+          </form>
+        </div>
+
+        <!-- Step 2: 2FA -->
+        <div class="step" id="step2FA">
+          <a class="back-link" onclick="goBack()">
+            <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" /></svg>
+            Geri
+          </a>
+          <div class="card-title">Doğrulama</div>
+          <div class="card-desc">Authenticator uygulamanızdaki 6 haneli kodu girin</div>
+          <form id="totpForm" autocomplete="off">
+            <div class="field">
+              <label class="field-label">Doğrulama Kodu</label>
+              <input
+                type="text"
+                class="field-input code-input"
+                id="totp"
+                placeholder="000000"
+                maxlength="6"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                autocomplete="one-time-code"
+                required
+              />
+            </div>
+            <button type="submit" class="btn" id="btn2FA">
+              <span class="label">Doğrula</span>
+              <div class="loader"></div>
+            </button>
+          </form>
+        </div>
+
+        <div class="error-box" id="error">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span id="errorText"></span>
+        </div>
       </div>
     </div>
-    <div class="brand-name" id="brandName">LYRA</div>
-  </div>
 
-  <div class="card">
-    <!-- Step 1: Password -->
-    <div class="step active" id="stepPassword">
-      <div class="card-title">Hoş geldin</div>
-      <div class="card-desc">Devam etmek için şifreni gir</div>
-      <form id="passwordForm" autocomplete="off">
-        <div class="field">
-          <label class="field-label">Kullanıcı Adı</label>
-          <input type="text" class="field-input" id="username" placeholder="admin" autocomplete="username" autofocus required>
-        </div>
-        <div class="field">
-          <label class="field-label">Şifre</label>
-          <input type="password" class="field-input" id="password" placeholder="••••••••" autocomplete="current-password" required>
-        </div>
-        <button type="submit" class="btn" id="btnPassword">
-          <span class="label">Giriş Yap</span>
-          <div class="loader"></div>
-        </button>
-      </form>
-    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let savedPassword = "";
+      let savedUsername = "";
 
-    <!-- Step 2: 2FA -->
-    <div class="step" id="step2FA">
-      <a class="back-link" onclick="goBack()">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-        Geri
-      </a>
-      <div class="card-title">Doğrulama</div>
-      <div class="card-desc">Authenticator uygulamanızdaki 6 haneli kodu girin</div>
-      <form id="totpForm" autocomplete="off">
-        <div class="field">
-          <label class="field-label">Doğrulama Kodu</label>
-          <input type="text" class="field-input code-input" id="totp" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" required>
-        </div>
-        <button type="submit" class="btn" id="btn2FA">
-          <span class="label">Doğrula</span>
-          <div class="loader"></div>
-        </button>
-      </form>
-    </div>
+      fetch("/api/branding")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((b) => {
+          if (b && b.appName) {
+            $("brandName").textContent = b.appName.toUpperCase();
+            document.title = "Giriş — " + b.appName;
+          }
+        })
+        .catch(() => {});
 
-    <div class="error-box" id="error">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span id="errorText"></span>
-    </div>
-  </div>
+      function showError(msg) {
+        $("errorText").textContent = msg;
+        $("error").classList.add("show");
+      }
 
-</div>
+      function hideError() {
+        $("error").classList.remove("show");
+      }
 
-<script>
-const $ = id => document.getElementById(id);
-let savedPassword = '';
-let savedUsername = '';
+      function setLoading(btn, on) {
+        btn.classList.toggle("loading", on);
+        btn.disabled = on;
+      }
 
-fetch('/api/branding').then(r => r.ok ? r.json() : null).then(b => {
-  if (b && b.appName) {
-    $('brandName').textContent = b.appName.toUpperCase();
-    document.title = 'Giriş — ' + b.appName;
-  }
-}).catch(() => {});
+      function goBack() {
+        $("step2FA").classList.remove("active");
+        $("stepPassword").classList.add("active");
+        $("password").value = "";
+        $("password").focus();
+        hideError();
+      }
 
-function showError(msg) {
-  $('errorText').textContent = msg;
-  $('error').classList.add('show');
-}
+      // Password submit
+      $("passwordForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        hideError();
+        const btn = $("btnPassword");
+        const pw = $("password").value;
+        setLoading(btn, true);
 
-function hideError() {
-  $('error').classList.remove('show');
-}
+        const username = $("username").value.trim();
 
-function setLoading(btn, on) {
-  btn.classList.toggle('loading', on);
-  btn.disabled = on;
-}
+        try {
+          const res = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password: pw })
+          });
+          const data = await res.json();
 
-function goBack() {
-  $('step2FA').classList.remove('active');
-  $('stepPassword').classList.add('active');
-  $('password').value = '';
-  $('password').focus();
-  hideError();
-}
+          if (data.success) {
+            window.location.href = "/";
+            return;
+          }
 
-// Password submit
-$('passwordForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  hideError();
-  const btn = $('btnPassword');
-  const pw = $('password').value;
-  setLoading(btn, true);
+          if (data.needs2FA) {
+            savedUsername = username;
+            savedPassword = pw;
+            $("stepPassword").classList.remove("active");
+            $("step2FA").classList.add("active");
+            $("totp").value = "";
+            $("totp").focus();
+            setLoading(btn, false);
+            return;
+          }
 
-  const username = $('username').value.trim();
+          showError(data.error || "Giriş başarısız");
+        } catch (ex) {
+          showError("Sunucuya bağlanılamadı");
+        }
 
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password: pw })
-    });
-    const data = await res.json();
+        setLoading(btn, false);
+      });
 
-    if (data.success) {
-      window.location.href = '/';
-      return;
-    }
+      // 2FA submit
+      $("totpForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        hideError();
+        const btn = $("btn2FA");
+        const code = $("totp").value;
+        if (code.length !== 6) return;
+        setLoading(btn, true);
 
-    if (data.needs2FA) {
-      savedUsername = username;
-      savedPassword = pw;
-      $('stepPassword').classList.remove('active');
-      $('step2FA').classList.add('active');
-      $('totp').value = '';
-      $('totp').focus();
-      setLoading(btn, false);
-      return;
-    }
+        try {
+          const res = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: savedUsername, password: savedPassword, totp: code })
+          });
+          const data = await res.json();
 
-    showError(data.error || 'Giriş başarısız');
-  } catch (ex) {
-    showError('Sunucuya bağlanılamadı');
-  }
+          if (data.success) {
+            window.location.href = "/";
+            return;
+          }
 
-  setLoading(btn, false);
-});
+          showError(data.error || "Doğrulama başarısız");
+        } catch (ex) {
+          showError("Sunucuya bağlanılamadı");
+        }
 
-// 2FA submit
-$('totpForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  hideError();
-  const btn = $('btn2FA');
-  const code = $('totp').value;
-  if (code.length !== 6) return;
-  setLoading(btn, true);
+        setLoading(btn, false);
+      });
 
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: savedUsername, password: savedPassword, totp: code })
-    });
-    const data = await res.json();
+      // Auto-submit when 6 digits entered
+      $("totp").addEventListener("input", (e) => {
+        e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+        if (e.target.value.length === 6) {
+          $("totpForm").dispatchEvent(new Event("submit"));
+        }
+      });
 
-    if (data.success) {
-      window.location.href = '/';
-      return;
-    }
-
-    showError(data.error || 'Doğrulama başarısız');
-  } catch (ex) {
-    showError('Sunucuya bağlanılamadı');
-  }
-
-  setLoading(btn, false);
-});
-
-// Auto-submit when 6 digits entered
-$('totp').addEventListener('input', (e) => {
-  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
-  if (e.target.value.length === 6) {
-    $('totpForm').dispatchEvent(new Event('submit'));
-  }
-});
-
-// Enter key submits form
-$('password').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') $('passwordForm').dispatchEvent(new Event('submit'));
-});
-$('username').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    $('password').focus();
-  }
-});
-</script>
-</body>
+      // Enter key submits form
+      $("password").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") $("passwordForm").dispatchEvent(new Event("submit"));
+      });
+      $("username").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          $("password").focus();
+        }
+      });
+    </script>
+  </body>
 </html>

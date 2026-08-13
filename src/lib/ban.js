@@ -12,17 +12,11 @@ const config = require("./config");
 const LOGIN_EVENTS = ["login_fail"];
 const API_EVENTS = ["api_unauth"];
 
-const ALWAYS_WHITELIST = [
-  /^127\./,
-  /^::1$/,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./
-];
+const ALWAYS_WHITELIST = [/^127\./, /^::1$/, /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./];
 
 function isWhitelisted(ip) {
   if (!ip) return true;
-  return ALWAYS_WHITELIST.some(re => re.test(ip));
+  return ALWAYS_WHITELIST.some((re) => re.test(ip));
 }
 
 function normalizeIp(ip) {
@@ -109,11 +103,24 @@ function maybeAutoBan(ip) {
 
 // Kimliksiz API/WS istekleri icin (yuksek esik).
 function maybeAutoBanApi(ip) {
-  evaluate(ip, API_EVENTS, config.get("auto_ban_api_after") || 15, "auto: too many unauthorized API requests");
+  evaluate(
+    ip,
+    API_EVENTS,
+    config.get("auto_ban_api_after") || 15,
+    "auto: too many unauthorized API requests"
+  );
 }
 
 module.exports = {
-  isWhitelisted, isBanned, ban, unban,
-  middleware, isRequestBanned, requestIp,
-  maybeAutoBan, maybeAutoBanApi, noteUnauthorized, normalizeIp
+  isWhitelisted,
+  isBanned,
+  ban,
+  unban,
+  middleware,
+  isRequestBanned,
+  requestIp,
+  maybeAutoBan,
+  maybeAutoBanApi,
+  noteUnauthorized,
+  normalizeIp
 };

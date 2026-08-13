@@ -36,7 +36,8 @@ function isBanned(ip) {
 function ban(ip, { reason = null, durationMs = null, by = "auto" } = {}) {
   const now = Date.now();
   const expires = durationMs ? now + durationMs : null;
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO bans (ip, reason, banned_at, expires_at, banned_by)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(ip) DO UPDATE SET
@@ -44,7 +45,8 @@ function ban(ip, { reason = null, durationMs = null, by = "auto" } = {}) {
       banned_at = excluded.banned_at,
       expires_at = excluded.expires_at,
       banned_by = excluded.banned_by
-  `).run(ip, reason, now, expires, by);
+  `
+  ).run(ip, reason, now, expires, by);
   cache.add(ip);
   meta.set(ip, { ip, reason, banned_at: now, expires_at: expires, banned_by: by });
 }

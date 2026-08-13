@@ -8,7 +8,9 @@ describe("repos", () => {
     home = freshHome();
     require("../db/migrate").migrate();
   });
-  afterEach(() => { cleanup(home); });
+  afterEach(() => {
+    cleanup(home);
+  });
 
   describe("settings", () => {
     it("get/set roundtrips JSON values", () => {
@@ -63,8 +65,19 @@ describe("repos", () => {
   describe("services", () => {
     it("add/list/getByType", () => {
       const services = require("../db/repos/services");
-      services.add({ unit_name: "code-server", display_name: "Code", type: "code-server", port: 8080 });
-      services.add({ unit_name: "filebrowser", display_name: "Files", type: "filebrowser", port: 8082, enabled: 0 });
+      services.add({
+        unit_name: "code-server",
+        display_name: "Code",
+        type: "code-server",
+        port: 8080
+      });
+      services.add({
+        unit_name: "filebrowser",
+        display_name: "Files",
+        type: "filebrowser",
+        port: 8082,
+        enabled: 0
+      });
 
       const all = services.list();
       expect(all.length).toBe(2);

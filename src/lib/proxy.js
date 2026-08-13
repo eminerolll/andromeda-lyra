@@ -26,7 +26,7 @@ function findTargetPort(host) {
   if (parsed && (parsed.type === "code" || parsed.type === "files" || parsed.type === "db")) {
     const typeMap = { code: "code-server", files: "filebrowser", db: "dbgate" };
     const list = services.getByType(typeMap[parsed.type]);
-    const enabled = list.find(s => s.enabled && s.port);
+    const enabled = list.find((s) => s.enabled && s.port);
     if (enabled) return enabled.port;
   }
 
@@ -34,7 +34,9 @@ function findTargetPort(host) {
   const all = services.list({ enabledOnly: true });
   for (const s of all) {
     if (s.subdomain && s.port) {
-      const fullHost = config.get("base_domain") ? `${s.subdomain}.${config.get("base_domain")}` : null;
+      const fullHost = config.get("base_domain")
+        ? `${s.subdomain}.${config.get("base_domain")}`
+        : null;
       if (fullHost && host === fullHost) return s.port;
     }
   }
@@ -47,12 +49,14 @@ function isPublicBypassPath(host, url) {
   const baseDomain = config.get("base_domain");
   if (!baseDomain) return false;
   const filesHost = `${config.get("subdomain_files")}.${baseDomain}`;
-  if (host === filesHost && (
-    url.startsWith("/share/") ||
-    url.startsWith("/public/") ||
-    url.startsWith("/api/public/") ||
-    url.startsWith("/static/")
-  )) return true;
+  if (
+    host === filesHost &&
+    (url.startsWith("/share/") ||
+      url.startsWith("/public/") ||
+      url.startsWith("/api/public/") ||
+      url.startsWith("/static/"))
+  )
+    return true;
   return false;
 }
 

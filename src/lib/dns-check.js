@@ -64,7 +64,11 @@ async function check(fqdn) {
   if (!fqdn || typeof fqdn !== "string") {
     return { ok: false, message: "FQDN gerekli" };
   }
-  if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(fqdn)) {
+  if (
+    !/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(
+      fqdn
+    )
+  ) {
     return { ok: false, message: "Gecersiz domain formati" };
   }
 

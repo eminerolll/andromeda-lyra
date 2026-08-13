@@ -27,7 +27,7 @@ function scanPorts(callback) {
       const pid = pidMatch ? parseInt(pidMatch[1]) : null;
       const process_name = nameMatch ? nameMatch[1] : "unknown";
 
-      if (ports.find(p => p.port === port)) continue;
+      if (ports.find((p) => p.port === port)) continue;
 
       let project = null;
       let memory = null;

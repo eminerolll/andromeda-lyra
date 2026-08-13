@@ -187,8 +187,10 @@ function password(fromArgs) {
   const env = process.env.LYRA_ADMIN_PASSWORD;
   if (env) return env;
   if (fromArgs) {
-    warn("--password komut satirindan verildi; \"ps\" ciktisinda gorunur. " +
-      "LYRA_ADMIN_PASSWORD env'i daha guvenli.");
+    warn(
+      '--password komut satirindan verildi; "ps" ciktisinda gorunur. ' +
+        "LYRA_ADMIN_PASSWORD env'i daha guvenli."
+    );
     return fromArgs;
   }
   return null;
@@ -242,10 +244,10 @@ function buildBodyNonInteractive() {
   }
 
   if (missing.length) {
-    die("Non-interactive kurulum icin eksik zorunlu alanlar var:", missing.concat([
-      "",
-      "Tam liste: node scripts/setup-cli.js --help"
-    ]));
+    die(
+      "Non-interactive kurulum icin eksik zorunlu alanlar var:",
+      missing.concat(["", "Tam liste: node scripts/setup-cli.js --help"])
+    );
   }
 
   const services = args.noServices ? [] : parseServiceList(args.services);
@@ -307,8 +309,14 @@ async function askAccessMode() {
     message: "Lyra'ya nereden erisilecek?",
     choices: [
       { title: "Public — kendi domain'in, Caddy ile otomatik HTTPS", value: "public" },
-      { title: "Cloudflare (otomatik) — API token ver, tunnel + DNS'i Lyra kursun", value: "cf-api" },
-      { title: "Cloudflare Tunnel (elle) — dashboard'dan aldigin connector token", value: "cf-tunnel" },
+      {
+        title: "Cloudflare (otomatik) — API token ver, tunnel + DNS'i Lyra kursun",
+        value: "cf-api"
+      },
+      {
+        title: "Cloudflare Tunnel (elle) — dashboard'dan aldigin connector token",
+        value: "cf-tunnel"
+      },
       { title: "LAN — yerel agdaki makineler erisir", value: "lan" },
       { title: "Localhost — sadece SSH tunnel ile (en kapali)", value: "localhost" },
       { title: "Manuel — reverse proxy'yi kendim yonetecegim", value: "manual" }
@@ -324,7 +332,8 @@ async function askPublic(body) {
       type: "text",
       name: "domain",
       message: "Domain (ornek: ornek.com)",
-      validate: (v) => (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(v).trim()) ? true : "Gecerli bir domain yaz")
+      validate: (v) =>
+        /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(v).trim()) ? true : "Gecerli bir domain yaz"
     },
     {
       type: "text",
@@ -338,18 +347,24 @@ async function askPublic(body) {
 
   info("DNS kontrol ediliyor...");
   try {
-    const r = await dnsCheck.checkAll(body.domain, [
-      config.get("subdomain_code"),
-      config.get("subdomain_files"),
-      config.get("subdomain_db")
-    ].filter(Boolean));
+    const r = await dnsCheck.checkAll(
+      body.domain,
+      [
+        config.get("subdomain_code"),
+        config.get("subdomain_files"),
+        config.get("subdomain_db")
+      ].filter(Boolean)
+    );
     if (r.apex && r.apex.ok) {
       ok(`${body.domain} bu sunucuyu gosteriyor (${(r.apex.resolvedV4 || []).join(", ") || "?"})`);
     } else {
       warn(`${body.domain}: ${(r.apex && r.apex.message) || "DNS dogrulanamadi"}`);
       warn("DNS hazir degilse Caddy sertifika alamaz.");
       const { go } = await ask({
-        type: "confirm", name: "go", message: "Yine de devam edilsin mi?", initial: false
+        type: "confirm",
+        name: "go",
+        message: "Yine de devam edilsin mi?",
+        initial: false
       });
       if (!go) die("DNS hazir olunca tekrar calistir.");
     }
@@ -431,7 +446,10 @@ async function askCfApi(body) {
     message: "Panel hangi adreste dursun?",
     choices: [
       { title: `Apex — https://${pre.zone.name}`, value: "apex" },
-      { title: `Alt alan adi — https://<ad>.${pre.zone.name} (apex kaydina dokunmaz)`, value: "subdomain" }
+      {
+        title: `Alt alan adi — https://<ad>.${pre.zone.name} (apex kaydina dokunmaz)`,
+        value: "subdomain"
+      }
     ],
     initial: pre.recommendation === "subdomain" ? 1 : 0
   });
@@ -535,7 +553,10 @@ async function askAdmin(body) {
     }
     warn("Kod dogrulanmadi.");
   }
-  die("2FA dogrulanamadi.", ["Sunucu saati dogru mu? (timedatectl)", "2FA'siz devam etmek icin tekrar calistir."]);
+  die("2FA dogrulanamadi.", [
+    "Sunucu saati dogru mu? (timedatectl)",
+    "2FA'siz devam etmek icin tekrar calistir."
+  ]);
   return null;
 }
 
@@ -571,7 +592,10 @@ async function askIntegrations(body) {
   const integrations = {};
 
   const { tg } = await ask({
-    type: "confirm", name: "tg", message: "Telegram guvenlik bildirimleri kurulsun mu?", initial: false
+    type: "confirm",
+    name: "tg",
+    message: "Telegram guvenlik bildirimleri kurulsun mu?",
+    initial: false
   });
   if (tg) {
     const a = await ask([
@@ -579,15 +603,25 @@ async function askIntegrations(body) {
       { type: "text", name: "ownerChatId", message: "Senin chat id'in (@userinfobot)" }
     ]);
     if (a.botToken && a.ownerChatId) {
-      integrations.telegram = { botToken: a.botToken.trim(), ownerChatId: String(a.ownerChatId).trim() };
+      integrations.telegram = {
+        botToken: a.botToken.trim(),
+        ownerChatId: String(a.ownerChatId).trim()
+      };
     }
   }
 
   const { gh } = await ask({
-    type: "confirm", name: "gh", message: "GitHub token'i eklensin mi (repo klonlama)?", initial: false
+    type: "confirm",
+    name: "gh",
+    message: "GitHub token'i eklensin mi (repo klonlama)?",
+    initial: false
   });
   if (gh) {
-    const a = await ask({ type: "password", name: "token", message: "GitHub personal access token" });
+    const a = await ask({
+      type: "password",
+      name: "token",
+      message: "GitHub personal access token"
+    });
     if (a.token) integrations.github = { token: a.token.trim() };
   }
 
@@ -726,7 +760,10 @@ async function main() {
   const { body, totpSecret } = await buildBodyInteractive();
   printSummary(body);
   const { go } = await ask({
-    type: "confirm", name: "go", message: "Kurulum baslatilsin mi?", initial: true
+    type: "confirm",
+    name: "go",
+    message: "Kurulum baslatilsin mi?",
+    initial: true
   });
   if (!go) {
     console.log("\nIptal edildi. Hicbir sey yazilmadi.\n");

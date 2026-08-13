@@ -18,7 +18,7 @@ function listSources() {
   const out = [];
   const lyraUnit = settings.get("lyra_service_name", null);
   if (lyraUnit) {
-    out.push({ name: lyraUnit, description: (config.get("app_name") || "Lyra") });
+    out.push({ name: lyraUnit, description: config.get("app_name") || "Lyra" });
   }
   for (const s of services.list({ enabledOnly: true })) {
     if (s.unit_name) out.push({ name: s.unit_name, description: s.display_name });
@@ -33,24 +33,36 @@ function getServiceStatus(name) {
   // hic ugramiyor. "is-active" inactive unit'ler icin sifir olmayan cikis kodu
   // dondurur ama durumu yine de stdout'a basar; bu davranis e.stdout ile
   // korunuyor (asagida).
-  let stdout = "", stderr = "";
+  let stdout = "",
+    stderr = "";
   try {
     stdout = execFileSync("systemctl", ["is-active", name], {
       stdio: ["ignore", "pipe", "pipe"]
-    }).toString().trim();
+    })
+      .toString()
+      .trim();
   } catch (e) {
     stdout = ((e.stdout || "").toString() || "").trim();
     stderr = ((e.stderr || "").toString() || "").trim();
   }
-  if (!stdout && (stderr.includes("not-found") || stderr.includes("could not be found"))) return null;
+  if (!stdout && (stderr.includes("not-found") || stderr.includes("could not be found")))
+    return null;
   if (!stdout) {
     try {
       // eski "2>/dev/null" yerine stderr stdio'da yutuluyor.
-      const list = execFileSync("systemctl", ["list-unit-files", name + ".service", "--no-legend"], {
-        stdio: ["ignore", "pipe", "ignore"]
-      }).toString().trim();
+      const list = execFileSync(
+        "systemctl",
+        ["list-unit-files", name + ".service", "--no-legend"],
+        {
+          stdio: ["ignore", "pipe", "ignore"]
+        }
+      )
+        .toString()
+        .trim();
       if (!list) return null;
-    } catch (_) { return null; }
+    } catch (_) {
+      return null;
+    }
     return "inactive";
   }
   return stdout;
@@ -70,7 +82,7 @@ router.get("/api/logs/sources", (req, res) => {
 });
 
 function isAllowedSource(name) {
-  return listSources().some(s => s.name === name);
+  return listSources().some((s) => s.name === name);
 }
 
 function handleConnection(ws, req) {
@@ -82,13 +94,26 @@ function handleConnection(ws, req) {
     return ws.close();
   }
   if (activeStreams >= MAX_CONCURRENT_STREAMS) {
-    ws.send(JSON.stringify({ type: "error", message: "Maksimum " + MAX_CONCURRENT_STREAMS + " log stream acik olabilir" }));
+    ws.send(
+      JSON.stringify({
+        type: "error",
+        message: "Maksimum " + MAX_CONCURRENT_STREAMS + " log stream acik olabilir"
+      })
+    );
     return ws.close();
   }
 
   activeStreams++;
 
-  const proc = spawn("journalctl", ["-u", source, "-n", "200", "-f", "--output=short-iso", "--no-pager"]);
+  const proc = spawn("journalctl", [
+    "-u",
+    source,
+    "-n",
+    "200",
+    "-f",
+    "--output=short-iso",
+    "--no-pager"
+  ]);
 
   const rlOut = readline.createInterface({ input: proc.stdout });
   rlOut.on("line", (line) => {
@@ -113,7 +138,9 @@ function handleConnection(ws, req) {
 
   proc.on("error", (err) => {
     if (ws.readyState === 1) {
-      ws.send(JSON.stringify({ type: "error", message: "journalctl baslatilamadi: " + err.message }));
+      ws.send(
+        JSON.stringify({ type: "error", message: "journalctl baslatilamadi: " + err.message })
+      );
       ws.close();
     }
   });
@@ -122,8 +149,14 @@ function handleConnection(ws, req) {
   const cleanup = () => {
     if (killed) return;
     killed = true;
-    try { proc.kill("SIGTERM"); } catch (_) {}
-    setTimeout(() => { try { proc.kill("SIGKILL"); } catch (_) {} }, 5000);
+    try {
+      proc.kill("SIGTERM");
+    } catch (_) {}
+    setTimeout(() => {
+      try {
+        proc.kill("SIGKILL");
+      } catch (_) {}
+    }, 5000);
   };
   ws.on("close", cleanup);
   ws.on("error", cleanup);

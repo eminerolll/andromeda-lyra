@@ -9,7 +9,9 @@ describe("auth", () => {
     home = freshHome();
     require("../db/migrate").migrate();
   });
-  afterEach(() => { cleanup(home); });
+  afterEach(() => {
+    cleanup(home);
+  });
 
   it("password-only authenticate succeeds", () => {
     const users = require("../db/repos/users");
@@ -42,10 +44,18 @@ describe("auth", () => {
     expect(r1.reason).toBe("totp_required");
 
     const code = authenticator.generate(secret);
-    const r2 = auth.authenticate({ username: "admin", password: "supersecret123", totpToken: code });
+    const r2 = auth.authenticate({
+      username: "admin",
+      password: "supersecret123",
+      totpToken: code
+    });
     expect(r2.ok).toBe(true);
 
-    const r3 = auth.authenticate({ username: "admin", password: "supersecret123", totpToken: "000000" });
+    const r3 = auth.authenticate({
+      username: "admin",
+      password: "supersecret123",
+      totpToken: "000000"
+    });
     expect(r3.ok).toBe(false);
     expect(r3.reason).toBe("invalid_totp");
   });

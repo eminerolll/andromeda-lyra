@@ -28,7 +28,14 @@
       }
     },
     {
-      "files": ["**/*.cjs", "scripts/**/*.js", "db/**/*.js", "lib/**/*.js", "routes/**/*.js", "server.js"],
+      "files": [
+        "**/*.cjs",
+        "scripts/**/*.js",
+        "db/**/*.js",
+        "lib/**/*.js",
+        "routes/**/*.js",
+        "server.js"
+      ],
       "env": { "node": true, "browser": false },
       "parserOptions": { "sourceType": "script" }
     },

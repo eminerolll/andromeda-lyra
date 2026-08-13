@@ -20,15 +20,30 @@ function getByUnit(unitName) {
 }
 
 function getByType(type) {
-  return db.prepare("SELECT * FROM services WHERE type = ? ORDER BY unit_name").all(type).map(parseRow);
+  return db
+    .prepare("SELECT * FROM services WHERE type = ? ORDER BY unit_name")
+    .all(type)
+    .map(parseRow);
 }
 
-function add({ unit_name, display_name, type, port = null, subdomain = null, enabled = 1, config = null }) {
+function add({
+  unit_name,
+  display_name,
+  type,
+  port = null,
+  subdomain = null,
+  enabled = 1,
+  config = null
+}) {
   const cfg = config ? JSON.stringify(config) : null;
-  const info = db.prepare(`
+  const info = db
+    .prepare(
+      `
     INSERT INTO services (unit_name, display_name, type, port, subdomain, enabled, config, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(unit_name, display_name, type, port, subdomain, enabled ? 1 : 0, cfg, Date.now());
+  `
+    )
+    .run(unit_name, display_name, type, port, subdomain, enabled ? 1 : 0, cfg, Date.now());
   return getById(info.lastInsertRowid);
 }
 
@@ -61,7 +76,11 @@ function parseRow(row) {
 }
 
 function safeJson(s) {
-  try { return JSON.parse(s); } catch (_) { return null; }
+  try {
+    return JSON.parse(s);
+  } catch (_) {
+    return null;
+  }
 }
 
 module.exports = { list, getById, getByUnit, getByType, add, update, remove };

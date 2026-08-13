@@ -32,7 +32,9 @@ function getServiceStatus(unitName) {
     const out = execFileSync("systemctl", ["is-active", unitName], {
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 2000
-    }).toString().trim();
+    })
+      .toString()
+      .trim();
     return out || "unknown";
   } catch (e) {
     const out = ((e.stdout || "").toString() || "").trim();
@@ -50,10 +52,10 @@ function summary() {
     }
   } catch (_) {}
 
-  const lyraServiceName = (require("../db/repos/settings")).get("lyra_service_name") || "lyra";
+  const lyraServiceName = require("../db/repos/settings").get("lyra_service_name") || "lyra";
 
   // Kayitli servislerin systemd durumlari
-  const serviceStates = services.list({ enabledOnly: true }).map(s => ({
+  const serviceStates = services.list({ enabledOnly: true }).map((s) => ({
     type: s.type,
     unit_name: s.unit_name,
     display_name: s.display_name,
@@ -63,12 +65,12 @@ function summary() {
 
   // Onemli yardimci servisler (caddy, cloudflared)
   const auxServices = ["caddy", "cloudflared"]
-    .map(unit => ({
+    .map((unit) => ({
       unit_name: unit,
       display_name: unit,
       status: getServiceStatus(unit)
     }))
-    .filter(s => s.status !== null);
+    .filter((s) => s.status !== null);
 
   return {
     lyra: {
@@ -86,7 +88,7 @@ function summary() {
       platform: os.platform(),
       arch: os.arch(),
       cpuCount: os.cpus().length,
-      loadAvg: os.loadavg().map(n => Math.round(n * 100) / 100),
+      loadAvg: os.loadavg().map((n) => Math.round(n * 100) / 100),
       totalMemMb: Math.round(os.totalmem() / 1024 / 1024),
       freeMemMb: Math.round(os.freemem() / 1024 / 1024),
       uptimeSec: Math.floor(os.uptime())

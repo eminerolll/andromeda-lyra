@@ -8,7 +8,9 @@ describe("config", () => {
     home = freshHome();
     require("../db/migrate").migrate();
   });
-  afterEach(() => { cleanup(home); });
+  afterEach(() => {
+    cleanup(home);
+  });
 
   it("reads from settings, falls back to defaults", () => {
     const config = require("../lib/config");

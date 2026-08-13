@@ -48,7 +48,12 @@ const KNOWN_SERVICES = [
 
 function tryExec(cmd) {
   try {
-    return { ok: true, out: execSync(cmd, { stdio: ["pipe", "pipe", "pipe"], timeout: 3000 }).toString().trim() };
+    return {
+      ok: true,
+      out: execSync(cmd, { stdio: ["pipe", "pipe", "pipe"], timeout: 3000 })
+        .toString()
+        .trim()
+    };
   } catch (err) {
     return { ok: false, out: (err.stdout || "").toString().trim(), err: err.message };
   }
@@ -76,7 +81,7 @@ function findUnit(candidates) {
 }
 
 function detectAll() {
-  return KNOWN_SERVICES.map(svc => {
+  return KNOWN_SERVICES.map((svc) => {
     const unit = findUnit(svc.unit_candidates);
     const binary_present = commandExists(svc.binary);
     const active = unit ? unitActive(unit) : false;
@@ -94,7 +99,7 @@ function detectAll() {
 }
 
 function detectInstalled() {
-  return detectAll().filter(s => s.installed);
+  return detectAll().filter((s) => s.installed);
 }
 
 module.exports = { detectAll, detectInstalled, KNOWN_SERVICES };

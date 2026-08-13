@@ -20,18 +20,27 @@ function dockerAvailable(cb) {
 function listContainers(cb) {
   run("docker ps -a --format '{{json .}}'", (err, stdout) => {
     if (err) return cb(err, []);
-    const containers = stdout.split("\n").filter(l => l.trim()).map(l => {
-      try { return JSON.parse(l); } catch (_) { return null; }
-    }).filter(Boolean).map(c => ({
-      id: c.ID,
-      name: c.Names,
-      image: c.Image,
-      status: c.Status,
-      state: c.State,
-      ports: c.Ports,
-      created: c.CreatedAt,
-      project: c.Labels ? parseComposeProject(c.Labels) : null
-    }));
+    const containers = stdout
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch (_) {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .map((c) => ({
+        id: c.ID,
+        name: c.Names,
+        image: c.Image,
+        status: c.Status,
+        state: c.State,
+        ports: c.Ports,
+        created: c.CreatedAt,
+        project: c.Labels ? parseComposeProject(c.Labels) : null
+      }));
     cb(null, containers);
   });
 }
@@ -44,11 +53,25 @@ function parseComposeProject(labels) {
 function containerStats(cb) {
   run("docker stats --no-stream --format '{{json .}}'", (err, stdout) => {
     if (err) return cb(err, []);
-    const stats = stdout.split("\n").filter(l => l.trim()).map(l => {
-      try { return JSON.parse(l); } catch (_) { return null; }
-    }).filter(Boolean).map(s => ({
-      id: s.ID, name: s.Name, cpu: s.CPUPerc, mem: s.MemUsage, memPerc: s.MemPerc, netIO: s.NetIO
-    }));
+    const stats = stdout
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch (_) {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .map((s) => ({
+        id: s.ID,
+        name: s.Name,
+        cpu: s.CPUPerc,
+        mem: s.MemUsage,
+        memPerc: s.MemPerc,
+        netIO: s.NetIO
+      }));
     cb(null, stats);
   });
 }
@@ -58,9 +81,9 @@ function findComposeFile(dir) {
   for (const f of defaults) if (fs.existsSync(path.join(dir, f))) return f;
   try {
     const entries = fs.readdirSync(dir);
-    const prodFirst = entries.filter(f => /^(docker-)?compose\.prod\.ya?ml$/i.test(f));
+    const prodFirst = entries.filter((f) => /^(docker-)?compose\.prod\.ya?ml$/i.test(f));
     if (prodFirst.length) return prodFirst[0];
-    const any = entries.filter(f => /^(docker-)?compose\..+\.ya?ml$/i.test(f));
+    const any = entries.filter((f) => /^(docker-)?compose\..+\.ya?ml$/i.test(f));
     if (any.length) return any[0];
   } catch (_) {}
   return null;
@@ -74,12 +97,14 @@ function listProdProjects(cb) {
       if (err.code === "ENOENT") return cb(null, []);
       return cb(err, []);
     }
-    const projects = entries.filter(e => e.isDirectory()).map(e => {
-      const sub = path.join(dir, e.name);
-      const composeFile = findComposeFile(sub);
-      const hasDockerfile = fs.existsSync(path.join(sub, "Dockerfile"));
-      return { name: e.name, path: sub, composeFile, hasCompose: !!composeFile, hasDockerfile };
-    });
+    const projects = entries
+      .filter((e) => e.isDirectory())
+      .map((e) => {
+        const sub = path.join(dir, e.name);
+        const composeFile = findComposeFile(sub);
+        const hasDockerfile = fs.existsSync(path.join(sub, "Dockerfile"));
+        return { name: e.name, path: sub, composeFile, hasCompose: !!composeFile, hasDockerfile };
+      });
     cb(null, projects);
   });
 }
@@ -114,10 +139,15 @@ function composeAction(project, action, cb) {
   if (!fs.existsSync(sub)) return cb(new Error("Proje bulunamadi"));
   const flag = composeFileFlag(sub);
   if (flag === null) return cb(new Error("Compose dosyasi bulunamadi"));
-  const cmd = action === "up" ? "up -d --build"
-            : action === "down" ? "down"
-            : action === "build" ? "build"
-            : action === "pull" ? "pull"
+  const cmd =
+    action === "up"
+      ? "up -d --build"
+      : action === "down"
+        ? "down"
+        : action === "build"
+          ? "build"
+          : action === "pull"
+            ? "pull"
             : "restart";
   run("cd " + sub + " && docker compose" + flag + " " + cmd + " 2>&1", cb);
 }
@@ -136,8 +166,12 @@ function composeLogs(project, tail, cb) {
 
 module.exports = {
   prodDir,
-  listContainers, containerStats, listProdProjects,
-  containerAction, containerLogs,
-  composeAction, composeLogs,
+  listContainers,
+  containerStats,
+  listProdProjects,
+  containerAction,
+  containerLogs,
+  composeAction,
+  composeLogs,
   dockerAvailable
 };

@@ -47,7 +47,7 @@ describe("firewall — ufw status ayristirma", () => {
 describe("firewall — erisim moduna gore kurallar", () => {
   it("public modda 80 ve 443 acar", () => {
     const rules = firewall.buildAccessModeRules("public", { port: 3000 });
-    expect(rules.map(r => r[1])).toEqual(["80/tcp", "443/tcp"]);
+    expect(rules.map((r) => r[1])).toEqual(["80/tcp", "443/tcp"]);
   });
 
   it("lan modda Lyra portunu sadece yerel aglara acar", () => {

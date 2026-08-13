@@ -8,7 +8,9 @@ describe("ban", () => {
     home = freshHome();
     require("../db/migrate").migrate();
   });
-  afterEach(() => { cleanup(home); });
+  afterEach(() => {
+    cleanup(home);
+  });
 
   it("RFC1918 ranges always whitelisted", () => {
     const ban = require("../lib/ban");
@@ -122,7 +124,9 @@ describe("ban", () => {
     expect(auth.hasSessionCookie({ headers: {} })).toBe(false);
     expect(auth.hasSessionCookie({ headers: { cookie: "theme=dark" } })).toBe(false);
     expect(auth.hasSessionCookie({ headers: { cookie: "connect.sid=s%3Aabc" } })).toBe(true);
-    expect(auth.hasSessionCookie({ headers: { cookie: "theme=dark; connect.sid=s%3Aabc" } })).toBe(true);
+    expect(auth.hasSessionCookie({ headers: { cookie: "theme=dark; connect.sid=s%3Aabc" } })).toBe(
+      true
+    );
   });
 
   it("noteUnauthorized ignores whitelisted IPs", () => {

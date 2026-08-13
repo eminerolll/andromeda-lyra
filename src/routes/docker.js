@@ -18,7 +18,7 @@ router.get("/api/docker/containers", (req, res) => {
     docker.containerStats((statsErr, stats) => {
       const statsMap = {};
       if (!statsErr) for (const s of stats) statsMap[s.id] = s;
-      const merged = containers.map(c => ({
+      const merged = containers.map((c) => ({
         ...c,
         stats: statsMap[c.id.substring(0, 12)] || statsMap[c.id] || null
       }));
@@ -40,7 +40,7 @@ router.get("/api/docker/projects", (req, res) => {
           byProject[c.project].push(c);
         }
       }
-      const result = projects.map(p => ({ ...p, containers: byProject[p.name] || [] }));
+      const result = projects.map((p) => ({ ...p, containers: byProject[p.name] || [] }));
       res.json({ enabled: true, projects: result, prodDir: docker.prodDir() });
     });
   });

@@ -28,14 +28,16 @@ function get(name) {
 
 function set(name, { enabled = false, config = null }) {
   const cfg = config ? JSON.stringify(config) : null;
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO integrations (name, enabled, config, updated_at)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET
       enabled = excluded.enabled,
       config = excluded.config,
       updated_at = excluded.updated_at
-  `).run(name, enabled ? 1 : 0, cfg, Date.now());
+  `
+  ).run(name, enabled ? 1 : 0, cfg, Date.now());
   return get(name);
 }
 
@@ -45,8 +47,10 @@ function isEnabled(name) {
 }
 
 function list() {
-  return db.prepare("SELECT name, enabled, updated_at FROM integrations ORDER BY name").all()
-    .map(r => ({ ...r, enabled: !!r.enabled }));
+  return db
+    .prepare("SELECT name, enabled, updated_at FROM integrations ORDER BY name")
+    .all()
+    .map((r) => ({ ...r, enabled: !!r.enabled }));
 }
 
 function remove(name) {
@@ -54,7 +58,11 @@ function remove(name) {
 }
 
 function safeJson(s) {
-  try { return JSON.parse(s); } catch (_) { return null; }
+  try {
+    return JSON.parse(s);
+  } catch (_) {
+    return null;
+  }
 }
 
 module.exports = { get, set, isEnabled, list, remove };

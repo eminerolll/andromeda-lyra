@@ -22,7 +22,7 @@ const SESSION_COOKIE_NAME = "connect.sid";
 function hasSessionCookie(req) {
   const raw = req && req.headers && req.headers.cookie;
   if (!raw) return false;
-  return raw.split(";").some(c => c.trim().startsWith(SESSION_COOKIE_NAME + "="));
+  return raw.split(";").some((c) => c.trim().startsWith(SESSION_COOKIE_NAME + "="));
 }
 
 // Session secret: yoksa uret + DB'ye kaydet
@@ -73,7 +73,7 @@ function rateLimiter(req, res, next) {
   const windowMs = (config.get("rate_limit_window_minutes") || 15) * 60 * 1000;
   const max = config.get("rate_limit_attempts") || 5;
 
-  const list = (attempts.get(ip) || []).filter(t => now - t < windowMs);
+  const list = (attempts.get(ip) || []).filter((t) => now - t < windowMs);
   if (list.length >= max) {
     return res.status(429).json({ error: "Cok fazla deneme. Bir sure sonra tekrar deneyin." });
   }
@@ -139,13 +139,21 @@ function requireSetupComplete(req, res, next) {
   if (req.path.startsWith("/api/")) {
     return res.status(503).json({ error: "Setup tamamlanmamis. `npm run setup` calistir." });
   }
-  return res.status(503).type("text/plain").send("Lyra kurulumu tamamlanmamis. Once `npm run setup` calistirin.");
+  return res
+    .status(503)
+    .type("text/plain")
+    .send("Lyra kurulumu tamamlanmamis. Once `npm run setup` calistirin.");
 }
 
 module.exports = {
-  buildSessionMiddleware, hasSessionCookie,
-  rateLimiter, recordAttempt, clearAttempts,
+  buildSessionMiddleware,
+  hasSessionCookie,
+  rateLimiter,
+  recordAttempt,
+  clearAttempts,
   authenticate,
-  generateTotp, verifyTotp,
-  requireAuth, requireSetupComplete
+  generateTotp,
+  verifyTotp,
+  requireAuth,
+  requireSetupComplete
 };

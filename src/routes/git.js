@@ -24,7 +24,9 @@ function projectPath(name) {
 function gitCmd(projPath, args) {
   return execFileSync("git", ["-C", projPath, ...args], {
     stdio: ["pipe", "pipe", "ignore"]
-  }).toString().trim();
+  })
+    .toString()
+    .trim();
 }
 
 function validateProject(req, res) {
@@ -46,13 +48,30 @@ router.get("/api/projects/:name/git", (req, res) => {
   if (!projPath) return;
   try {
     const status = {};
-    try { status.branch = gitCmd(projPath, ["branch", "--show-current"]); } catch (_) { return res.json({ isGit: false }); }
-    try { status.remote = gitCmd(projPath, ["remote", "get-url", "origin"]); } catch (_) { status.remote = null; }
+    try {
+      status.branch = gitCmd(projPath, ["branch", "--show-current"]);
+    } catch (_) {
+      return res.json({ isGit: false });
+    }
+    try {
+      status.remote = gitCmd(projPath, ["remote", "get-url", "origin"]);
+    } catch (_) {
+      status.remote = null;
+    }
     try {
       status.ahead = parseInt(gitCmd(projPath, ["rev-list", "@{u}..HEAD", "--count"]));
       status.behind = parseInt(gitCmd(projPath, ["rev-list", "HEAD..@{u}", "--count"]));
-    } catch (_) { status.ahead = 0; status.behind = 0; }
-    try { status.changes = gitCmd(projPath, ["status", "--porcelain"]).split("\n").filter(l => l).length; } catch (_) { status.changes = 0; }
+    } catch (_) {
+      status.ahead = 0;
+      status.behind = 0;
+    }
+    try {
+      status.changes = gitCmd(projPath, ["status", "--porcelain"])
+        .split("\n")
+        .filter((l) => l).length;
+    } catch (_) {
+      status.changes = 0;
+    }
     status.isGit = true;
     res.json(status);
   } catch (err) {
@@ -83,22 +102,32 @@ router.get("/api/git/:project/status", (req, res) => {
   if (!projPath) return;
   try {
     let branch;
-    try { branch = gitCmd(projPath, ["branch", "--show-current"]); } catch (_) { return res.json({ isGit: false }); }
+    try {
+      branch = gitCmd(projPath, ["branch", "--show-current"]);
+    } catch (_) {
+      return res.json({ isGit: false });
+    }
 
     let remote = null;
-    try { remote = gitCmd(projPath, ["remote", "get-url", "origin"]); } catch (_) {}
+    try {
+      remote = gitCmd(projPath, ["remote", "get-url", "origin"]);
+    } catch (_) {}
 
-    let ahead = 0, behind = 0;
+    let ahead = 0,
+      behind = 0;
     try {
       ahead = parseInt(gitCmd(projPath, ["rev-list", "@{u}..HEAD", "--count"]));
       behind = parseInt(gitCmd(projPath, ["rev-list", "HEAD..@{u}", "--count"]));
     } catch (_) {}
 
-    let staged = 0, unstaged = 0, untracked = 0;
+    let staged = 0,
+      unstaged = 0,
+      untracked = 0;
     try {
       const porcelain = gitCmd(projPath, ["status", "--porcelain"]);
-      for (const line of porcelain.split("\n").filter(l => l)) {
-        const x = line[0]; const y = line[1];
+      for (const line of porcelain.split("\n").filter((l) => l)) {
+        const x = line[0];
+        const y = line[1];
         if (x === "?") untracked++;
         else {
           if (x !== " ") staged++;
@@ -115,8 +144,14 @@ router.get("/api/git/:project/status", (req, res) => {
     } catch (_) {}
 
     res.json({
-      isGit: true, branch, remote, ahead, behind,
-      staged, unstaged, untracked,
+      isGit: true,
+      branch,
+      remote,
+      ahead,
+      behind,
+      staged,
+      unstaged,
+      untracked,
       totalChanges: staged + unstaged + untracked,
       lastCommit
     });
@@ -130,15 +165,27 @@ router.get("/api/git/:project/log", (req, res) => {
   if (!projPath) return;
   const count = Math.min(parseInt(req.query.count) || 30, 100);
   try {
-    const log = gitCmd(projPath, ["log", "--oneline", "--graph", "-" + count, "--format=%h|%s|%ai|%an"]);
-    const lines = log.split("\n").filter(l => l);
-    const commits = lines.map(line => {
+    const log = gitCmd(projPath, [
+      "log",
+      "--oneline",
+      "--graph",
+      "-" + count,
+      "--format=%h|%s|%ai|%an"
+    ]);
+    const lines = log.split("\n").filter((l) => l);
+    const commits = lines.map((line) => {
       const graphMatch = line.match(/^([*|/\\ ]+)/);
       const graph = graphMatch ? graphMatch[1] : "";
       const rest = line.slice(graph.length);
       const parts = rest.split("|");
       if (parts.length >= 4) {
-        return { graph: graph.trimEnd(), hash: parts[0].trim(), message: parts[1], date: parts[2], author: parts[3] };
+        return {
+          graph: graph.trimEnd(),
+          hash: parts[0].trim(),
+          message: parts[1],
+          date: parts[2],
+          author: parts[3]
+        };
       }
       return { graph: graph.trimEnd(), raw: rest };
     });
@@ -153,16 +200,23 @@ router.get("/api/git/:project/diff", (req, res) => {
   if (!projPath) return;
   try {
     let unstaged = "";
-    try { unstaged = gitCmd(projPath, ["diff"]); } catch (_) {}
+    try {
+      unstaged = gitCmd(projPath, ["diff"]);
+    } catch (_) {}
     let staged = "";
-    try { staged = gitCmd(projPath, ["diff", "--staged"]); } catch (_) {}
+    try {
+      staged = gitCmd(projPath, ["diff", "--staged"]);
+    } catch (_) {}
     let files = [];
     try {
       const porcelain = gitCmd(projPath, ["status", "--porcelain"]);
-      files = porcelain.split("\n").filter(l => l).map(line => ({
-        status: line.substring(0, 2).trim(),
-        file: line.substring(3)
-      }));
+      files = porcelain
+        .split("\n")
+        .filter((l) => l)
+        .map((line) => ({
+          status: line.substring(0, 2).trim(),
+          file: line.substring(3)
+        }));
     } catch (_) {}
     res.json({ unstaged, staged, files });
   } catch (err) {
@@ -174,12 +228,13 @@ const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
 
 function runGit(projPath, args, timeoutMs = 120000) {
   return new Promise((resolve) => {
-    let stdout = "", stderr = "";
+    let stdout = "",
+      stderr = "";
     const proc = spawn("git", ["-C", projPath, ...args], { timeout: timeoutMs, env: GIT_ENV });
-    proc.stdout.on("data", c => stdout += c.toString());
-    proc.stderr.on("data", c => stderr += c.toString());
-    proc.on("close", code => resolve({ stdout, stderr, exitCode: code || 0 }));
-    proc.on("error", err => resolve({ stdout, stderr: err.message, exitCode: 1 }));
+    proc.stdout.on("data", (c) => (stdout += c.toString()));
+    proc.stderr.on("data", (c) => (stderr += c.toString()));
+    proc.on("close", (code) => resolve({ stdout, stderr, exitCode: code || 0 }));
+    proc.on("error", (err) => resolve({ stdout, stderr: err.message, exitCode: 1 }));
   });
 }
 
@@ -211,7 +266,7 @@ function detectConflict(stdout, stderr, action) {
     /Permission denied \(publickey\)/i,
     /Kimlik doğrulama başarısız/i
   ];
-  const matches = (pats) => pats.some(re => re.test(combined));
+  const matches = (pats) => pats.some((re) => re.test(combined));
 
   if (action === "pull" || action === "stash-pull" || action === "discard-pull") {
     if (matches(pullOverwrite)) return "pull-overwrite";
@@ -229,10 +284,13 @@ function getAffectedFiles(projPath) {
     const out = execFileSync("git", ["-C", projPath, "status", "--porcelain"], {
       stdio: ["pipe", "pipe", "pipe"]
     }).toString();
-    return out.split("\n").filter(l => l).map(line => ({
-      status: line.substring(0, 2).trim(),
-      file: line.substring(3)
-    }));
+    return out
+      .split("\n")
+      .filter((l) => l)
+      .map((line) => ({
+        status: line.substring(0, 2).trim(),
+        file: line.substring(3)
+      }));
   } catch (_) {
     return [];
   }
@@ -257,27 +315,30 @@ router.post("/api/git/:project/exec", async (req, res) => {
     if (action === "pull") result = await runGit(projPath, ["pull"]);
     else if (action === "push") result = await runGit(projPath, ["push"]);
     else if (action === "fetch") result = await runGit(projPath, ["fetch", "--all"]);
-    else if (action === "stash") result = await runGit(projPath, ["stash", "push", "-u", "-m", message || "lyra-stash"]);
+    else if (action === "stash")
+      result = await runGit(projPath, ["stash", "push", "-u", "-m", message || "lyra-stash"]);
     else if (action === "stash-pop") result = await runGit(projPath, ["stash", "pop"]);
     else if (action === "reset-hard") result = await runGit(projPath, ["reset", "--hard", "HEAD"]);
     else if (action === "commit") {
-      if (!message || !message.trim()) return res.status(400).json({ error: "commit icin message gerekli" });
+      if (!message || !message.trim())
+        return res.status(400).json({ error: "commit icin message gerekli" });
       const addResult = await runGit(projPath, ["add", "-A"]);
-      result = addResult.exitCode !== 0 ? addResult : await runGit(projPath, ["commit", "-m", message]);
-    }
-    else if (action === "checkout") {
+      result =
+        addResult.exitCode !== 0 ? addResult : await runGit(projPath, ["commit", "-m", message]);
+    } else if (action === "checkout") {
       if (!branch) return res.status(400).json({ error: "branch gerekli" });
       result = await runGit(projPath, ["checkout", branch]);
-    }
-    else if (action === "create-branch") {
+    } else if (action === "create-branch") {
       if (!branch) return res.status(400).json({ error: "branch gerekli" });
       result = await runGit(projPath, ["checkout", "-b", branch]);
-    }
-    else if (action === "stash-pull") {
+    } else if (action === "stash-pull") {
       const stashResult = await runGit(projPath, ["stash", "push", "-u", "-m", "lyra-auto-stash"]);
       result.stdout += "$ git stash push\n" + stashResult.stdout;
       result.stderr += stashResult.stderr;
-      if (stashResult.exitCode !== 0 && !/No local changes to save/.test(stashResult.stdout + stashResult.stderr)) {
+      if (
+        stashResult.exitCode !== 0 &&
+        !/No local changes to save/.test(stashResult.stdout + stashResult.stderr)
+      ) {
         result.exitCode = stashResult.exitCode;
       } else {
         const pullResult = await runGit(projPath, ["pull"]);
@@ -291,8 +352,7 @@ router.post("/api/git/:project/exec", async (req, res) => {
           if (popResult.exitCode !== 0) result.exitCode = popResult.exitCode;
         }
       }
-    }
-    else if (action === "discard-pull") {
+    } else if (action === "discard-pull") {
       const resetResult = await runGit(projPath, ["reset", "--hard", "HEAD"]);
       result.stdout += "$ git reset --hard HEAD\n" + resetResult.stdout;
       result.stderr += resetResult.stderr;
@@ -307,8 +367,7 @@ router.post("/api/git/:project/exec", async (req, res) => {
       } else {
         result.exitCode = resetResult.exitCode || cleanResult.exitCode;
       }
-    }
-    else if (action === "pull-then-push") {
+    } else if (action === "pull-then-push") {
       const pullResult = await runGit(projPath, ["pull"]);
       result.stdout += "$ git pull\n" + pullResult.stdout;
       result.stderr += pullResult.stderr;
@@ -320,8 +379,8 @@ router.post("/api/git/:project/exec", async (req, res) => {
       } else {
         result.exitCode = pullResult.exitCode;
       }
-    }
-    else if (action === "force-push") result = await runGit(projPath, ["push", "--force-with-lease"]);
+    } else if (action === "force-push")
+      result = await runGit(projPath, ["push", "--force-with-lease"]);
     else return res.status(400).json({ error: "Bilinmeyen action: " + action });
   } catch (err) {
     return res.status(500).json({ error: err.message });

@@ -18,22 +18,22 @@ const DEFAULTS = {
   //   "0.0.0.0"   — LAN'daki tum makineler erisebilir
   //   ozel IP    — sadece o IP'den erisim (gelismis)
   bind_address: "127.0.0.1",
-  base_domain: null,                  // ornek: "example.com"; null => LAN-only
+  base_domain: null, // ornek: "example.com"; null => LAN-only
   // Panelin kendisinin durdugu host. Genelde base_domain ile ayni; Cloudflare
   // API modunda apex baskasinin kaydiyla doluysa "lyra.example.com" olabilir.
   panel_host: null,
-  public_access: false,                // true ise BASE_DOMAIN gerekli (reverse proxy ile)
-  subdomain_code: "code",              // code-server icin
+  public_access: false, // true ise BASE_DOMAIN gerekli (reverse proxy ile)
+  subdomain_code: "code", // code-server icin
   subdomain_files: "files",
   subdomain_db: "db",
   subdomain_dev_pattern: "dev-{port}", // dev server preview
   projects_dir: path.join(process.env.HOME || "/home", "projeler"),
-  secondary_disk: null,                // ornek: "/mnt/data"
-  prod_apps_dir: null,                 // ornek: "/opt/prod-apps"
+  secondary_disk: null, // ornek: "/mnt/data"
+  prod_apps_dir: null, // ornek: "/opt/prod-apps"
   session_ttl_days: 30,
   rate_limit_attempts: 5,
   rate_limit_window_minutes: 15,
-  auto_ban_after: 3,                   // n hatali login denemesi
+  auto_ban_after: 3, // n hatali login denemesi
   // Kimlik tasimayan /api/* ve WS 401'leri icin ayri (ve yuksek) esik.
   // Dashboard acilista birden fazla API cagirisi yapar; suresi dolmus
   // oturumu olan iyi niyetli kullanici tek sayfa yuklemesinde banlanmamali.
@@ -109,9 +109,15 @@ function parseHostname(host) {
 }
 
 module.exports = {
-  LYRA_HOME, PORT, NODE_ENV,
+  LYRA_HOME,
+  PORT,
+  NODE_ENV,
   DEFAULTS,
-  get, set, snapshot,
-  isPublicAccessReady, isSetupComplete,
-  buildHostname, parseHostname
+  get,
+  set,
+  snapshot,
+  isPublicAccessReady,
+  isSetupComplete,
+  buildHostname,
+  parseHostname
 };

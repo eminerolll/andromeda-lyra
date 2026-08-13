@@ -37,10 +37,7 @@ function verify(token) {
     return false;
   }
   const inputHash = hash(token.trim().toUpperCase());
-  return crypto.timingSafeEqual(
-    Buffer.from(stored.hash, "hex"),
-    Buffer.from(inputHash, "hex")
-  );
+  return crypto.timingSafeEqual(Buffer.from(stored.hash, "hex"), Buffer.from(inputHash, "hex"));
 }
 
 function invalidate() {

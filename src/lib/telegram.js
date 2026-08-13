@@ -10,7 +10,7 @@ function isEnabled() {
 
 function getConfig() {
   const i = integrations.get("telegram");
-  return (i && i.enabled) ? (i.config || {}) : null;
+  return i && i.enabled ? i.config || {} : null;
 }
 
 async function send(text, replyMarkup = null) {

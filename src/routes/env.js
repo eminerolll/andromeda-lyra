@@ -19,9 +19,24 @@ function isValidProjectName(name) {
 const ENV_FILE_RE = /^\.env(\..+)?$/;
 
 const EXCLUDE_DIRS = new Set([
-  "node_modules", ".git", "dist", "build", "out", ".next", ".nuxt",
-  ".cache", ".turbo", ".parcel-cache", "coverage", ".venv", "venv",
-  "__pycache__", ".pytest_cache", "vendor", ".idea", ".vscode"
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "out",
+  ".next",
+  ".nuxt",
+  ".cache",
+  ".turbo",
+  ".parcel-cache",
+  "coverage",
+  ".venv",
+  "venv",
+  "__pycache__",
+  ".pytest_cache",
+  "vendor",
+  ".idea",
+  ".vscode"
 ]);
 
 function findEnvFiles(rootDir, maxDepth = 4) {
@@ -29,8 +44,11 @@ function findEnvFiles(rootDir, maxDepth = 4) {
   const walk = (dir, depth) => {
     if (depth > maxDepth) return;
     let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
-    catch { return; }
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
@@ -59,7 +77,10 @@ function parseEnvFile(content) {
     }
     const key = line.substring(0, eqIndex).trim();
     let value = line.substring(eqIndex + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     entries.push({ type: "var", key, value });
@@ -68,7 +89,7 @@ function parseEnvFile(content) {
 }
 
 function serializeEnvFile(entries) {
-  return entries.map(e => e.type === "comment" ? e.raw : (e.key + "=" + e.value)).join("\n");
+  return entries.map((e) => (e.type === "comment" ? e.raw : e.key + "=" + e.value)).join("\n");
 }
 
 function resolveEnvFile(projDir, relPath) {
@@ -85,7 +106,9 @@ function resolveEnvFile(projDir, relPath) {
 router.get("/api/env/global", (req, res) => {
   const globalEnv = settings.get("global_env", {}) || {};
   const vars = Object.entries(globalEnv).map(([key, val]) => ({
-    key, value: val.value, sensitive: !!val.sensitive
+    key,
+    value: val.value,
+    sensitive: !!val.sensitive
   }));
   res.json(vars);
 });
@@ -106,18 +129,21 @@ router.put("/api/env/global", (req, res) => {
 // Project env
 
 router.get("/api/env/project/:name", (req, res) => {
-  if (!isValidProjectName(req.params.name)) return res.status(400).json({ error: "Gecersiz proje adi" });
+  if (!isValidProjectName(req.params.name))
+    return res.status(400).json({ error: "Gecersiz proje adi" });
   const projDir = path.join(config.get("projects_dir"), req.params.name);
   if (!fs.existsSync(projDir)) return res.status(404).json({ error: "Proje bulunamadi" });
 
   try {
     const envFiles = findEnvFiles(projDir);
-    const result = envFiles.map(fullPath => {
+    const result = envFiles.map((fullPath) => {
       const relativePath = path.relative(projDir, fullPath).split(path.sep).join("/");
       let vars = [];
       try {
         const content = fs.readFileSync(fullPath, "utf8");
-        vars = parseEnvFile(content).filter(e => e.type === "var").map(e => ({ key: e.key, value: e.value }));
+        vars = parseEnvFile(content)
+          .filter((e) => e.type === "var")
+          .map((e) => ({ key: e.key, value: e.value }));
       } catch (_) {}
       return { relativePath, vars };
     });
@@ -133,10 +159,12 @@ router.get("/api/env/project/:name", (req, res) => {
 });
 
 router.put("/api/env/project/:name", (req, res) => {
-  if (!isValidProjectName(req.params.name)) return res.status(400).json({ error: "Gecersiz proje adi" });
+  if (!isValidProjectName(req.params.name))
+    return res.status(400).json({ error: "Gecersiz proje adi" });
   const { filePath, vars } = req.body || {};
   if (!Array.isArray(vars)) return res.status(400).json({ error: "vars array gerekli" });
-  if (typeof filePath !== "string" || !filePath) return res.status(400).json({ error: "filePath gerekli" });
+  if (typeof filePath !== "string" || !filePath)
+    return res.status(400).json({ error: "filePath gerekli" });
 
   const projDir = path.join(config.get("projects_dir"), req.params.name);
   if (!fs.existsSync(projDir)) return res.status(404).json({ error: "Proje bulunamadi" });
@@ -147,18 +175,20 @@ router.put("/api/env/project/:name", (req, res) => {
   let entries = [];
   if (fs.existsSync(absPath)) entries = parseEnvFile(fs.readFileSync(absPath, "utf8"));
 
-  const newVars = new Map(vars.map(v => [String(v.key || "").trim(), String(v.value || "")]));
+  const newVars = new Map(vars.map((v) => [String(v.key || "").trim(), String(v.value || "")]));
   newVars.delete("");
   const seen = new Set();
 
-  entries = entries.map(e => {
-    if (e.type === "var" && newVars.has(e.key)) {
-      seen.add(e.key);
-      return { type: "var", key: e.key, value: newVars.get(e.key) };
-    }
-    if (e.type === "var" && !newVars.has(e.key)) return null;
-    return e;
-  }).filter(Boolean);
+  entries = entries
+    .map((e) => {
+      if (e.type === "var" && newVars.has(e.key)) {
+        seen.add(e.key);
+        return { type: "var", key: e.key, value: newVars.get(e.key) };
+      }
+      if (e.type === "var" && !newVars.has(e.key)) return null;
+      return e;
+    })
+    .filter(Boolean);
 
   for (const [key, value] of newVars) {
     if (!seen.has(key)) entries.push({ type: "var", key, value });
@@ -166,16 +196,20 @@ router.put("/api/env/project/:name", (req, res) => {
 
   const parentDir = path.dirname(absPath);
   if (!fs.existsSync(parentDir)) {
-    try { fs.mkdirSync(parentDir, { recursive: true }); } catch (_) {}
+    try {
+      fs.mkdirSync(parentDir, { recursive: true });
+    } catch (_) {}
   }
   fs.writeFileSync(absPath, serializeEnvFile(entries) + "\n");
   res.json({ success: true });
 });
 
 router.delete("/api/env/project/:name", (req, res) => {
-  if (!isValidProjectName(req.params.name)) return res.status(400).json({ error: "Gecersiz proje adi" });
+  if (!isValidProjectName(req.params.name))
+    return res.status(400).json({ error: "Gecersiz proje adi" });
   const { filePath } = req.body || {};
-  if (typeof filePath !== "string" || !filePath) return res.status(400).json({ error: "filePath gerekli" });
+  if (typeof filePath !== "string" || !filePath)
+    return res.status(400).json({ error: "filePath gerekli" });
   const projDir = path.join(config.get("projects_dir"), req.params.name);
   const absPath = resolveEnvFile(projDir, filePath);
   if (!absPath) return res.status(400).json({ error: "Gecersiz dosya yolu" });

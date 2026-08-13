@@ -27,14 +27,14 @@ function usesSubdomains() {
 export function hasService(key) {
   const def = SERVICE_LINKS[key];
   if (!def) return false;
-  return appConfig.services.some(s => s.type === def.type && s.enabled !== false);
+  return appConfig.services.some((s) => s.type === def.type && s.enabled !== false);
 }
 
 // Kayitli servisin portu (ornegin sistem port tablosunda code-server'i tanimak icin)
 export function servicePort(key) {
   const def = SERVICE_LINKS[key];
   if (!def) return null;
-  const found = appConfig.services.find(s => s.type === def.type && s.enabled !== false);
+  const found = appConfig.services.find((s) => s.type === def.type && s.enabled !== false);
   return found ? found.port : null;
 }
 
@@ -58,8 +58,10 @@ export function devPreviewUrl(port) {
 // & < > " ' hepsi kacirilir, yani hem metin hem de tirnakli nitelik ("...")
 // baglaminda guvenli; ayri bir escapeAttr'a gerek yok.
 export function escapeHtml(s) {
-  return String(s === null || s === undefined ? "" : s)
-    .replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  return String(s === null || s === undefined ? "" : s).replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+  );
 }
 
 // Event bus for inter-module communication
@@ -69,7 +71,7 @@ export const events = {
     (this._listeners[event] = this._listeners[event] || []).push(fn);
   },
   emit(event, data) {
-    (this._listeners[event] || []).forEach(fn => fn(data));
+    (this._listeners[event] || []).forEach((fn) => fn(data));
   }
 };
 
@@ -111,7 +113,7 @@ export function openModal(type) {
 }
 
 export function closeModals() {
-  document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("active"));
+  document.querySelectorAll(".modal-overlay").forEach((m) => m.classList.remove("active"));
 }
 
 // Time formatting
@@ -135,8 +137,8 @@ export function switchTab(name) {
   if (activeTab === name) return;
 
   // Deactivate current tab
-  document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
-  document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach((el) => el.classList.remove("active"));
 
   // Activate new tab
   const contentEl = document.getElementById("tab-" + name);
@@ -176,11 +178,11 @@ async function loadAppConfig() {
 
   // Servislerin durumu (cf, docker)
   try {
-    const cf = await fetch("/api/cf/status").then(r => r.json());
+    const cf = await fetch("/api/cf/status").then((r) => r.json());
     appConfig.enabled.cloudflare = !!cf.enabled;
   } catch (_) {}
   try {
-    const dk = await fetch("/api/docker/status").then(r => r.json());
+    const dk = await fetch("/api/docker/status").then((r) => r.json());
     appConfig.enabled.docker = !!dk.enabled;
   } catch (_) {}
 }
@@ -198,20 +200,26 @@ function applyBranding() {
   const quick = document.getElementById("quickLinks");
   if (!quick) return;
   if (hasService("db")) {
-    quick.insertAdjacentHTML("beforeend", `
+    quick.insertAdjacentHTML(
+      "beforeend",
+      `
       <a href="${serviceUrl("db")}/" target="_blank" class="quick-link">
         <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
         DbGate
       </a>
-    `);
+    `
+    );
   }
   if (hasService("files")) {
-    quick.insertAdjacentHTML("beforeend", `
+    quick.insertAdjacentHTML(
+      "beforeend",
+      `
       <a href="${serviceUrl("files")}/" target="_blank" class="quick-link">
         <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         Dosyalar
       </a>
-    `);
+    `
+    );
   }
 }
 
@@ -234,14 +242,14 @@ export async function initApp() {
   applyTabVisibility();
 
   // Close modals on overlay click
-  document.querySelectorAll(".modal-overlay").forEach(m => {
+  document.querySelectorAll(".modal-overlay").forEach((m) => {
     m.addEventListener("click", (e) => {
       if (e.target === m) closeModals();
     });
   });
 
   // Tab bar click handlers
-  document.querySelectorAll(".tab-btn").forEach(btn => {
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   });
 
@@ -256,9 +264,18 @@ export async function initApp() {
       if (tab === "cf" && !appConfig.enabled.cloudflare) return;
       switchTab(tab);
     }
-    if (e.ctrlKey && e.key === "n") { e.preventDefault(); openModal("new"); }
-    if (e.ctrlKey && e.key === "g") { e.preventDefault(); openModal("clone"); }
-    if (e.ctrlKey && e.key === "r") { e.preventDefault(); events.emit("refresh"); }
+    if (e.ctrlKey && e.key === "n") {
+      e.preventDefault();
+      openModal("new");
+    }
+    if (e.ctrlKey && e.key === "g") {
+      e.preventDefault();
+      openModal("clone");
+    }
+    if (e.ctrlKey && e.key === "r") {
+      e.preventDefault();
+      events.emit("refresh");
+    }
     if (e.key === "Escape") closeModals();
   });
 

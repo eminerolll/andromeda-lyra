@@ -8,7 +8,9 @@ describe("setup-token", () => {
     home = freshHome();
     require("../db/migrate").migrate();
   });
-  afterEach(() => { cleanup(home); });
+  afterEach(() => {
+    cleanup(home);
+  });
 
   it("generates 16-char tokens with dashes", () => {
     const setupToken = require("../lib/setup-token");

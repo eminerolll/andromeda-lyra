@@ -18,7 +18,12 @@ describe("frontend has no external asset dependency", () => {
 
   it.each(pages)("%s loads no CDN or font-service asset", (page) => {
     const html = read(page);
-    for (const origin of ["fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net", "unpkg.com"]) {
+    for (const origin of [
+      "fonts.googleapis.com",
+      "fonts.gstatic.com",
+      "cdn.jsdelivr.net",
+      "unpkg.com"
+    ]) {
       expect(html).not.toContain(origin);
     }
   });
@@ -34,7 +39,7 @@ describe("frontend has no external asset dependency", () => {
 
   it("fonts.css only references local woff2 files", () => {
     const css = read("css/fonts.css");
-    const urls = [...css.matchAll(/url\('([^']+)'\)/g)].map(m => m[1]);
+    const urls = [...css.matchAll(/url\('([^']+)'\)/g)].map((m) => m[1]);
     expect(urls.length).toBeGreaterThan(0);
     for (const u of urls) {
       expect(u.startsWith("../fonts/")).toBe(true);

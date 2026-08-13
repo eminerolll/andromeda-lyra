@@ -17,16 +17,18 @@ const userAgent = () => (config.get("app_name") || "Lyra") + "-Launcher";
 
 // streamClone projects.js'den enjekte edilir
 let streamClone = null;
-router.setStreamClone = function(fn) { streamClone = fn; };
+router.setStreamClone = function (fn) {
+  streamClone = fn;
+};
 
 function getToken() {
   const i = integrations.get("github");
-  return (i && i.enabled && i.config) ? i.config.token : null;
+  return i && i.enabled && i.config ? i.config.token : null;
 }
 
 function getUser() {
   const i = integrations.get("github");
-  return (i && i.config) ? i.config.user : null;
+  return i && i.config ? i.config.user : null;
 }
 
 router.post("/api/settings/github", async (req, res) => {
@@ -52,8 +54,17 @@ router.post("/api/settings/github", async (req, res) => {
     try {
       execFileSync("git", ["config", "--global", "credential.helper", "store"]);
       execFileSync("git", ["config", "--global", "user.name", user.name || user.login]);
-      execFileSync("git", ["config", "--global", "user.email", user.email || (user.login + "@users.noreply.github.com")]);
-      fs.writeFileSync(GIT_CREDENTIALS_PATH, "https://" + user.login + ":" + token + "@github.com\n", { mode: 0o600 });
+      execFileSync("git", [
+        "config",
+        "--global",
+        "user.email",
+        user.email || user.login + "@users.noreply.github.com"
+      ]);
+      fs.writeFileSync(
+        GIT_CREDENTIALS_PATH,
+        "https://" + user.login + ":" + token + "@github.com\n",
+        { mode: 0o600 }
+      );
     } catch (e) {
       // git config opsiyonel — token DB'de kayitli olduktan sonra bile clone calisir (URL'ye embed)
     }
@@ -66,7 +77,9 @@ router.post("/api/settings/github", async (req, res) => {
 
 router.delete("/api/settings/github", (req, res) => {
   integrations.remove("github");
-  try { fs.unlinkSync(GIT_CREDENTIALS_PATH); } catch (_) {}
+  try {
+    fs.unlinkSync(GIT_CREDENTIALS_PATH);
+  } catch (_) {}
   res.json({ success: true });
 });
 
@@ -76,20 +89,30 @@ router.get("/api/github/repos", async (req, res) => {
   try {
     const page = req.query.page || 1;
     const search = req.query.search || "";
-    const url = "https://api.github.com/user/repos?per_page=30&page=" + page + "&sort=updated&affiliation=owner,collaborator,organization_member";
+    const url =
+      "https://api.github.com/user/repos?per_page=30&page=" +
+      page +
+      "&sort=updated&affiliation=owner,collaborator,organization_member";
     const response = await fetch(url, {
       headers: { Authorization: "Bearer " + token, "User-Agent": userAgent() }
     });
     if (!response.ok) return res.status(response.status).json({ error: "GitHub API hatasi" });
     let repos = await response.json();
     if (search) {
-      repos = repos.filter(r => r.full_name.toLowerCase().includes(search.toLowerCase()));
+      repos = repos.filter((r) => r.full_name.toLowerCase().includes(search.toLowerCase()));
     }
-    res.json(repos.map(r => ({
-      name: r.name, fullName: r.full_name, description: r.description,
-      language: r.language, stars: r.stargazers_count, isPrivate: r.private,
-      cloneUrl: r.clone_url, updatedAt: r.updated_at
-    })));
+    res.json(
+      repos.map((r) => ({
+        name: r.name,
+        fullName: r.full_name,
+        description: r.description,
+        language: r.language,
+        stars: r.stargazers_count,
+        isPrivate: r.private,
+        cloneUrl: r.clone_url,
+        updatedAt: r.updated_at
+      }))
+    );
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -102,12 +125,18 @@ router.get("/api/github/branches", async (req, res) => {
   if (!repo) return res.status(400).json({ error: "repo parametresi gerekli" });
   try {
     const headers = { Authorization: "Bearer " + token, "User-Agent": userAgent() };
-    const response = await fetch("https://api.github.com/repos/" + repo + "/branches?per_page=100", { headers });
+    const response = await fetch(
+      "https://api.github.com/repos/" + repo + "/branches?per_page=100",
+      { headers }
+    );
     if (!response.ok) return res.status(response.status).json({ error: "GitHub API hatasi" });
     const branches = await response.json();
     const repoRes = await fetch("https://api.github.com/repos/" + repo, { headers });
     const repoData = await repoRes.json();
-    res.json({ defaultBranch: repoData.default_branch || "main", branches: branches.map(b => b.name) });
+    res.json({
+      defaultBranch: repoData.default_branch || "main",
+      branches: branches.map((b) => b.name)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -20,14 +20,18 @@ function ensureMigrationsTable() {
 
 function getApplied() {
   return new Set(
-    db.prepare("SELECT name FROM _migrations ORDER BY id").all().map(r => r.name)
+    db
+      .prepare("SELECT name FROM _migrations ORDER BY id")
+      .all()
+      .map((r) => r.name)
   );
 }
 
 function listMigrations() {
   if (!fs.existsSync(MIGRATIONS_DIR)) return [];
-  return fs.readdirSync(MIGRATIONS_DIR)
-    .filter(f => f.endsWith(".sql"))
+  return fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith(".sql"))
     .sort();
 }
 
@@ -44,7 +48,7 @@ function migrate() {
   ensureMigrationsTable();
   const applied = getApplied();
   const all = listMigrations();
-  const pending = all.filter(m => !applied.has(m));
+  const pending = all.filter((m) => !applied.has(m));
 
   if (pending.length === 0) {
     console.log(`[migrate] Hicbir migration beklemede degil. (${all.length} uygulanmis)`);

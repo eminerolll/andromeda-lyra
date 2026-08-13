@@ -77,14 +77,14 @@ function parseRules(text) {
 
 function findPortRules(text, port) {
   const p = String(port);
-  return parseRules(text).filter(r => r.target === p || r.target === `${p}/tcp`);
+  return parseRules(text).filter((r) => r.target === p || r.target === `${p}/tcp`);
 }
 
 // ---------- IPv4 subnet yardimcilari ----------
 
 function ipToInt(ip) {
   const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) {
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
     return null;
   }
   return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
@@ -101,7 +101,7 @@ function networkOf(cidr) {
   const bits = parseInt(bitsRaw, 10);
   const asInt = ipToInt(ip);
   if (asInt === null || !Number.isInteger(bits) || bits < 1 || bits > 32) return null;
-  const mask = bits === 32 ? 0xffffffff : ((0xffffffff << (32 - bits)) >>> 0);
+  const mask = bits === 32 ? 0xffffffff : (0xffffffff << (32 - bits)) >>> 0;
   return `${intToIp((asInt & mask) >>> 0)}/${bits}`;
 }
 
@@ -142,9 +142,18 @@ function buildAccessModeRules(mode, { port, subnets = [] } = {}) {
       // yapma — sessizce internete acmak kabul edilemez.
       return [];
     }
-    return nets.map(net => [
-      "allow", "from", net, "to", "any", "port", String(port), "proto", "tcp",
-      "comment", PERSISTENT_COMMENT
+    return nets.map((net) => [
+      "allow",
+      "from",
+      net,
+      "to",
+      "any",
+      "port",
+      String(port),
+      "proto",
+      "tcp",
+      "comment",
+      PERSISTENT_COMMENT
     ]);
   }
   return [];
@@ -187,7 +196,7 @@ function closeSetupPort(port, { onLog } = {}) {
   }
   const rules = findPortRules(text, port);
   if (!rules.length) return { applied: false, reason: "kural-yok" };
-  if (!rules.some(r => r.comment === SETUP_COMMENT)) {
+  if (!rules.some((r) => r.comment === SETUP_COMMENT)) {
     log(`UFW: ${port}/tcp kurali bize ait degil, silinmedi.`);
     return { applied: false, reason: "yabanci-kural" };
   }

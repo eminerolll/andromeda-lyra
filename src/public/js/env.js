@@ -10,20 +10,36 @@ async function loadProjectList() {
   try {
     const projects = await api("/api/projects");
     const select = document.getElementById("envProjectSelect");
-    select.innerHTML = '<option value="">Proje sec...</option>' +
-      projects.map(p => '<option value="' + escapeHtml(p.name) + '"' + (p.name === currentProject ? " selected" : "") + ">" + escapeHtml(p.name) + "</option>").join("");
+    select.innerHTML =
+      '<option value="">Proje sec...</option>' +
+      projects
+        .map(
+          (p) =>
+            '<option value="' +
+            escapeHtml(p.name) +
+            '"' +
+            (p.name === currentProject ? " selected" : "") +
+            ">" +
+            escapeHtml(p.name) +
+            "</option>"
+        )
+        .join("");
   } catch (e) {}
 }
 
 async function loadEnvData() {
   try {
     globalVars = await api("/api/env/global");
-  } catch (e) { globalVars = []; }
+  } catch (e) {
+    globalVars = [];
+  }
 
   if (currentProject) {
     try {
       projectFiles = await api("/api/env/project/" + encodeURIComponent(currentProject));
-    } catch (e) { projectFiles = []; }
+    } catch (e) {
+      projectFiles = [];
+    }
   } else {
     projectFiles = [];
   }
@@ -49,10 +65,29 @@ function renderEnvRow(key, value, scope, fileIdx, sensitive) {
   html += '<span class="env-value">' + escapeHtml(displayValue) + "</span>";
   html += '<div class="env-actions">';
   if (shouldMask) {
-    html += '<button class="btn btn-sm btn-ghost" data-reveal="' + escapeHtml(revealKey) + '">' + (revealedKeys.has(revealKey) ? "Gizle" : "Goster") + "</button>";
+    html +=
+      '<button class="btn btn-sm btn-ghost" data-reveal="' +
+      escapeHtml(revealKey) +
+      '">' +
+      (revealedKeys.has(revealKey) ? "Gizle" : "Goster") +
+      "</button>";
   }
-  html += '<button class="btn btn-sm btn-ghost" data-edit-key="' + escapeHtml(key) + '" data-scope="' + scope + '"' + (fileIdx != null ? ' data-file-idx="' + fileIdx + '"' : "") + '>Duzenle</button>';
-  html += '<button class="btn btn-sm btn-ghost" style="color:var(--red);" data-delete-key="' + escapeHtml(key) + '" data-scope="' + scope + '"' + (fileIdx != null ? ' data-file-idx="' + fileIdx + '"' : "") + '>Sil</button>';
+  html +=
+    '<button class="btn btn-sm btn-ghost" data-edit-key="' +
+    escapeHtml(key) +
+    '" data-scope="' +
+    scope +
+    '"' +
+    (fileIdx != null ? ' data-file-idx="' + fileIdx + '"' : "") +
+    ">Duzenle</button>";
+  html +=
+    '<button class="btn btn-sm btn-ghost" style="color:var(--red);" data-delete-key="' +
+    escapeHtml(key) +
+    '" data-scope="' +
+    scope +
+    '"' +
+    (fileIdx != null ? ' data-file-idx="' + fileIdx + '"' : "") +
+    ">Sil</button>";
   html += "</div></div>";
   return html;
 }
@@ -65,7 +100,8 @@ function render() {
   html += '<div class="env-section">';
   html += '<div class="env-section-title">Global Degiskenler</div>';
   if (globalVars.length === 0) {
-    html += '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Global degisken yok</div>';
+    html +=
+      '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Global degisken yok</div>';
   } else {
     for (const v of globalVars) {
       html += renderEnvRow(v.key, v.value, "global", null, v.sensitive);
@@ -78,18 +114,27 @@ function render() {
     if (projectFiles.length === 0) {
       html += '<div class="env-section">';
       html += '<div class="env-section-title">Proje Env Dosyalari</div>';
-      html += '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Bu projede .env dosyasi bulunamadi.</div>';
-      html += '</div>';
+      html +=
+        '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Bu projede .env dosyasi bulunamadi.</div>';
+      html += "</div>";
     } else {
       for (let i = 0; i < projectFiles.length; i++) {
         const file = projectFiles[i];
         html += '<div class="env-section">';
-        html += '<div class="env-section-title" style="display:flex; align-items:center; justify-content:space-between;">';
-        html += '<span><code style="color:var(--accent);">' + escapeHtml(file.relativePath) + "</code> (" + file.vars.length + " degisken)</span>";
-        html += '<button class="btn btn-sm" data-copy-file="' + i + '">.env olarak kopyala</button>';
-        html += '</div>';
+        html +=
+          '<div class="env-section-title" style="display:flex; align-items:center; justify-content:space-between;">';
+        html +=
+          '<span><code style="color:var(--accent);">' +
+          escapeHtml(file.relativePath) +
+          "</code> (" +
+          file.vars.length +
+          " degisken)</span>";
+        html +=
+          '<button class="btn btn-sm" data-copy-file="' + i + '">.env olarak kopyala</button>';
+        html += "</div>";
         if (file.vars.length === 0) {
-          html += '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Bos dosya</div>';
+          html +=
+            '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Bos dosya</div>';
         } else {
           for (const v of file.vars) {
             html += renderEnvRow(v.key, v.value, "project", i);
@@ -103,20 +148,23 @@ function render() {
   container.innerHTML = html;
 
   // Event handlers
-  container.querySelectorAll("[data-reveal]").forEach(btn => {
+  container.querySelectorAll("[data-reveal]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const key = btn.dataset.reveal;
       if (revealedKeys.has(key)) {
         revealedKeys.delete(key);
       } else {
         revealedKeys.add(key);
-        setTimeout(() => { revealedKeys.delete(key); render(); }, 10000);
+        setTimeout(() => {
+          revealedKeys.delete(key);
+          render();
+        }, 10000);
       }
       render();
     });
   });
 
-  container.querySelectorAll("[data-edit-key]").forEach(btn => {
+  container.querySelectorAll("[data-edit-key]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const key = btn.dataset.editKey;
       const scope = btn.dataset.scope;
@@ -125,7 +173,7 @@ function render() {
     });
   });
 
-  container.querySelectorAll("[data-delete-key]").forEach(btn => {
+  container.querySelectorAll("[data-delete-key]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const key = btn.dataset.deleteKey;
       const scope = btn.dataset.scope;
@@ -134,12 +182,12 @@ function render() {
     });
   });
 
-  container.querySelectorAll("[data-copy-file]").forEach(btn => {
+  container.querySelectorAll("[data-copy-file]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const idx = parseInt(btn.dataset.copyFile);
       const file = projectFiles[idx];
       if (!file) return;
-      const text = file.vars.map(v => v.key + "=" + v.value).join("\n");
+      const text = file.vars.map((v) => v.key + "=" + v.value).join("\n");
       navigator.clipboard.writeText(text).then(() => toast(file.relativePath + " kopyalandi"));
     });
   });
@@ -159,7 +207,12 @@ function populateFileSelector() {
 
   let html = '<option value="__global__">Global</option>';
   for (const file of projectFiles) {
-    html += '<option value="' + escapeHtml(file.relativePath) + '">' + escapeHtml(file.relativePath) + "</option>";
+    html +=
+      '<option value="' +
+      escapeHtml(file.relativePath) +
+      '">' +
+      escapeHtml(file.relativePath) +
+      "</option>";
   }
   html += '<option value="__new__">+ Yeni .env dosyasi...</option>';
   select.innerHTML = html;
@@ -168,11 +221,11 @@ function populateFileSelector() {
 function startEdit(key, scope, fileIdx) {
   let entry;
   if (scope === "global") {
-    entry = globalVars.find(v => v.key === key);
+    entry = globalVars.find((v) => v.key === key);
   } else {
     const file = projectFiles[fileIdx];
     if (!file) return;
-    entry = file.vars.find(v => v.key === key);
+    entry = file.vars.find((v) => v.key === key);
   }
   if (!entry) return;
 
@@ -192,12 +245,12 @@ async function deleteVar(key, scope, fileIdx) {
   if (!confirm(key + " degiskenini silmek istedigine emin misin?")) return;
 
   if (scope === "global") {
-    globalVars = globalVars.filter(v => v.key !== key);
+    globalVars = globalVars.filter((v) => v.key !== key);
     await saveGlobal();
   } else {
     const file = projectFiles[fileIdx];
     if (!file) return;
-    file.vars = file.vars.filter(v => v.key !== key);
+    file.vars = file.vars.filter((v) => v.key !== key);
     await saveProjectFile(fileIdx);
   }
 }
@@ -207,7 +260,9 @@ async function saveGlobal() {
     await api("/api/env/global", { method: "PUT", body: { vars: globalVars } });
     toast("Global kaydedildi");
     loadEnvData();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function saveProjectFile(fileIdx) {
@@ -220,7 +275,9 @@ async function saveProjectFile(fileIdx) {
     });
     toast(file.relativePath + " kaydedildi");
     loadEnvData();
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function addVar(e) {
@@ -230,13 +287,19 @@ async function addVar(e) {
   const value = document.getElementById("envNewValue").value;
   const sensitive = document.getElementById("envNewSensitive").checked;
 
-  if (!key) { toast("Anahtar gerekli", "error"); return; }
+  if (!key) {
+    toast("Anahtar gerekli", "error");
+    return;
+  }
 
   if (fileValue === "__global__") {
     globalVars.push({ key, value, sensitive });
     await saveGlobal();
   } else {
-    if (!currentProject) { toast("Once bir proje sec", "error"); return; }
+    if (!currentProject) {
+      toast("Once bir proje sec", "error");
+      return;
+    }
 
     let targetFile = fileValue;
     if (fileValue === "__new__") {
@@ -251,7 +314,7 @@ async function addVar(e) {
     }
 
     // Find or create file entry
-    let file = projectFiles.find(f => f.relativePath === targetFile);
+    let file = projectFiles.find((f) => f.relativePath === targetFile);
     if (!file) {
       file = { relativePath: targetFile, vars: [] };
       projectFiles.push(file);
@@ -267,7 +330,9 @@ async function addVar(e) {
       document.getElementById("envNewKey").value = "";
       document.getElementById("envNewValue").value = "";
       loadEnvData();
-    } catch (e) { toast(e.message, "error"); }
+    } catch (e) {
+      toast(e.message, "error");
+    }
   }
 }
 

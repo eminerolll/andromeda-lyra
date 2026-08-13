@@ -59,7 +59,10 @@ function streamClone(gitUrl, projectPath, repoName, req, res, branch) {
   const proc = spawn("git", args, { timeout: 300000 });
 
   proc.stderr.on("data", (chunk) => {
-    const lines = chunk.toString().split(/[\r\n]+/).filter(Boolean);
+    const lines = chunk
+      .toString()
+      .split(/[\r\n]+/)
+      .filter(Boolean);
     for (const line of lines) send(parseGitProgress(line));
   });
 
@@ -68,7 +71,13 @@ function streamClone(gitUrl, projectPath, repoName, req, res, branch) {
   });
 
   proc.on("close", (code) => {
-    send({ done: true, success: code === 0, name: repoName, path: projectPath, error: code !== 0 ? "Clone basarisiz (exit " + code + ")" : null });
+    send({
+      done: true,
+      success: code === 0,
+      name: repoName,
+      path: projectPath,
+      error: code !== 0 ? "Clone basarisiz (exit " + code + ")" : null
+    });
     res.end();
   });
 
@@ -77,7 +86,9 @@ function streamClone(gitUrl, projectPath, repoName, req, res, branch) {
     res.end();
   });
 
-  req.on("close", () => { proc.kill(); });
+  req.on("close", () => {
+    proc.kill();
+  });
 }
 
 router.get("/api/projects", (req, res) => {
@@ -85,9 +96,10 @@ router.get("/api/projects", (req, res) => {
     const dir = projectsDir();
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const pinned = getPinnedSet();
-    const items = fs.readdirSync(dir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => {
+    const items = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => {
         const fullPath = path.join(dir, d.name);
         const stat = fs.statSync(fullPath);
         let type = "Bos";
@@ -100,19 +112,27 @@ router.get("/api/projects", (req, res) => {
         try {
           branch = execFileSync("git", ["-C", fullPath, "branch", "--show-current"], {
             stdio: ["pipe", "pipe", "ignore"]
-          }).toString().trim();
+          })
+            .toString()
+            .trim();
         } catch (_) {}
 
         let size = "?";
         try {
           size = execFileSync("du", ["-sh", fullPath], {
             stdio: ["pipe", "pipe", "ignore"]
-          }).toString().split("\t")[0];
+          })
+            .toString()
+            .split("\t")[0];
         } catch (_) {}
 
         return {
-          name: d.name, type, branch, size,
-          modified: stat.mtime, path: fullPath,
+          name: d.name,
+          type,
+          branch,
+          size,
+          modified: stat.mtime,
+          path: fullPath,
           pinned: pinned.has(d.name)
         };
       })
@@ -140,7 +160,7 @@ router.put("/api/projects/:name/pin", (req, res) => {
   if (pinned) {
     next = current.includes(req.params.name) ? current : [...current, req.params.name];
   } else {
-    next = current.filter(n => n !== req.params.name);
+    next = current.filter((n) => n !== req.params.name);
   }
   setPinned(next);
   res.json({ success: true, pinned: !!pinned });

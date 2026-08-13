@@ -23,10 +23,14 @@ function exists() {
 
 function create({ username, password, totpSecret = null, totpEnabled = false }) {
   const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
-  const info = db.prepare(`
+  const info = db
+    .prepare(
+      `
     INSERT INTO users (username, password_hash, totp_secret, totp_enabled, created_at)
     VALUES (?, ?, ?, ?, ?)
-  `).run(username, hash, totpSecret, totpEnabled ? 1 : 0, Date.now());
+  `
+    )
+    .run(username, hash, totpSecret, totpEnabled ? 1 : 0, Date.now());
   return findById(info.lastInsertRowid);
 }
 
@@ -41,8 +45,11 @@ function setPassword(id, password) {
 }
 
 function setTotp(id, { secret, enabled }) {
-  db.prepare("UPDATE users SET totp_secret = ?, totp_enabled = ? WHERE id = ?")
-    .run(secret, enabled ? 1 : 0, id);
+  db.prepare("UPDATE users SET totp_secret = ?, totp_enabled = ? WHERE id = ?").run(
+    secret,
+    enabled ? 1 : 0,
+    id
+  );
 }
 
 function disableTotp(id) {
@@ -54,7 +61,14 @@ function touchLogin(id) {
 }
 
 module.exports = {
-  findByUsername, findById, getAdmin, exists,
-  create, verifyPassword, setPassword,
-  setTotp, disableTotp, touchLogin
+  findByUsername,
+  findById,
+  getAdmin,
+  exists,
+  create,
+  verifyPassword,
+  setPassword,
+  setTotp,
+  disableTotp,
+  touchLogin
 };

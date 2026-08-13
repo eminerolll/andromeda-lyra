@@ -199,7 +199,9 @@ router.post("/api/setup/finalize", requireSetupAuth, async (req, res) => {
 
     // Async: Caddy / cloudflared kurulumu + firewall + restart.
     // Istemci /api/setup/progress ile canli izler.
-    setImmediate(() => core.runPostSetup(applied.accessMode, body, postSetup, { transition: "self" }));
+    setImmediate(() =>
+      core.runPostSetup(applied.accessMode, body, postSetup, { transition: "self" })
+    );
   } catch (err) {
     console.error("[setup/finalize] hata:", err);
     res.status(500).json({ error: err.message });

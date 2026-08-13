@@ -71,8 +71,9 @@ describe("setup-core validateFinalize", () => {
     const body = baseBody({
       user: { username: "admin", password: "supersecret1234", enable2FA: true }
     });
-    expect(core.validateFinalize(body, { totpVerified: false }).errors.join(" "))
-      .toMatch(/2FA dogrulamasi/);
+    expect(core.validateFinalize(body, { totpVerified: false }).errors.join(" ")).toMatch(
+      /2FA dogrulamasi/
+    );
     expect(core.validateFinalize(body, { totpVerified: true }).errors).toEqual([]);
   });
 
@@ -147,9 +148,11 @@ describe("setup-core adimlar ve ilerleme", () => {
     expect(p.step("firewall").status).toBe("ok");
     expect(p.step("firewall").note).toBe("kural yok");
 
-    expect(await p.runStep("setup-mode-off", async () => {
-      throw new Error("patladi");
-    })).toBe(false);
+    expect(
+      await p.runStep("setup-mode-off", async () => {
+        throw new Error("patladi");
+      })
+    ).toBe(false);
     expect(p.step("setup-mode-off").status).toBe("failed");
     expect(p.step("setup-mode-off").error).toBe("patladi");
 
@@ -185,11 +188,13 @@ describe("setup-core applyFinalize", () => {
     const core = require("../lib/setup-core");
     const { settings, users } = require("../db/repos");
 
-    const applied = core.applyFinalize(baseBody({
-      appName: "Panelim",
-      projectsDir: "/srv/projects",
-      integrations: { github: { token: "gh_abc" } }
-    }));
+    const applied = core.applyFinalize(
+      baseBody({
+        appName: "Panelim",
+        projectsDir: "/srv/projects",
+        integrations: { github: { token: "gh_abc" } }
+      })
+    );
 
     expect(applied.accessMode).toBe("lan");
     expect(settings.get("app_name")).toBe("Panelim");
@@ -213,13 +218,15 @@ describe("setup-core applyFinalize", () => {
     const core = require("../lib/setup-core");
     const { settings } = require("../db/repos");
 
-    const applied = core.applyFinalize(baseBody({
-      accessMode: "cf-api",
-      domain: "ornek.com",
-      cfApiToken: "t",
-      cfHostMode: "subdomain",
-      cfPanelSubdomain: "panel"
-    }));
+    const applied = core.applyFinalize(
+      baseBody({
+        accessMode: "cf-api",
+        domain: "ornek.com",
+        cfApiToken: "t",
+        cfHostMode: "subdomain",
+        cfPanelSubdomain: "panel"
+      })
+    );
 
     expect(applied.panelHost).toBe("panel.ornek.com");
     expect(applied.finalUrl).toBe("https://panel.ornek.com");

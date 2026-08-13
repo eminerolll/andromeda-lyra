@@ -4,16 +4,22 @@ import { freshHome, cleanup, require } from "./setup.js";
 describe("db migration runner", () => {
   let home;
 
-  beforeEach(() => { home = freshHome(); });
-  afterEach(() => { cleanup(home); });
+  beforeEach(() => {
+    home = freshHome();
+  });
+  afterEach(() => {
+    cleanup(home);
+  });
 
   it("creates schema and is idempotent", () => {
     const { migrate } = require("../db/migrate");
     migrate();
     const { db } = require("../db");
 
-    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all();
-    const names = tables.map(t => t.name);
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all();
+    const names = tables.map((t) => t.name);
 
     expect(names).toContain("settings");
     expect(names).toContain("services");
@@ -27,9 +33,7 @@ describe("db migration runner", () => {
     // Sabit sayi yazma — her yeni migration'da test kirilir.
     const fs = require("fs");
     const migrationsDir = new URL("../db/migrations/", import.meta.url);
-    const migrationCount = fs
-      .readdirSync(migrationsDir)
-      .filter(f => f.endsWith(".sql")).length;
+    const migrationCount = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).length;
 
     const before = db.prepare("SELECT COUNT(*) AS c FROM _migrations").get();
     expect(before.c).toBe(migrationCount);

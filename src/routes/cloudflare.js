@@ -111,8 +111,8 @@ router.delete("/api/cf/settings/token", (req, res) => {
 router.post("/api/cf/discover", (req, res) => {
   const { tunnelId, domain } = req.body || {};
   cf.discoverConnection({ tunnelId, domain })
-    .then(r => res.json({ success: true, ...r }))
-    .catch(err => fail(res, err));
+    .then((r) => res.json({ success: true, ...r }))
+    .catch((err) => fail(res, err));
 });
 
 module.exports = router;

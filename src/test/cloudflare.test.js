@@ -241,8 +241,11 @@ describe("cloudflare / catch-all her zaman sonda", () => {
 
   it("yeni kural wildcard'dan once girer, catch-all sonda kalir", () => {
     const cf = loadLib();
-    const out = cf.insertRule(baseIngress(), { hostname: "app.example.com", service: "http://localhost:8090" });
-    expect(out.map(r => r.hostname)).toEqual([
+    const out = cf.insertRule(baseIngress(), {
+      hostname: "app.example.com",
+      service: "http://localhost:8090"
+    });
+    expect(out.map((r) => r.hostname)).toEqual([
       "app.example.com",
       "*.example.com",
       "example.com",
@@ -254,10 +257,13 @@ describe("cloudflare / catch-all her zaman sonda", () => {
   it("wildcard yoksa kural sona, catch-all yine en sona eklenir", () => {
     const cf = loadLib();
     const out = cf.insertRule(
-      [{ hostname: "example.com", service: "http://localhost:3000" }, { service: "http_status:404" }],
+      [
+        { hostname: "example.com", service: "http://localhost:3000" },
+        { service: "http_status:404" }
+      ],
       { hostname: "app.example.com", service: "http://localhost:8090" }
     );
-    expect(out.map(r => r.hostname)).toEqual(["example.com", "app.example.com", undefined]);
+    expect(out.map((r) => r.hostname)).toEqual(["example.com", "app.example.com", undefined]);
   });
 
   it("catch-all hostname'siz oldugu icin silinemez", async () => {
@@ -307,7 +313,9 @@ describe("cloudflare / korumali host'lar", () => {
     setDomain();
     noLocalConfig();
     mockFetch([]);
-    await expect(removeIngress(cf, "*.example.com")).rejects.toThrow(/Korumali kayit silinemez: \*\.example\.com/);
+    await expect(removeIngress(cf, "*.example.com")).rejects.toThrow(
+      /Korumali kayit silinemez: \*\.example\.com/
+    );
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -319,11 +327,17 @@ describe("cloudflare / korumali host'lar", () => {
     const p = path.join(home, "config.yml");
     fs.writeFileSync(
       p,
-      "tunnel: abc-123\ningress:\n  - hostname: \"*.example.com\"\n    service: http://localhost:3000\n  - service: http_status:404\n"
+      'tunnel: abc-123\ningress:\n  - hostname: "*.example.com"\n    service: http://localhost:3000\n  - service: http_status:404\n'
     );
     settings.set("cloudflared_config_path", p);
-    mockExec(cmd => (cmd.includes("cat " + p) ? { stdout: fs.readFileSync(p, "utf8") } : { err: new Error("komut yok") }));
-    await expect(removeIngress(cf, "*.example.com")).rejects.toThrow(/Korumali kayit silinemez: \*\.example\.com/);
+    mockExec((cmd) =>
+      cmd.includes("cat " + p)
+        ? { stdout: fs.readFileSync(p, "utf8") }
+        : { err: new Error("komut yok") }
+    );
+    await expect(removeIngress(cf, "*.example.com")).rejects.toThrow(
+      /Korumali kayit silinemez: \*\.example\.com/
+    );
   });
 
   it("listede korumali ve catch-all kayitlari isaretlenir", async () => {
@@ -334,7 +348,11 @@ describe("cloudflare / korumali host'lar", () => {
     mockFetch([ok({ source: "cloudflare", config: { ingress: baseIngress() } })]);
     const { entries, source } = await listIngress(cf);
     expect(source).toBe("cloudflare");
-    expect(entries[0]).toMatchObject({ hostname: "*.example.com", isWildcard: true, isProtected: true });
+    expect(entries[0]).toMatchObject({
+      hostname: "*.example.com",
+      isWildcard: true,
+      isProtected: true
+    });
     expect(entries[1]).toMatchObject({ hostname: "example.com", isProtected: true });
     expect(entries[2]).toMatchObject({ hostname: null, isCatchAll: true });
     expect(calls[0].url).toContain(`/cfd_tunnel/${TUNNEL_ID}/configurations`);
@@ -359,10 +377,15 @@ describe("cloudflare / Mod A ingress yazma", () => {
     expect(meta.dnsAction).toBe("created");
 
     expect(calls[2].method).toBe("POST");
-    expect(calls[2].body).toMatchObject({ type: "CNAME", name: "app.example.com", content: CNAME, proxied: true });
+    expect(calls[2].body).toMatchObject({
+      type: "CNAME",
+      name: "app.example.com",
+      content: CNAME,
+      proxied: true
+    });
 
     expect(calls[3].method).toBe("PUT");
-    expect(calls[3].body.config.ingress.map(r => r.hostname)).toEqual([
+    expect(calls[3].body.config.ingress.map((r) => r.hostname)).toEqual([
       "app.example.com",
       "*.example.com",
       "example.com",
@@ -387,8 +410,13 @@ describe("cloudflare / Mod A ingress yazma", () => {
     expect(meta.dns).toBe(true);
 
     // DNS kaydi da kucuk harfle yazilir.
-    expect(calls[2].body).toMatchObject({ type: "CNAME", name: "app.example.com", content: CNAME, proxied: true });
-    expect(calls[3].body.config.ingress.map(r => r.hostname)).toEqual([
+    expect(calls[2].body).toMatchObject({
+      type: "CNAME",
+      name: "app.example.com",
+      content: CNAME,
+      proxied: true
+    });
+    expect(calls[3].body.config.ingress.map((r) => r.hostname)).toEqual([
       "app.example.com",
       "*.example.com",
       "example.com",
@@ -407,7 +435,7 @@ describe("cloudflare / Mod A ingress yazma", () => {
     ]);
     const meta = await addIngress(cf, "app.example.com", 8090, { dns: false });
     expect(meta.dns).toBe(false);
-    expect(calls.some(c => c.url.includes("dns_records"))).toBe(false);
+    expect(calls.some((c) => c.url.includes("dns_records"))).toBe(false);
   });
 
   it("ayni hostname iki kez eklenemez", async () => {
@@ -416,7 +444,9 @@ describe("cloudflare / Mod A ingress yazma", () => {
     setDomain();
     noLocalConfig();
     mockFetch([ok({ source: "cloudflare", config: { ingress: baseIngress() } })]);
-    await expect(addIngress(cf, "example.com", 8090, { dns: true })).rejects.toThrow(/zaten kayitli/i);
+    await expect(addIngress(cf, "example.com", 8090, { dns: true })).rejects.toThrow(
+      /zaten kayitli/i
+    );
     expect(calls).toHaveLength(1);
   });
 
@@ -426,8 +456,9 @@ describe("cloudflare / Mod A ingress yazma", () => {
     setDomain();
     noLocalConfig();
     mockFetch([ok({ source: "cloudflare", config: { ingress: baseIngress() } })]);
-    await expect(addIngress(cf, "app.baska.com", 8090, { dns: true }))
-      .rejects.toThrow(/zone'unun altinda degil/i);
+    await expect(addIngress(cf, "app.baska.com", 8090, { dns: true })).rejects.toThrow(
+      /zone'unun altinda degil/i
+    );
     expect(calls).toHaveLength(1);
   });
 
@@ -440,15 +471,12 @@ describe("cloudflare / Mod A ingress yazma", () => {
       { hostname: "app.example.com", service: "http://localhost:8090" },
       ...baseIngress()
     ];
-    mockFetch([
-      ok({ source: "cloudflare", config: { ingress: withApp } }),
-      ok({ config: {} })
-    ]);
+    mockFetch([ok({ source: "cloudflare", config: { ingress: withApp } }), ok({ config: {} })]);
     const meta = await removeIngress(cf, "app.example.com", { dns: false });
     expect(meta.dns).toBe(false);
     expect(calls[1].method).toBe("PUT");
     const sent = calls[1].body.config.ingress;
-    expect(sent.map(r => r.hostname)).toEqual(["*.example.com", "example.com", undefined]);
+    expect(sent.map((r) => r.hostname)).toEqual(["*.example.com", "example.com", undefined]);
     expect(sent[sent.length - 1].service).toBe("http_status:404");
   });
 
@@ -461,15 +489,12 @@ describe("cloudflare / Mod A ingress yazma", () => {
       { hostname: "app.example.com", service: "http://localhost:8090" },
       ...baseIngress()
     ];
-    mockFetch([
-      ok({ source: "cloudflare", config: { ingress: withApp } }),
-      ok({ config: {} })
-    ]);
+    mockFetch([ok({ source: "cloudflare", config: { ingress: withApp } }), ok({ config: {} })]);
     const meta = await removeIngress(cf, "APP.EXAMPLE.COM", { dns: false });
     expect(meta.dns).toBe(false);
     expect(calls[1].method).toBe("PUT");
     const sent = calls[1].body.config.ingress;
-    expect(sent.map(r => r.hostname)).toEqual(["*.example.com", "example.com", undefined]);
+    expect(sent.map((r) => r.hostname)).toEqual(["*.example.com", "example.com", undefined]);
   });
 
   it("silerken DNS istenirse yalnizca tunnel CNAME'i silinir", async () => {
@@ -478,9 +503,19 @@ describe("cloudflare / Mod A ingress yazma", () => {
     setDomain();
     noLocalConfig();
     mockFetch([
-      ok({ source: "cloudflare", config: { ingress: [{ hostname: "app.example.com", service: "http://localhost:8090" }, ...baseIngress()] } }),
+      ok({
+        source: "cloudflare",
+        config: {
+          ingress: [
+            { hostname: "app.example.com", service: "http://localhost:8090" },
+            ...baseIngress()
+          ]
+        }
+      }),
       ok({ config: {} }),
-      ok([{ id: RECORD_ID, type: "CNAME", name: "app.example.com", content: CNAME, proxied: true }]),
+      ok([
+        { id: RECORD_ID, type: "CNAME", name: "app.example.com", content: CNAME, proxied: true }
+      ]),
       ok({})
     ]);
     const meta = await removeIngress(cf, "app.example.com", { dns: true });
@@ -495,14 +530,24 @@ describe("cloudflare / Mod A ingress yazma", () => {
     setDomain();
     noLocalConfig();
     mockFetch([
-      ok({ source: "cloudflare", config: { ingress: [{ hostname: "app.example.com", service: "http://localhost:8090" }, ...baseIngress()] } }),
+      ok({
+        source: "cloudflare",
+        config: {
+          ingress: [
+            { hostname: "app.example.com", service: "http://localhost:8090" },
+            ...baseIngress()
+          ]
+        }
+      }),
       ok({ config: {} }),
-      ok([{ id: "rec1", type: "A", name: "app.example.com", content: "203.0.113.5", proxied: true }])
+      ok([
+        { id: "rec1", type: "A", name: "app.example.com", content: "203.0.113.5", proxied: true }
+      ])
     ]);
     const meta = await removeIngress(cf, "app.example.com", { dns: true });
     expect(meta.dns).toBe(false);
     expect(meta.dnsWarning).toMatch(/bu tunnel'a ait degil/i);
-    expect(calls.some(c => c.method === "DELETE")).toBe(false);
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
   });
 });
 
@@ -529,7 +574,7 @@ describe("cloudflare / DNS cakismasinda onaysiz yazma yok", () => {
     expect(err.conflicts[0].content).toBe("203.0.113.5");
     // Sadece iki okuma yapildi; PUT/POST yok.
     expect(calls).toHaveLength(2);
-    expect(calls.every(c => c.method === "GET")).toBe(true);
+    expect(calls.every((c) => c.method === "GET")).toBe(true);
   });
 
   it("overwrite onaylandiginda mevcut kaydin uzerine yazar ve ingress'i tamamlar", async () => {
@@ -539,7 +584,9 @@ describe("cloudflare / DNS cakismasinda onaysiz yazma yok", () => {
     noLocalConfig();
     mockFetch([
       ok({ source: "cloudflare", config: { ingress: baseIngress() } }),
-      ok([{ id: "old", type: "A", name: "app.example.com", content: "203.0.113.5", proxied: true }]),
+      ok([
+        { id: "old", type: "A", name: "app.example.com", content: "203.0.113.5", proxied: true }
+      ]),
       ok({ id: "old", type: "CNAME", name: "app.example.com", content: CNAME, proxied: true }),
       ok({ config: {} })
     ]);
@@ -555,8 +602,9 @@ describe("cloudflare / DNS cakismasinda onaysiz yazma yok", () => {
 describe("cloudflare / Mod C -> Mod A kesfi", () => {
   // Connector token base64 bir JSON'dur: { a: hesap, t: tunnel, s: secret }.
   function connectorToken() {
-    return Buffer.from(JSON.stringify({ a: ACCOUNT_ID, t: TUNNEL_ID, s: "gizli-secret" }))
-      .toString("base64");
+    return Buffer.from(JSON.stringify({ a: ACCOUNT_ID, t: TUNNEL_ID, s: "gizli-secret" })).toString(
+      "base64"
+    );
   }
 
   function unitText() {
@@ -565,20 +613,32 @@ describe("cloudflare / Mod C -> Mod A kesfi", () => {
 
   it("connector token'dan hesap ve tunnel id'sini cikarir", () => {
     const cf = loadLib();
-    expect(cf.connectorTokenIds(unitText())).toEqual({ accountId: ACCOUNT_ID, tunnelId: TUNNEL_ID });
+    expect(cf.connectorTokenIds(unitText())).toEqual({
+      accountId: ACCOUNT_ID,
+      tunnelId: TUNNEL_ID
+    });
     expect(cf.connectorTokenIds("ExecStart=/usr/bin/cloudflared tunnel run")).toBe(null);
     expect(cf.connectorTokenIds("--token " + "x".repeat(60))).toBe(null);
   });
 
   it("token eklendikten sonra tunnel id'yi cloudflared servisinden kesfeder ve moda yukselir", async () => {
     setIntegration({ apiToken: TOKEN });
-    mockExec(cmd => (cmd.includes("systemctl cat") ? { stdout: unitText() } : { err: new Error("yok") }));
+    mockExec((cmd) =>
+      cmd.includes("systemctl cat") ? { stdout: unitText() } : { err: new Error("yok") }
+    );
     const cf = loadLib();
     noLocalConfig();
 
     mockFetch([
       ok({ id: "tok1", status: "active" }),
-      ok([{ id: ZONE_ID, name: "example.com", status: "active", account: { id: ACCOUNT_ID, name: "Kisisel" } }]),
+      ok([
+        {
+          id: ZONE_ID,
+          name: "example.com",
+          status: "active",
+          account: { id: ACCOUNT_ID, name: "Kisisel" }
+        }
+      ]),
       ok({ source: "cloudflare", config: { ingress: baseIngress() } })
     ]);
 
@@ -600,7 +660,14 @@ describe("cloudflare / Mod C -> Mod A kesfi", () => {
     noLocalConfig();
     mockFetch([
       ok({ id: "tok1", status: "active" }),
-      ok([{ id: ZONE_ID, name: "example.com", status: "active", account: { id: ACCOUNT_ID, name: "Kisisel" } }])
+      ok([
+        {
+          id: ZONE_ID,
+          name: "example.com",
+          status: "active",
+          account: { id: ACCOUNT_ID, name: "Kisisel" }
+        }
+      ])
     ]);
     let err;
     try {
@@ -618,7 +685,14 @@ describe("cloudflare / Mod C -> Mod A kesfi", () => {
     noLocalConfig();
     mockFetch([
       ok({ id: "tok1", status: "active" }),
-      ok([{ id: ZONE_ID, name: "example.com", status: "active", account: { id: ACCOUNT_ID, name: "Kisisel" } }]),
+      ok([
+        {
+          id: ZONE_ID,
+          name: "example.com",
+          status: "active",
+          account: { id: ACCOUNT_ID, name: "Kisisel" }
+        }
+      ]),
       ok({ source: "cloudflare", config: { ingress: baseIngress() } })
     ]);
     const r = await cf.discoverConnection({ domain: "example.com", tunnelId: TUNNEL_ID });
@@ -640,11 +714,19 @@ describe("cloudflare / Mod C -> Mod A kesfi", () => {
     noLocalConfig();
     mockFetch([
       ok({ id: "tok1", status: "active" }),
-      ok([{ id: ZONE_ID, name: "example.com", status: "active", account: { id: ACCOUNT_ID, name: "Kisisel" } }]),
+      ok([
+        {
+          id: ZONE_ID,
+          name: "example.com",
+          status: "active",
+          account: { id: ACCOUNT_ID, name: "Kisisel" }
+        }
+      ]),
       ok({ source: "local", config: { ingress: [] } })
     ]);
-    await expect(cf.discoverConnection({ domain: "example.com", tunnelId: TUNNEL_ID }))
-      .rejects.toThrow(/config dosyasindan yonetiliyor/i);
+    await expect(
+      cf.discoverConnection({ domain: "example.com", tunnelId: TUNNEL_ID })
+    ).rejects.toThrow(/config dosyasindan yonetiliyor/i);
     expect(cf.detectMode().mode).not.toBe(cf.MODE.API);
   });
 });

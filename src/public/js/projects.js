@@ -1,4 +1,14 @@
-import { api, toast, openModal, closeModals, timeAgo, events, switchTab, serviceUrl, escapeHtml } from "./app.js";
+import {
+  api,
+  toast,
+  openModal,
+  closeModals,
+  timeAgo,
+  events,
+  switchTab,
+  serviceUrl,
+  escapeHtml
+} from "./app.js";
 import { openNotes } from "./notes.js";
 import { runGitOp } from "./git-ops.js";
 import { openSettings } from "./settings.js";
@@ -12,7 +22,9 @@ let githubRepos = [];
 
 function typeBadge(type) {
   if (!type || type === "Bos") return "";
-  const cls = { "Node.js": "type-nodejs", "Python": "type-python", "Rust": "type-rust", "Go": "type-go" }[type] || "";
+  const cls =
+    { "Node.js": "type-nodejs", Python: "type-python", Rust: "type-rust", Go: "type-go" }[type] ||
+    "";
   return '<span class="card-type ' + cls + '">' + escapeHtml(type) + "</span>";
 }
 
@@ -21,15 +33,18 @@ async function loadProjects() {
     const projects = await api("/api/projects");
     const grid = document.getElementById("projectsGrid");
     if (!projects.length) {
-      grid.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><p>Henuz proje yok</p><span class="hint">Ctrl+N ile yeni proje olustur</span></div>';
+      grid.innerHTML =
+        '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><p>Henuz proje yok</p><span class="hint">Ctrl+N ile yeni proje olustur</span></div>';
       return;
     }
     // Kart icerigi klonlanmis repo'dan gelebilir (branch adi, dosya adlari);
     // metin de nitelik de escapeHtml'den gecer.
-    grid.innerHTML = projects.map((p, i) => `
-      <div class="project-card${p.pinned ? ' pinned' : ''}" style="animation-delay:${i * 0.04}s">
-        <button class="card-pin-btn${p.pinned ? ' pinned' : ''}" data-action="pin" data-project="${escapeHtml(p.name)}" data-pinned="${p.pinned ? '1' : '0'}" title="${p.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}">
-          <svg viewBox="0 0 24 24" fill="${p.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>
+    grid.innerHTML = projects
+      .map(
+        (p, i) => `
+      <div class="project-card${p.pinned ? " pinned" : ""}" style="animation-delay:${i * 0.04}s">
+        <button class="card-pin-btn${p.pinned ? " pinned" : ""}" data-action="pin" data-project="${escapeHtml(p.name)}" data-pinned="${p.pinned ? "1" : "0"}" title="${p.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}">
+          <svg viewBox="0 0 24 24" fill="${p.pinned ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>
         </button>
         <div class="card-top">
           <div class="card-name">${escapeHtml(p.name)}</div>
@@ -72,13 +87,17 @@ async function loadProjects() {
           </button>
         </div>
       </div>
-    `).join("");
+    `
+      )
+      .join("");
 
     // Event delegation for card actions
-    grid.querySelectorAll("[data-action]").forEach(btn => {
+    grid.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", handleCardAction);
     });
-  } catch (e) { toast(e.message, "error"); }
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 async function togglePin(project, currentlyPinned) {
@@ -103,15 +122,25 @@ function handleCardAction(e) {
     case "pin":
       togglePin(project, btn.dataset.pinned === "1");
       break;
-    case "pull": gitPull(project); break;
-    case "push": gitPush(project); break;
+    case "pull":
+      gitPull(project);
+      break;
+    case "push":
+      gitPush(project);
+      break;
     case "git-tab":
       switchTab("git");
       events.emit("project:select", { project, tab: "git" });
       break;
-    case "notes": openNotes(project); break;
-    case "rename": openRenameModal(project); break;
-    case "delete": deleteProject(project); break;
+    case "notes":
+      openNotes(project);
+      break;
+    case "rename":
+      openRenameModal(project);
+      break;
+    case "delete":
+      deleteProject(project);
+      break;
   }
 }
 
@@ -194,7 +223,8 @@ async function streamCloneUI(apiUrl, body, repoName) {
   const actions = document.getElementById("progressActions");
   const openBtn = document.getElementById("progressOpenBtn");
   icon.className = "progress-icon spinning";
-  icon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  icon.innerHTML =
+    '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10"/><polyline points="12 6 12 12 16 14"/></svg>';
   phase.textContent = repoName + " klonlaniyor...";
   detail.textContent = "";
   barFill.className = "progress-bar-fill indeterminate";
@@ -206,7 +236,11 @@ async function streamCloneUI(apiUrl, body, repoName) {
   openBtn.style.display = "";
 
   try {
-    const res = await fetch(apiUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -237,7 +271,8 @@ async function streamCloneUI(apiUrl, body, repoName) {
           if (data.done) {
             if (data.success) {
               icon.className = "progress-icon done";
-              icon.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>';
+              icon.innerHTML =
+                '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>';
               phase.textContent = repoName + " klonlandi!";
               barFill.classList.remove("indeterminate");
               barFill.style.width = "100%";
@@ -248,7 +283,8 @@ async function streamCloneUI(apiUrl, body, repoName) {
               loadProjects();
             } else {
               icon.className = "progress-icon fail";
-              icon.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+              icon.innerHTML =
+                '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
               phase.textContent = "Klonlama basarisiz";
               detail.textContent = data.error || "";
               barFill.classList.remove("indeterminate");
@@ -263,7 +299,8 @@ async function streamCloneUI(apiUrl, body, repoName) {
     }
   } catch (e) {
     icon.className = "progress-icon fail";
-    icon.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    icon.innerHTML =
+      '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
     phase.textContent = "Baglanti hatasi";
     detail.textContent = e.message;
     actions.style.display = "flex";
@@ -278,9 +315,18 @@ async function loadGithubBadge() {
     const el = document.getElementById("githubBadge");
     if (s.githubUser) {
       const user = escapeHtml(encodeURIComponent(s.githubUser));
-      el.innerHTML = '<div class="github-badge" id="githubBadgeBtn"><img src="https://github.com/' + user + '.png?size=48" alt=""><span>@' + escapeHtml(s.githubUser) + "</span></div>";
-      document.getElementById("githubBadgeBtn").addEventListener("click", () => openModal("github"));
-    } else { el.innerHTML = ""; }
+      el.innerHTML =
+        '<div class="github-badge" id="githubBadgeBtn"><img src="https://github.com/' +
+        user +
+        '.png?size=48" alt=""><span>@' +
+        escapeHtml(s.githubUser) +
+        "</span></div>";
+      document
+        .getElementById("githubBadgeBtn")
+        .addEventListener("click", () => openModal("github"));
+    } else {
+      el.innerHTML = "";
+    }
   } catch (e) {}
 }
 
@@ -289,23 +335,39 @@ async function loadGithubRepos() {
   try {
     const s = await api("/api/settings");
     if (!s.githubUser) {
-      list.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted)"><p>GitHub bagli degil</p><button class="btn btn-primary" id="goToSettingsBtn" style="margin-top:10px">Ayarlardan Baglan</button></div>';
-      document.getElementById("goToSettingsBtn").addEventListener("click", () => { closeModals(); openSettings(); });
+      list.innerHTML =
+        '<div style="text-align:center; padding:30px; color:var(--text-muted)"><p>GitHub bagli degil</p><button class="btn btn-primary" id="goToSettingsBtn" style="margin-top:10px">Ayarlardan Baglan</button></div>';
+      document.getElementById("goToSettingsBtn").addEventListener("click", () => {
+        closeModals();
+        openSettings();
+      });
       return;
     }
     document.getElementById("githubModalSubtitle").textContent = "@" + s.githubUser + " depolari";
-    list.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">Yukleniyor...</div>';
+    list.innerHTML =
+      '<div style="text-align:center; color:var(--text-muted); padding:20px;">Yukleniyor...</div>';
     githubRepos = await api("/api/github/repos");
     renderRepos(githubRepos);
-  } catch (e) { list.innerHTML = '<div style="text-align:center; color:var(--red); padding:20px;">' + escapeHtml(e.message) + "</div>"; }
+  } catch (e) {
+    list.innerHTML =
+      '<div style="text-align:center; color:var(--red); padding:20px;">' +
+      escapeHtml(e.message) +
+      "</div>";
+  }
 }
 
 function renderRepos(repos) {
   const list = document.getElementById("repoList");
-  if (!repos.length) { list.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">Repo bulunamadi</div>'; return; }
+  if (!repos.length) {
+    list.innerHTML =
+      '<div style="text-align:center; color:var(--text-muted); padding:20px;">Repo bulunamadi</div>';
+    return;
+  }
   // Repo adi/aciklamasi/dili GitHub API'sinden gelir (org repo'larinda baskasi
   // yazmis olabilir) — hepsi escape edilir.
-  list.innerHTML = repos.map(r => `
+  list.innerHTML = repos
+    .map(
+      (r) => `
     <div class="repo-item">
       <div class="repo-info">
         <div class="repo-name">${escapeHtml(r.name)} ${r.isPrivate ? '<span class="private-badge">PRIVATE</span>' : ""}</div>
@@ -318,9 +380,13 @@ function renderRepos(repos) {
       </div>
       <button class="btn btn-primary btn-sm" data-clone-repo="${escapeHtml(r.fullName)}" data-clone-url="${escapeHtml(r.cloneUrl)}" data-clone-name="${escapeHtml(r.name)}">Klonla</button>
     </div>
-  `).join("");
-  list.querySelectorAll("[data-clone-repo]").forEach(btn => {
-    btn.addEventListener("click", () => selectRepoForClone(btn.dataset.cloneRepo, btn.dataset.cloneUrl, btn.dataset.cloneName));
+  `
+    )
+    .join("");
+  list.querySelectorAll("[data-clone-repo]").forEach((btn) => {
+    btn.addEventListener("click", () =>
+      selectRepoForClone(btn.dataset.cloneRepo, btn.dataset.cloneUrl, btn.dataset.cloneName)
+    );
   });
 }
 
@@ -343,15 +409,27 @@ async function selectRepoForClone(fullName, cloneUrl, name) {
   try {
     const data = await api("/api/github/branches?repo=" + encodeURIComponent(fullName));
     // Branch adlari repo sahibinin kontrolunde; git ref'leri "<" ve ">" kabul eder.
-    select.innerHTML = data.branches.map(b =>
-      '<option value="' + escapeHtml(b) + '"' + (b === data.defaultBranch ? " selected" : "") + ">" +
-      escapeHtml(b) + (b === data.defaultBranch ? " (varsayilan)" : "") + "</option>"
-    ).join("");
+    select.innerHTML = data.branches
+      .map(
+        (b) =>
+          '<option value="' +
+          escapeHtml(b) +
+          '"' +
+          (b === data.defaultBranch ? " selected" : "") +
+          ">" +
+          escapeHtml(b) +
+          (b === data.defaultBranch ? " (varsayilan)" : "") +
+          "</option>"
+      )
+      .join("");
     select.style.display = "";
     loading.style.display = "none";
     cloneBtn.disabled = false;
   } catch (e) {
-    loading.innerHTML = '<span style="color:var(--red)">Branch\'ler yuklenemedi: ' + escapeHtml(e.message) + "</span>";
+    loading.innerHTML =
+      '<span style="color:var(--red)">Branch\'ler yuklenemedi: ' +
+      escapeHtml(e.message) +
+      "</span>";
     cloneBtn.disabled = false;
   }
 }
@@ -366,7 +444,13 @@ function openRenameModal(name) {
 
 async function deleteProject(name) {
   if (!confirm(name + " projesini silmek istedigine emin misin?")) return;
-  try { await api("/api/projects/" + name, { method: "DELETE" }); toast(name + " silindi"); loadProjects(); } catch (e) { toast(e.message, "error"); }
+  try {
+    await api("/api/projects/" + name, { method: "DELETE" });
+    toast(name + " silindi");
+    loadProjects();
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 // Ayarlar modali (GitHub entegrasyonu, 2FA, sifre) settings.js'in sorumlulugunda.
@@ -382,38 +466,61 @@ export function init() {
   document.getElementById("newProjectForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
-      await api("/api/projects", { method: "POST", body: { name: document.getElementById("newName").value, template: document.getElementById("newTemplate").value } });
+      await api("/api/projects", {
+        method: "POST",
+        body: {
+          name: document.getElementById("newName").value,
+          template: document.getElementById("newTemplate").value
+        }
+      });
       toast("Proje olusturuldu");
       closeModals();
       document.getElementById("newName").value = "";
       loadProjects();
-    } catch (e) { toast(e.message, "error"); }
+    } catch (e) {
+      toast(e.message, "error");
+    }
   });
 
   document.getElementById("cloneForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const url = document.getElementById("cloneUrl").value;
-    const name = document.getElementById("cloneName").value || url.split("/").pop().replace(".git", "");
+    const name =
+      document.getElementById("cloneName").value || url.split("/").pop().replace(".git", "");
     streamCloneUI("/api/clone", { url, name }, name);
   });
 
   document.getElementById("renameForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
-      await api("/api/projects/" + document.getElementById("renameOld").value, { method: "PUT", body: { newName: document.getElementById("renameNew").value } });
+      await api("/api/projects/" + document.getElementById("renameOld").value, {
+        method: "PUT",
+        body: { newName: document.getElementById("renameNew").value }
+      });
       toast("Yeniden adlandirildi");
       closeModals();
       loadProjects();
-    } catch (e) { toast(e.message, "error"); }
+    } catch (e) {
+      toast(e.message, "error");
+    }
   });
 
   // Header button handlers
-  document.getElementById("btnGithub").addEventListener("click", () => { openModal("github"); loadGithubRepos(); });
+  document.getElementById("btnGithub").addEventListener("click", () => {
+    openModal("github");
+    loadGithubRepos();
+  });
   document.getElementById("btnClone").addEventListener("click", () => openModal("clone"));
   document.getElementById("btnNewProject").addEventListener("click", () => openModal("new"));
-  document.getElementById("btnRefresh").addEventListener("click", () => { loadProjects(); loadSystem(); });
+  document.getElementById("btnRefresh").addEventListener("click", () => {
+    loadProjects();
+    loadSystem();
+  });
   // btnSettings settings.js tarafindan baglaniyor
-  document.getElementById("btnLogout").addEventListener("click", async () => { await api("/api/logout", { method: "POST" }); window.location.href = "/login"; });
+  document.getElementById("btnLogout").addEventListener("click", async () => {
+    await api("/api/logout", { method: "POST" });
+    window.location.href = "/login";
+  });
 
   // Branch clone
   document.getElementById("branchCloneBtn").addEventListener("click", () => {
@@ -422,16 +529,26 @@ export function init() {
     streamCloneUI("/api/github/clone", { cloneUrl: pendingClone.cloneUrl, name, branch }, name);
   });
 
-  document.getElementById("branchBackBtn").addEventListener("click", () => { closeModals(); openModal("github"); });
+  document.getElementById("branchBackBtn").addEventListener("click", () => {
+    closeModals();
+    openModal("github");
+  });
 
   // Repo search
   document.getElementById("repoSearch").addEventListener("input", () => {
     const q = document.getElementById("repoSearch").value.toLowerCase();
-    renderRepos(githubRepos.filter(r => r.name.toLowerCase().includes(q) || (r.description || "").toLowerCase().includes(q)));
+    renderRepos(
+      githubRepos.filter(
+        (r) => r.name.toLowerCase().includes(q) || (r.description || "").toLowerCase().includes(q)
+      )
+    );
   });
 
   // Refresh event
-  events.on("refresh", () => { loadProjects(); loadSystem(); });
+  events.on("refresh", () => {
+    loadProjects();
+    loadSystem();
+  });
 }
 
 export function activate() {

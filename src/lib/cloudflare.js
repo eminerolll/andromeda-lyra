@@ -78,7 +78,9 @@ function isValidHostname(h) {
   // Wildcard bicimi ("*.example.com") de gecerli kabul edilir; korumali kayit
   // kontrolu ancak boylece calisabilir. Yildiz sadece bastaki "*." icin izinli.
   const rest = h.startsWith("*.") ? h.slice(2) : h;
-  return /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(rest);
+  return /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(
+    rest
+  );
 }
 
 // Domain adlari buyuk/kucuk harf duyarsizdir; Cloudflare DNS kaydini kucuk
@@ -137,7 +139,7 @@ function detectMode() {
     note = `Ingress sunucudaki ${defaults().config_path} dosyasindan yonetiliyor.`;
   } else if (hasToken) {
     note =
-      "API token var ama tunnel/hesap bilgisi eksik. \"Baglantiyi kesfet\" ile " +
+      'API token var ama tunnel/hesap bilgisi eksik. "Baglantiyi kesfet" ile ' +
       "tamamlanabilir; tunnel id kesfedilemezse elle girilmesi gerekir.";
   } else {
     note =
@@ -180,7 +182,10 @@ function parseIngress(raw) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (trimmed === "ingress:" || trimmed.startsWith("ingress:")) { inIngress = true; continue; }
+    if (trimmed === "ingress:" || trimmed.startsWith("ingress:")) {
+      inIngress = true;
+      continue;
+    }
     if (!inIngress) continue;
     if (!line.startsWith(" ") && !line.startsWith("\t") && trimmed !== "") {
       inIngress = false;
@@ -216,7 +221,9 @@ function listIngressLocal(cb) {
 function buildUpdatedConfig(raw, newHostname, newService) {
   const lines = raw.split("\n");
   const entries = parseIngress(raw);
-  const insertBefore = entries.find(e => !e.hostname || (e.hostname && e.hostname.startsWith("*")));
+  const insertBefore = entries.find(
+    (e) => !e.hostname || (e.hostname && e.hostname.startsWith("*"))
+  );
   if (!insertBefore) throw new Error("Catch-all ingress bulunamadi");
   const insertLineIdx = insertBefore.lineStart;
   const newBlock = ["  - hostname: " + newHostname, "    service: " + newService];
@@ -226,7 +233,7 @@ function buildUpdatedConfig(raw, newHostname, newService) {
 function buildRemovedConfig(raw, hostname) {
   const lines = raw.split("\n");
   const entries = parseIngress(raw);
-  const target = entries.find(e => e.hostname === hostname);
+  const target = entries.find((e) => e.hostname === hostname);
   if (!target) throw new Error("Hostname bulunamadi: " + hostname);
   if (protectedHosts().includes(hostname)) throw new Error("Korumali kayit silinemez: " + hostname);
   if (!target.hostname) throw new Error("Catch-all kaydi silinemez");
@@ -240,10 +247,16 @@ function writeConfigAtomic(newContent, cb) {
   const tmp = path.join(os.tmpdir(), "cloudflared-config-" + Date.now() + ".yml");
   fs.writeFile(tmp, newContent, (err) => {
     if (err) return cb(err);
-    const ts = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+    const ts = new Date()
+      .toISOString()
+      .replace(/[-:T.Z]/g, "")
+      .slice(0, 14);
     const backup = cfg.backup_dir + "/config.yml.bak." + ts;
     run("sudo -n cp " + cfg.config_path + " " + backup, (cpErr) => {
-      if (cpErr) { fs.unlink(tmp, () => {}); return cb(cpErr); }
+      if (cpErr) {
+        fs.unlink(tmp, () => {});
+        return cb(cpErr);
+      }
       run("cloudflared tunnel --config " + tmp + " ingress validate 2>&1", (valErr, valOut) => {
         if (valErr) {
           fs.unlink(tmp, () => {});
@@ -299,10 +312,14 @@ function addIngressLocal(hostname, port, cb) {
   readConfig((err, raw) => {
     if (err) return cb(err);
     const existing = parseIngress(raw);
-    if (existing.some(e => e.hostname === hostname)) return cb(new Error("Bu hostname zaten kayitli"));
+    if (existing.some((e) => e.hostname === hostname))
+      return cb(new Error("Bu hostname zaten kayitli"));
     let newContent;
-    try { newContent = buildUpdatedConfig(raw, hostname, "http://localhost:" + parseInt(port)); }
-    catch (e) { return cb(e); }
+    try {
+      newContent = buildUpdatedConfig(raw, hostname, "http://localhost:" + parseInt(port));
+    } catch (e) {
+      return cb(e);
+    }
     applyConfigAsyncRestart(newContent, cb);
   });
 }
@@ -312,8 +329,11 @@ function removeIngressLocal(hostname, cb) {
   readConfig((err, raw) => {
     if (err) return cb(err);
     let newContent;
-    try { newContent = buildRemovedConfig(raw, hostname); }
-    catch (e) { return cb(e); }
+    try {
+      newContent = buildRemovedConfig(raw, hostname);
+    } catch (e) {
+      return cb(e);
+    }
     applyConfigAsyncRestart(newContent, cb);
   });
 }
@@ -330,11 +350,19 @@ function getLocalTunnelId(cb) {
 function cloudflaredRouteDns(tunnelId, hostname, cb) {
   if (!/^[a-zA-Z0-9-]+$/.test(tunnelId)) return cb(new Error("Gecersiz tunnel id"));
   if (!isValidHostname(hostname)) return cb(new Error("Gecersiz hostname"));
-  const cmd = "sudo -n cloudflared tunnel --origincert " + defaults().cert_path + " route dns " + tunnelId + " " + hostname + " 2>&1";
+  const cmd =
+    "sudo -n cloudflared tunnel --origincert " +
+    defaults().cert_path +
+    " route dns " +
+    tunnelId +
+    " " +
+    hostname +
+    " 2>&1";
   run(cmd, (err, stdout, stderr) => {
     const out = (stdout || "") + (stderr || "");
     if (err) {
-      if (/already exists/i.test(out) && /cfargotunnel/i.test(out)) return cb(null, { already: true, output: out });
+      if (/already exists/i.test(out) && /cfargotunnel/i.test(out))
+        return cb(null, { already: true, output: out });
       return cb(new Error("DNS route hatasi: " + out.trim().split("\n").slice(-3).join(" ")));
     }
     cb(null, { output: out });
@@ -360,10 +388,13 @@ function removeDnsAndIngressLocal(hostname, cb) {
   removeIngressLocal(hostname, (err, meta) => {
     if (err) return cb(err);
     if (!c.apiToken || !c.zoneId) return cb(null, { ...meta, dns: false });
-    cfApi.listDnsRecords(c.apiToken, c.zoneId, hostname)
-      .then(records => (records[0] ? cfApi.deleteDnsRecord(c.apiToken, c.zoneId, records[0].id) : null))
+    cfApi
+      .listDnsRecords(c.apiToken, c.zoneId, hostname)
+      .then((records) =>
+        records[0] ? cfApi.deleteDnsRecord(c.apiToken, c.zoneId, records[0].id) : null
+      )
       .then(() => cb(null, { ...meta, dns: true }))
-      .catch(e => cb(null, { ...meta, dns: false, dnsWarning: e.message }));
+      .catch((e) => cb(null, { ...meta, dns: false, dnsWarning: e.message }));
   });
 }
 
@@ -373,7 +404,7 @@ function removeDnsAndIngressLocal(hostname, cb) {
 // uretir; frontend tek bir tablo cizer.
 function mapRules(rules) {
   const prot = new Set(protectedHosts());
-  return (rules || []).map(r => ({
+  return (rules || []).map((r) => ({
     hostname: r.hostname || null,
     service: r.service || null,
     isWildcard: !!(r.hostname && r.hostname.startsWith("*")),
@@ -388,8 +419,8 @@ function apiCtx() {
   if (token.length < 20) throw new Error("Cloudflare API token'i kayitli degil.");
   if (!c.accountId || !c.tunnelId) {
     throw new Error(
-      "Cloudflare hesap/tunnel bilgisi eksik. Tunnel sekmesindeki \"Baglantiyi kesfet\" " +
-      "adimini calistir."
+      'Cloudflare hesap/tunnel bilgisi eksik. Tunnel sekmesindeki "Baglantiyi kesfet" ' +
+        "adimini calistir."
     );
   }
   return {
@@ -404,18 +435,20 @@ function apiCtx() {
 // Catch-all (hostname'siz kural) HER ZAMAN son eleman kalir; Cloudflare aksi
 // halde config'i reddeder ve ilk eslesen kural kazandigi icin sirasi onemlidir.
 function withCatchAllLast(rules) {
-  const named = (rules || []).filter(r => r && r.hostname);
-  const catchAll = (rules || []).find(r => r && !r.hostname && r.service) || { service: "http_status:404" };
+  const named = (rules || []).filter((r) => r && r.hostname);
+  const catchAll = (rules || []).find((r) => r && !r.hostname && r.service) || {
+    service: "http_status:404"
+  };
   return [...named, catchAll];
 }
 
 // Yeni kural wildcard'dan ONCE girmeli, yoksa "*.example.com" onu golgeler.
 function insertRule(rules, rule) {
-  const named = (rules || []).filter(r => r && r.hostname);
-  const idx = named.findIndex(r => r.hostname.startsWith("*"));
+  const named = (rules || []).filter((r) => r && r.hostname);
+  const idx = named.findIndex((r) => r.hostname.startsWith("*"));
   if (idx === -1) named.push(rule);
   else named.splice(idx, 0, rule);
-  return withCatchAllLast([...named, ...(rules || []).filter(r => r && !r.hostname)]);
+  return withCatchAllLast([...named, ...(rules || []).filter((r) => r && !r.hostname)]);
 }
 
 async function ensureZone(ctx) {
@@ -447,7 +480,7 @@ async function upsertTunnelDns(ctx, hostname, overwrite) {
 async function removeTunnelDns(ctx, hostname) {
   const { zoneId } = await ensureZone(ctx);
   const records = await cfApi.listDnsRecords(ctx.token, zoneId, hostname);
-  const tunnelRecords = records.filter(r => /\.cfargotunnel\.com$/i.test(r.content || ""));
+  const tunnelRecords = records.filter((r) => /\.cfargotunnel\.com$/i.test(r.content || ""));
   if (!tunnelRecords.length) {
     return {
       removed: 0,
@@ -474,7 +507,7 @@ async function addIngressApi(hostname, port, opts = {}) {
   if (!isValidPort(port)) throw new Error("Gecersiz port");
 
   const cur = await cfApi.getIngress(ctx.token, ctx.accountId, ctx.tunnelId);
-  if (cur.ingress.some(r => r.hostname === hostname)) {
+  if (cur.ingress.some((r) => r.hostname === hostname)) {
     throw new Error("Bu hostname zaten kayitli");
   }
 
@@ -483,7 +516,10 @@ async function addIngressApi(hostname, port, opts = {}) {
   let dnsResult = null;
   if (opts.dns) dnsResult = await upsertTunnelDns(ctx, hostname, opts.overwriteDns);
 
-  const next = insertRule(cur.ingress, { hostname, service: "http://localhost:" + parseInt(port, 10) });
+  const next = insertRule(cur.ingress, {
+    hostname,
+    service: "http://localhost:" + parseInt(port, 10)
+  });
   try {
     await cfApi.putIngress(ctx.token, ctx.accountId, ctx.tunnelId, next);
   } catch (err) {
@@ -509,10 +545,10 @@ async function removeIngressApi(hostname, opts = {}) {
   }
 
   const cur = await cfApi.getIngress(ctx.token, ctx.accountId, ctx.tunnelId);
-  const target = cur.ingress.find(r => r.hostname === hostname);
+  const target = cur.ingress.find((r) => r.hostname === hostname);
   if (!target) throw new Error("Hostname bulunamadi: " + hostname);
 
-  const next = withCatchAllLast(cur.ingress.filter(r => r.hostname !== hostname));
+  const next = withCatchAllLast(cur.ingress.filter((r) => r.hostname !== hostname));
   if (next.length < 2) {
     throw new Error("Ingress listesinde catch-all disinda en az bir kural kalmali.");
   }
@@ -557,7 +593,11 @@ function readLocalTunnelIds() {
     const fromUnit = (unitText) => {
       const ids = connectorTokenIds(unitText);
       if (ids && ids.tunnelId) {
-        return resolve({ accountId: ids.accountId, tunnelId: ids.tunnelId, source: "connector-token" });
+        return resolve({
+          accountId: ids.accountId,
+          tunnelId: ids.tunnelId,
+          source: "connector-token"
+        });
       }
       getLocalTunnelId((err, tunnelId) => {
         resolve({
@@ -570,7 +610,9 @@ function readLocalTunnelIds() {
 
     run(`systemctl cat ${CLOUDFLARED_UNIT} 2>/dev/null`, (err, stdout) => {
       if (!err && stdout && stdout.trim()) return fromUnit(stdout);
-      run(`sudo -n systemctl cat ${CLOUDFLARED_UNIT} 2>/dev/null`, (e2, out2) => fromUnit(out2 || ""));
+      run(`sudo -n systemctl cat ${CLOUDFLARED_UNIT} 2>/dev/null`, (e2, out2) =>
+        fromUnit(out2 || "")
+      );
     });
   });
 }
@@ -603,7 +645,7 @@ async function discoverConnection(opts = {}) {
     if (!account) {
       const err = new Error(
         `Token ${accounts.length} hesaba erisiyor; hangisinin kullanilacagi belirlenemedi. ` +
-        "Hesap id'sini Cloudflare panelinden kopyalayip elle gir."
+          "Hesap id'sini Cloudflare panelinden kopyalayip elle gir."
       );
       err.needsAccountChoice = true;
       err.accounts = accounts;
@@ -617,7 +659,7 @@ async function discoverConnection(opts = {}) {
   if (!tunnelId) {
     const err = new Error(
       "Tunnel id sunucuda bulunamadi (cloudflared servisinde connector token ya da " +
-      "config.yml yok). Cloudflare panelinde tunnel'in adresindeki id'yi kopyalayip elle gir."
+        "config.yml yok). Cloudflare panelinde tunnel'in adresindeki id'yi kopyalayip elle gir."
     );
     err.needsTunnelId = true;
     throw err;
@@ -629,8 +671,8 @@ async function discoverConnection(opts = {}) {
   if (ing.source && ing.source !== "cloudflare") {
     throw new Error(
       `Bu tunnel Cloudflare'de degil, sunucudaki config dosyasindan yonetiliyor (source: ${ing.source}). ` +
-      "API'den yazilan ingress cloudflared tarafindan yok sayilir; bu tunnel icin " +
-      `${defaults().config_path} kullanilmali.`
+        "API'den yazilan ingress cloudflared tarafindan yok sayilir; bu tunnel icin " +
+        `${defaults().config_path} kullanilmali.`
     );
   }
 
@@ -641,7 +683,7 @@ async function discoverConnection(opts = {}) {
     accountId,
     tunnelId,
     zoneDomain: zone.name,
-    tunnelIdSource: manualTunnel ? "manual" : (c.tunnelId ? "kayitli" : local.source || "bilinmiyor"),
+    tunnelIdSource: manualTunnel ? "manual" : c.tunnelId ? "kayitli" : local.source || "bilinmiyor",
     entries: mapRules(ing.ingress)
   };
 }
@@ -650,26 +692,35 @@ async function discoverConnection(opts = {}) {
 
 const REMOTE_READONLY =
   "Bu tunnel Cloudflare'de uzaktan yonetiliyor; ingress buradan okunamaz ve " +
-  "duzenlenemez. Bir Cloudflare API token'i ekleyip \"Baglantiyi kesfet\" dersen " +
+  'duzenlenemez. Bir Cloudflare API token\'i ekleyip "Baglantiyi kesfet" dersen ' +
   "sekme yonetilebilir hale gelir.";
 
 function listIngress(cb) {
   if (!isEnabled()) return cb(null, []);
   const m = detectMode();
   if (m.mode === MODE.API) {
-    return listIngressApi().then(r => cb(null, r.entries, r.source), err => cb(err));
+    return listIngressApi().then(
+      (r) => cb(null, r.entries, r.source),
+      (err) => cb(err)
+    );
   }
   if (m.mode === MODE.LOCAL) return listIngressLocal(cb);
   cb(null, []);
 }
 
 function addIngress(hostname, port, opts, cb) {
-  if (typeof opts === "function") { cb = opts; opts = {}; }
+  if (typeof opts === "function") {
+    cb = opts;
+    opts = {};
+  }
   hostname = normalizeHostname(hostname);
   if (!isEnabled()) return cb(new Error("cloudflare entegrasyonu kapali"));
   const m = detectMode();
   if (m.mode === MODE.API) {
-    return addIngressApi(hostname, port, opts).then(r => cb(null, r), err => cb(err));
+    return addIngressApi(hostname, port, opts).then(
+      (r) => cb(null, r),
+      (err) => cb(err)
+    );
   }
   if (m.mode === MODE.LOCAL) {
     return opts.dns
@@ -680,17 +731,21 @@ function addIngress(hostname, port, opts, cb) {
 }
 
 function removeIngress(hostname, opts, cb) {
-  if (typeof opts === "function") { cb = opts; opts = {}; }
+  if (typeof opts === "function") {
+    cb = opts;
+    opts = {};
+  }
   hostname = normalizeHostname(hostname);
   if (!isEnabled()) return cb(new Error("cloudflare entegrasyonu kapali"));
   const m = detectMode();
   if (m.mode === MODE.API) {
-    return removeIngressApi(hostname, opts).then(r => cb(null, r), err => cb(err));
+    return removeIngressApi(hostname, opts).then(
+      (r) => cb(null, r),
+      (err) => cb(err)
+    );
   }
   if (m.mode === MODE.LOCAL) {
-    return opts.dns
-      ? removeDnsAndIngressLocal(hostname, cb)
-      : removeIngressLocal(hostname, cb);
+    return opts.dns ? removeDnsAndIngressLocal(hostname, cb) : removeIngressLocal(hostname, cb);
   }
   cb(new Error(REMOTE_READONLY));
 }
@@ -760,16 +815,28 @@ function pingLocalService(serviceUrl, cb) {
   if (!m) return cb({ ok: null, reason: "not-local" });
   const port = parseInt(m[2]);
   const start = Date.now();
-  const req = http.request({
-    host: "127.0.0.1", port, path: "/", method: "HEAD", timeout: 2500
-  }, (res) => {
-    const latency = Date.now() - start;
-    const code = res.statusCode || 0;
-    res.resume();
-    const status = { ok: code < 500, code, latency, level: code >= 500 ? "red" : code >= 400 ? "yellow" : "green" };
-    healthCache.set(serviceUrl, { at: Date.now(), status });
-    cb(status);
-  });
+  const req = http.request(
+    {
+      host: "127.0.0.1",
+      port,
+      path: "/",
+      method: "HEAD",
+      timeout: 2500
+    },
+    (res) => {
+      const latency = Date.now() - start;
+      const code = res.statusCode || 0;
+      res.resume();
+      const status = {
+        ok: code < 500,
+        code,
+        latency,
+        level: code >= 500 ? "red" : code >= 400 ? "yellow" : "green"
+      };
+      healthCache.set(serviceUrl, { at: Date.now(), status });
+      cb(status);
+    }
+  );
   req.on("error", (err) => {
     const status = { ok: false, code: 0, reason: err.code || err.message, level: "red" };
     healthCache.set(serviceUrl, { at: Date.now(), status });
@@ -788,7 +855,14 @@ function healthForAllIngress(cb) {
   if (!isEnabled()) return cb(null, { health: {} });
   listIngress((err, entries) => {
     if (err) return cb(err);
-    const targets = entries.filter(e => e.hostname && !e.isCatchAll && !e.isWildcard && e.service && /^http:\/\/(localhost|127\.0\.0\.1):/.test(e.service));
+    const targets = entries.filter(
+      (e) =>
+        e.hostname &&
+        !e.isCatchAll &&
+        !e.isWildcard &&
+        e.service &&
+        /^http:\/\/(localhost|127\.0\.0\.1):/.test(e.service)
+    );
     let remaining = targets.length;
     const result = {};
     if (!remaining) return cb(null, { health: {} });

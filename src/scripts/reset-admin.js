@@ -44,7 +44,9 @@ async function runInteractive() {
 
   console.log(`Mevcut admin: ${admin.username}`);
   console.log(`  2FA: ${admin.totp_enabled ? "aktif" : "kapali"}`);
-  console.log(`  Son giris: ${admin.last_login_at ? new Date(admin.last_login_at).toISOString() : "hic"}`);
+  console.log(
+    `  Son giris: ${admin.last_login_at ? new Date(admin.last_login_at).toISOString() : "hic"}`
+  );
   console.log("");
 
   const { action } = await prompts({
@@ -73,7 +75,12 @@ async function resetPassword() {
     process.exit(1);
   }
   const ans = await prompts([
-    { type: "password", name: "p1", message: "Yeni sifre (en az 12 karakter)", validate: v => v.length >= 12 || "En az 12 karakter" },
+    {
+      type: "password",
+      name: "p1",
+      message: "Yeni sifre (en az 12 karakter)",
+      validate: (v) => v.length >= 12 || "En az 12 karakter"
+    },
     { type: "password", name: "p2", message: "Sifre tekrari", validate: () => true }
   ]);
   if (ans.p1 !== ans.p2) {
@@ -152,7 +159,12 @@ async function recreate() {
   }
   const ans = await prompts([
     { type: "text", name: "username", message: "Kullanici adi", initial: "admin" },
-    { type: "password", name: "p1", message: "Sifre (en az 12)", validate: v => v.length >= 12 || "En az 12 karakter" },
+    {
+      type: "password",
+      name: "p1",
+      message: "Sifre (en az 12)",
+      validate: (v) => v.length >= 12 || "En az 12 karakter"
+    },
     { type: "password", name: "p2", message: "Sifre tekrari" }
   ]);
   if (ans.p1 !== ans.p2) {
@@ -169,7 +181,7 @@ async function recreate() {
   console.log("  2FA setup'i icin Lyra'da Ayarlar > Hesap > 2FA Aktif Et");
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error("Hata:", err.message);
   process.exit(1);
 });

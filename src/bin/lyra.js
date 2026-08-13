@@ -189,7 +189,8 @@ function cmdUpdate(argv) {
   requireRoot("update");
   const skipPull = argv.includes("--skip-pull");
   const unknown = argv.filter((a) => a !== "--skip-pull");
-  if (unknown.length) die(`Bilinmeyen secenek: ${unknown[0]}`, ["Kullanim: sudo lyra update [--skip-pull]"]);
+  if (unknown.length)
+    die(`Bilinmeyen secenek: ${unknown[0]}`, ["Kullanim: sudo lyra update [--skip-pull]"]);
 
   loadEnv();
   const hasGit = fs.existsSync(path.join(ROOT_DIR, ".git"));
@@ -240,7 +241,9 @@ function cmdUpdate(argv) {
 
   step("Servis");
   if (run("systemctl", ["restart", UNIT_NAME]) !== 0) {
-    die(`${UNIT_NAME}.service yeniden baslatilamadi.`, [`sudo journalctl -u ${UNIT_NAME} -n 50 --no-pager`]);
+    die(`${UNIT_NAME}.service yeniden baslatilamadi.`, [
+      `sudo journalctl -u ${UNIT_NAME} -n 50 --no-pager`
+    ]);
   }
   const active = capture("systemctl", ["is-active", UNIT_NAME]) === "active";
   if (!active) {

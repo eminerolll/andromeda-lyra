@@ -13,11 +13,16 @@ function runScript(rel, args) {
 
 describe("generate-systemd", () => {
   const unit = runScript("../scripts/generate-systemd.js", [
-    "--user", "lyra",
-    "--workdir", "/opt/lyra/src",
-    "--home", "/var/lib/lyra",
-    "--port", "3000",
-    "--projects-dir", "/home/lyra/projects"
+    "--user",
+    "lyra",
+    "--workdir",
+    "/opt/lyra/src",
+    "--home",
+    "/var/lib/lyra",
+    "--port",
+    "3000",
+    "--projects-dir",
+    "/home/lyra/projects"
   ]);
 
   it("ProtectHome yazmaz — projeler dizini home altinda ve yazilabilir olmali", () => {

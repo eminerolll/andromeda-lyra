@@ -31,7 +31,10 @@ function securityHeaders(req, res, next) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("X-XSS-Protection", "0");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+  );
 
   // HSTS yalnizca gercekten HTTPS ile servis edildigimiz kurulumda gonderilir
   // (public mod + base_domain => onunde TLS terminate eden reverse proxy var).

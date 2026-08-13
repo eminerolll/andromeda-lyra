@@ -1,510 +1,923 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Launcher</title>
-<link rel="icon" href="/favicon.ico" type="image/x-icon">
-<link rel="stylesheet" href="css/fonts.css">
-<link rel="stylesheet" href="css/base.css">
-<link rel="stylesheet" href="css/components.css">
-<link rel="stylesheet" href="css/tabs.css">
-</head>
-<body>
-
-<header class="header">
-  <div class="header-inner">
-    <div class="header-left">
-      <div class="logo-mark"><img src="/favicon.ico" alt=""></div>
-      <span class="logo-text" id="appName">Lyra</span>
-    </div>
-    <div class="header-actions">
-      <div id="githubBadge"></div>
-      <button class="btn" id="btnGithub">
-        <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-        GitHub
-      </button>
-      <button class="btn" id="btnClone">
-        <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        Klonla
-      </button>
-      <button class="btn btn-primary" id="btnNewProject">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Yeni Proje
-      </button>
-      <button class="btn btn-icon btn-ghost" id="btnRefresh" title="Yenile">
-        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      </button>
-      <button class="btn btn-icon btn-ghost" id="btnSettings" title="Ayarlar">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-      <button class="btn btn-icon btn-ghost" id="btnLogout" title="Cikis" style="color:var(--red)">
-        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </button>
-    </div>
-  </div>
-</header>
-
-<nav class="tab-bar">
-  <div class="tab-bar-inner">
-    <button class="tab-btn active" data-tab="projects">
-      <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      Projeler
-    </button>
-    <button class="tab-btn" data-tab="ports">
-      <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-      Portlar
-      <span class="tab-badge" id="portsBadge" style="display:none">0</span>
-    </button>
-    <button class="tab-btn" data-tab="git">
-      <svg viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-      Git
-      <span class="tab-badge warn" id="gitBadge" style="display:none">0</span>
-    </button>
-    <button class="tab-btn" data-tab="env">
-      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Ortam
-    </button>
-    <button class="tab-btn" data-tab="logs">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Loglar
-    </button>
-    <button class="tab-btn" data-tab="docker">
-      <svg viewBox="0 0 24 24"><path d="M4 12h3v3H4zM8 12h3v3H8zM12 12h3v3h-3zM8 8h3v3H8zM12 8h3v3h-3zM12 4h3v3h-3z"/><path d="M22 12c0 4-3 7-7 7H4c-1 0-2-1-2-2v-5h20z"/></svg>
-      Docker
-      <span class="tab-badge" id="dockerBadge" style="display:none">0</span>
-    </button>
-    <button class="tab-btn" data-tab="cf">
-      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-      Tunnel
-    </button>
-  </div>
-</nav>
-
-<!-- PROJECTS TAB -->
-<div class="tab-content active" id="tab-projects">
-  <main class="main">
-    <div class="projects-area">
-      <div class="section-label">Projeler</div>
-      <div class="projects-grid" id="projectsGrid"></div>
-    </div>
-    <aside class="sidebar">
-      <div>
-        <div class="section-label">Sistem</div>
-        <div class="side-card" id="systemInfo"><div class="info-row"><span class="info-label">Yukleniyor...</span></div></div>
-      </div>
-      <div>
-        <div class="section-label">Hizli Erisim</div>
-        <div class="quick-links" id="quickLinks">
-          <a href="/code/" target="_blank" class="quick-link" id="quickLinkCode">
-            <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-            code-server
-          </a>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Launcher</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="css/fonts.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/tabs.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-inner">
+        <div class="header-left">
+          <div class="logo-mark"><img src="/favicon.ico" alt="" /></div>
+          <span class="logo-text" id="appName">Lyra</span>
+        </div>
+        <div class="header-actions">
+          <div id="githubBadge"></div>
+          <button class="btn" id="btnGithub">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+              />
+            </svg>
+            GitHub
+          </button>
+          <button class="btn" id="btnClone">
+            <svg viewBox="0 0 24 24">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+            Klonla
+          </button>
+          <button class="btn btn-primary" id="btnNewProject">
+            <svg viewBox="0 0 24 24">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Yeni Proje
+          </button>
+          <button class="btn btn-icon btn-ghost" id="btnRefresh" title="Yenile">
+            <svg viewBox="0 0 24 24">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+          <button class="btn btn-icon btn-ghost" id="btnSettings" title="Ayarlar">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+          </button>
+          <button
+            class="btn btn-icon btn-ghost"
+            id="btnLogout"
+            title="Cikis"
+            style="color: var(--red)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
         </div>
       </div>
-      <div>
-        <div class="section-label">Kisayollar</div>
-        <div class="side-card">
-          <div class="shortcut-row"><span><kbd>Ctrl</kbd>+<kbd>1-7</kbd></span><span>Tab degistir</span></div>
-          <div class="shortcut-row"><span><kbd>Ctrl</kbd>+<kbd>N</kbd></span><span>Yeni proje</span></div>
-          <div class="shortcut-row"><span><kbd>Ctrl</kbd>+<kbd>G</kbd></span><span>Git klonla</span></div>
+    </header>
+
+    <nav class="tab-bar">
+      <div class="tab-bar-inner">
+        <button class="tab-btn active" data-tab="projects">
+          <svg viewBox="0 0 24 24">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          Projeler
+        </button>
+        <button class="tab-btn" data-tab="ports">
+          <svg viewBox="0 0 24 24">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+            <line x1="6" y1="6" x2="6.01" y2="6" />
+            <line x1="6" y1="18" x2="6.01" y2="18" />
+          </svg>
+          Portlar
+          <span class="tab-badge" id="portsBadge" style="display: none">0</span>
+        </button>
+        <button class="tab-btn" data-tab="git">
+          <svg viewBox="0 0 24 24">
+            <line x1="6" y1="3" x2="6" y2="15" />
+            <circle cx="18" cy="6" r="3" />
+            <circle cx="6" cy="18" r="3" />
+            <path d="M18 9a9 9 0 0 1-9 9" />
+          </svg>
+          Git
+          <span class="tab-badge warn" id="gitBadge" style="display: none">0</span>
+        </button>
+        <button class="tab-btn" data-tab="env">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+          Ortam
+        </button>
+        <button class="tab-btn" data-tab="logs">
+          <svg viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          Loglar
+        </button>
+        <button class="tab-btn" data-tab="docker">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 12h3v3H4zM8 12h3v3H8zM12 12h3v3h-3zM8 8h3v3H8zM12 8h3v3h-3zM12 4h3v3h-3z" />
+            <path d="M22 12c0 4-3 7-7 7H4c-1 0-2-1-2-2v-5h20z" />
+          </svg>
+          Docker
+          <span class="tab-badge" id="dockerBadge" style="display: none">0</span>
+        </button>
+        <button class="tab-btn" data-tab="cf">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+            <path
+              d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+            />
+          </svg>
+          Tunnel
+        </button>
+      </div>
+    </nav>
+
+    <!-- PROJECTS TAB -->
+    <div class="tab-content active" id="tab-projects">
+      <main class="main">
+        <div class="projects-area">
+          <div class="section-label">Projeler</div>
+          <div class="projects-grid" id="projectsGrid"></div>
+        </div>
+        <aside class="sidebar">
+          <div>
+            <div class="section-label">Sistem</div>
+            <div class="side-card" id="systemInfo">
+              <div class="info-row"><span class="info-label">Yukleniyor...</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">Hizli Erisim</div>
+            <div class="quick-links" id="quickLinks">
+              <a href="/code/" target="_blank" class="quick-link" id="quickLinkCode">
+                <svg viewBox="0 0 24 24">
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+                code-server
+              </a>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">Kisayollar</div>
+            <div class="side-card">
+              <div class="shortcut-row">
+                <span><kbd>Ctrl</kbd>+<kbd>1-7</kbd></span
+                ><span>Tab degistir</span>
+              </div>
+              <div class="shortcut-row">
+                <span><kbd>Ctrl</kbd>+<kbd>N</kbd></span
+                ><span>Yeni proje</span>
+              </div>
+              <div class="shortcut-row">
+                <span><kbd>Ctrl</kbd>+<kbd>G</kbd></span
+                ><span>Git klonla</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <!-- PORTS TAB -->
+    <div class="tab-content" id="tab-ports">
+      <div class="ports-container" id="portsContent">
+        <div style="text-align: center; padding: 40px; color: var(--text-muted)">Yukleniyor...</div>
+      </div>
+    </div>
+
+    <!-- GIT TAB -->
+    <div class="tab-content" id="tab-git">
+      <div class="env-container">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px">
+          <div class="section-label" style="margin-bottom: 0">Git</div>
+          <select class="form-select" id="gitProjectSelect" style="width: 200px"></select>
+        </div>
+        <div id="gitContent">
+          <div style="text-align: center; padding: 40px; color: var(--text-muted)">
+            Bir proje sec
+          </div>
         </div>
       </div>
-    </aside>
-  </main>
-</div>
+    </div>
 
-<!-- PORTS TAB -->
-<div class="tab-content" id="tab-ports">
-  <div class="ports-container" id="portsContent">
-    <div style="text-align:center; padding:40px; color:var(--text-muted);">Yukleniyor...</div>
-  </div>
-</div>
-
-<!-- GIT TAB -->
-<div class="tab-content" id="tab-git">
-  <div class="env-container">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-      <div class="section-label" style="margin-bottom:0;">Git</div>
-      <select class="form-select" id="gitProjectSelect" style="width:200px;"></select>
-    </div>
-    <div id="gitContent">
-      <div style="text-align:center; padding:40px; color:var(--text-muted);">Bir proje sec</div>
-    </div>
-  </div>
-</div>
-
-<!-- ENV TAB -->
-<div class="tab-content" id="tab-env">
-  <div class="env-container">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-      <div class="section-label" style="margin-bottom:0;">Ortam Degiskenleri</div>
-      <select class="form-select" id="envProjectSelect" style="width:200px;"></select>
-      <button class="btn btn-primary btn-sm" onclick="document.getElementById('envAddSection').style.display = document.getElementById('envAddSection').style.display === 'none' ? '' : 'none'">+ Degisken Ekle</button>
-    </div>
-    <div id="envAddSection" style="display:none; margin-bottom:16px;">
-      <form id="envAddForm" class="side-card" style="display:flex; flex-wrap:wrap; gap:12px; align-items:end;">
-        <div class="form-group" style="margin-bottom:0; min-width:180px;">
-          <label class="form-label">Nereye</label>
-          <select class="form-select" id="envNewFile"></select>
+    <!-- ENV TAB -->
+    <div class="tab-content" id="tab-env">
+      <div class="env-container">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px">
+          <div class="section-label" style="margin-bottom: 0">Ortam Degiskenleri</div>
+          <select class="form-select" id="envProjectSelect" style="width: 200px"></select>
+          <button
+            class="btn btn-primary btn-sm"
+            onclick="
+              document.getElementById('envAddSection').style.display =
+                document.getElementById('envAddSection').style.display === 'none' ? '' : 'none'
+            "
+          >
+            + Degisken Ekle
+          </button>
         </div>
-        <div class="form-group" style="margin-bottom:0; flex:1; min-width:120px;">
-          <label class="form-label">Anahtar</label>
-          <input type="text" class="form-input" id="envNewKey" placeholder="API_KEY" required>
+        <div id="envAddSection" style="display: none; margin-bottom: 16px">
+          <form
+            id="envAddForm"
+            class="side-card"
+            style="display: flex; flex-wrap: wrap; gap: 12px; align-items: end"
+          >
+            <div class="form-group" style="margin-bottom: 0; min-width: 180px">
+              <label class="form-label">Nereye</label>
+              <select class="form-select" id="envNewFile"></select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 120px">
+              <label class="form-label">Anahtar</label>
+              <input type="text" class="form-input" id="envNewKey" placeholder="API_KEY" required />
+            </div>
+            <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 120px">
+              <label class="form-label">Deger</label>
+              <input type="text" class="form-input" id="envNewValue" placeholder="deger..." />
+            </div>
+            <div class="form-group" style="margin-bottom: 0">
+              <label style="font-size: 12px; display: flex; align-items: center; gap: 4px"
+                ><input type="checkbox" id="envNewSensitive" /> Hassas</label
+              >
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Kaydet</button>
+          </form>
         </div>
-        <div class="form-group" style="margin-bottom:0; flex:1; min-width:120px;">
-          <label class="form-label">Deger</label>
-          <input type="text" class="form-input" id="envNewValue" placeholder="deger...">
+        <div id="envContent">
+          <div style="text-align: center; padding: 40px; color: var(--text-muted)">
+            Yukleniyor...
+          </div>
         </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label style="font-size:12px; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="envNewSensitive"> Hassas</label>
-        </div>
-        <button type="submit" class="btn btn-primary btn-sm">Kaydet</button>
-      </form>
-    </div>
-    <div id="envContent">
-      <div style="text-align:center; padding:40px; color:var(--text-muted);">Yukleniyor...</div>
-    </div>
-  </div>
-</div>
-
-<!-- LOGS TAB -->
-<div class="tab-content" id="tab-logs">
-  <div class="logs-container">
-    <div class="logs-sources" id="logsSources"></div>
-    <div class="logs-panel">
-      <div class="logs-toolbar">
-        <input type="text" class="form-input logs-search" id="logsSearch" placeholder="Log'larda ara...">
-        <div class="logs-filters">
-          <button class="btn btn-sm logs-filter-btn active" data-level="all">All</button>
-          <button class="btn btn-sm logs-filter-btn" data-level="error">Error</button>
-          <button class="btn btn-sm logs-filter-btn" data-level="warn">Warn</button>
-          <button class="btn btn-sm logs-filter-btn" data-level="info">Info</button>
-        </div>
-        <button class="btn btn-sm" id="logsPauseBtn">Pause</button>
-        <button class="btn btn-sm" id="logsClearBtn">Clear</button>
       </div>
-      <div class="logs-view" id="logsView"></div>
-      <button class="btn btn-sm logs-autoscroll-btn" id="logsAutoscrollBtn">&darr; Auto-scroll</button>
     </div>
-  </div>
-</div>
 
-<!-- DOCKER TAB -->
-<div class="tab-content" id="tab-docker">
-  <div class="ports-container" id="dockerContent">
-    <div style="text-align:center; padding:40px; color:var(--text-muted);">Yukleniyor...</div>
-  </div>
-</div>
-
-<!-- CF TUNNEL TAB -->
-<div class="tab-content" id="tab-cf">
-  <div class="ports-container" id="cfContent">
-    <div style="text-align:center; padding:40px; color:var(--text-muted);">Yukleniyor...</div>
-  </div>
-</div>
-
-<!-- NEW PROJECT MODAL -->
-<div class="modal-overlay" id="modalNew"><div class="modal">
-  <div class="modal-title">Yeni Proje</div>
-  <div class="modal-subtitle">Bos veya sablonlu yeni bir proje olustur</div>
-  <form id="newProjectForm">
-    <div class="form-group"><label class="form-label">Proje Adi</label><input type="text" class="form-input" id="newName" placeholder="proje-adi" required></div>
-    <div class="form-group"><label class="form-label">Sablon</label>
-      <select class="form-select" id="newTemplate"><option value="">Bos proje</option><option value="nodejs">Node.js</option><option value="python">Python</option><option value="react">React</option><option value="nextjs">Next.js</option></select>
+    <!-- LOGS TAB -->
+    <div class="tab-content" id="tab-logs">
+      <div class="logs-container">
+        <div class="logs-sources" id="logsSources"></div>
+        <div class="logs-panel">
+          <div class="logs-toolbar">
+            <input
+              type="text"
+              class="form-input logs-search"
+              id="logsSearch"
+              placeholder="Log'larda ara..."
+            />
+            <div class="logs-filters">
+              <button class="btn btn-sm logs-filter-btn active" data-level="all">All</button>
+              <button class="btn btn-sm logs-filter-btn" data-level="error">Error</button>
+              <button class="btn btn-sm logs-filter-btn" data-level="warn">Warn</button>
+              <button class="btn btn-sm logs-filter-btn" data-level="info">Info</button>
+            </div>
+            <button class="btn btn-sm" id="logsPauseBtn">Pause</button>
+            <button class="btn btn-sm" id="logsClearBtn">Clear</button>
+          </div>
+          <div class="logs-view" id="logsView"></div>
+          <button class="btn btn-sm logs-autoscroll-btn" id="logsAutoscrollBtn">
+            &darr; Auto-scroll
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="modal-actions"><button type="button" class="btn" id="newCancelBtn">Iptal</button><button type="submit" class="btn btn-primary">Olustur</button></div>
-  </form>
-</div></div>
 
-<!-- CLONE MODAL -->
-<div class="modal-overlay" id="modalClone"><div class="modal">
-  <div class="modal-title">Git'ten Klonla</div>
-  <div class="modal-subtitle">Bir Git deposunu projelere klonla</div>
-  <form id="cloneForm">
-    <div class="form-group"><label class="form-label">Repo URL</label><input type="url" class="form-input" id="cloneUrl" placeholder="https://github.com/user/repo.git" required></div>
-    <div class="form-group"><label class="form-label">Klasor Adi <span style="opacity:0.5">(opsiyonel)</span></label><input type="text" class="form-input" id="cloneName" placeholder="Otomatik belirlenecek"></div>
-    <div class="modal-actions"><button type="button" class="btn" id="cloneCancelBtn">Iptal</button><button type="submit" class="btn btn-primary">Klonla</button></div>
-  </form>
-</div></div>
-
-<!-- RENAME MODAL -->
-<div class="modal-overlay" id="modalRename"><div class="modal">
-  <div class="modal-title">Yeniden Adlandir</div>
-  <div class="modal-subtitle" id="renameSubtitle"></div>
-  <form id="renameForm">
-    <input type="hidden" id="renameOld">
-    <div class="form-group"><label class="form-label">Yeni Isim</label><input type="text" class="form-input" id="renameNew" required></div>
-    <div class="modal-actions"><button type="button" class="btn" id="renameCancelBtn">Iptal</button><button type="submit" class="btn btn-primary">Kaydet</button></div>
-  </form>
-</div></div>
-
-<!-- SETTINGS MODAL -->
-<div class="modal-overlay" id="modalSettings"><div class="modal wide" style="max-width:780px;">
-  <div class="modal-title">Ayarlar</div>
-  <div class="settings-tabs" id="settingsTabs" style="display:flex; gap:4px; border-bottom:1px solid var(--border); margin:8px 0 16px; flex-wrap:wrap;">
-    <button class="btn settings-tab-btn active" data-tab="general">Genel</button>
-    <button class="btn settings-tab-btn" data-tab="access">Erişim</button>
-    <button class="btn settings-tab-btn" data-tab="services">Servisler</button>
-    <button class="btn settings-tab-btn" data-tab="security">Güvenlik</button>
-    <button class="btn settings-tab-btn" data-tab="integrations">Entegrasyonlar</button>
-    <button class="btn settings-tab-btn" data-tab="account">Hesap</button>
-  </div>
-
-  <!-- GENERAL -->
-  <div class="settings-tab-pane active" id="settings-tab-general">
-    <div class="settings-section" id="healthSummarySection">
-      <div class="settings-section-title">Sistem Durumu</div>
-      <div id="healthSummary" style="font-size:13px;">Yükleniyor...</div>
+    <!-- DOCKER TAB -->
+    <div class="tab-content" id="tab-docker">
+      <div class="ports-container" id="dockerContent">
+        <div style="text-align: center; padding: 40px; color: var(--text-muted)">Yukleniyor...</div>
+      </div>
     </div>
-    <div class="settings-section">
-      <div class="settings-section-title">Genel</div>
-      <form id="settingsGeneralForm">
-        <div class="form-group"><label class="form-label">Uygulama Adı</label><input type="text" class="form-input" id="setApp_name" placeholder="Andromeda"></div>
-        <div class="form-group"><label class="form-label">Projeler Dizini</label><input type="text" class="form-input" id="setProjects_dir" placeholder="/home/user/projects"></div>
-        <div class="form-group"><label class="form-label">İkincil Disk Yolu (opsiyonel)</label><input type="text" class="form-input" id="setSecondary_disk" placeholder="/mnt/data"></div>
-        <div class="form-group"><label class="form-label">Docker Prod Apps Dizini (Docker tab için, opsiyonel)</label><input type="text" class="form-input" id="setProd_apps_dir" placeholder="/opt/prod-apps"></div>
-        <button type="submit" class="btn btn-primary">Kaydet</button>
-      </form>
-    </div>
-  </div>
 
-  <!-- ACCESS -->
-  <div class="settings-tab-pane" id="settings-tab-access" style="display:none;">
-    <div class="settings-section">
-      <div class="settings-section-title">Erişim Modu</div>
-      <div class="settings-section-desc">Lyra'ya nasıl erişiliyor — değişiklikler restart ister.</div>
-      <form id="settingsAccessForm">
+    <!-- CF TUNNEL TAB -->
+    <div class="tab-content" id="tab-cf">
+      <div class="ports-container" id="cfContent">
+        <div style="text-align: center; padding: 40px; color: var(--text-muted)">Yukleniyor...</div>
+      </div>
+    </div>
+
+    <!-- NEW PROJECT MODAL -->
+    <div class="modal-overlay" id="modalNew">
+      <div class="modal">
+        <div class="modal-title">Yeni Proje</div>
+        <div class="modal-subtitle">Bos veya sablonlu yeni bir proje olustur</div>
+        <form id="newProjectForm">
+          <div class="form-group">
+            <label class="form-label">Proje Adi</label
+            ><input type="text" class="form-input" id="newName" placeholder="proje-adi" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sablon</label>
+            <select class="form-select" id="newTemplate">
+              <option value="">Bos proje</option>
+              <option value="nodejs">Node.js</option>
+              <option value="python">Python</option>
+              <option value="react">React</option>
+              <option value="nextjs">Next.js</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="newCancelBtn">Iptal</button
+            ><button type="submit" class="btn btn-primary">Olustur</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- CLONE MODAL -->
+    <div class="modal-overlay" id="modalClone">
+      <div class="modal">
+        <div class="modal-title">Git'ten Klonla</div>
+        <div class="modal-subtitle">Bir Git deposunu projelere klonla</div>
+        <form id="cloneForm">
+          <div class="form-group">
+            <label class="form-label">Repo URL</label
+            ><input
+              type="url"
+              class="form-input"
+              id="cloneUrl"
+              placeholder="https://github.com/user/repo.git"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label"
+              >Klasor Adi <span style="opacity: 0.5">(opsiyonel)</span></label
+            ><input
+              type="text"
+              class="form-input"
+              id="cloneName"
+              placeholder="Otomatik belirlenecek"
+            />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="cloneCancelBtn">Iptal</button
+            ><button type="submit" class="btn btn-primary">Klonla</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- RENAME MODAL -->
+    <div class="modal-overlay" id="modalRename">
+      <div class="modal">
+        <div class="modal-title">Yeniden Adlandir</div>
+        <div class="modal-subtitle" id="renameSubtitle"></div>
+        <form id="renameForm">
+          <input type="hidden" id="renameOld" />
+          <div class="form-group">
+            <label class="form-label">Yeni Isim</label
+            ><input type="text" class="form-input" id="renameNew" required />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="renameCancelBtn">Iptal</button
+            ><button type="submit" class="btn btn-primary">Kaydet</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="modal-overlay" id="modalSettings">
+      <div class="modal wide" style="max-width: 780px">
+        <div class="modal-title">Ayarlar</div>
+        <div
+          class="settings-tabs"
+          id="settingsTabs"
+          style="
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid var(--border);
+            margin: 8px 0 16px;
+            flex-wrap: wrap;
+          "
+        >
+          <button class="btn settings-tab-btn active" data-tab="general">Genel</button>
+          <button class="btn settings-tab-btn" data-tab="access">Erişim</button>
+          <button class="btn settings-tab-btn" data-tab="services">Servisler</button>
+          <button class="btn settings-tab-btn" data-tab="security">Güvenlik</button>
+          <button class="btn settings-tab-btn" data-tab="integrations">Entegrasyonlar</button>
+          <button class="btn settings-tab-btn" data-tab="account">Hesap</button>
+        </div>
+
+        <!-- GENERAL -->
+        <div class="settings-tab-pane active" id="settings-tab-general">
+          <div class="settings-section" id="healthSummarySection">
+            <div class="settings-section-title">Sistem Durumu</div>
+            <div id="healthSummary" style="font-size: 13px">Yükleniyor...</div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Genel</div>
+            <form id="settingsGeneralForm">
+              <div class="form-group">
+                <label class="form-label">Uygulama Adı</label
+                ><input type="text" class="form-input" id="setApp_name" placeholder="Andromeda" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Projeler Dizini</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="setProjects_dir"
+                  placeholder="/home/user/projects"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">İkincil Disk Yolu (opsiyonel)</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="setSecondary_disk"
+                  placeholder="/mnt/data"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >Docker Prod Apps Dizini (Docker tab için, opsiyonel)</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="setProd_apps_dir"
+                  placeholder="/opt/prod-apps"
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">Kaydet</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- ACCESS -->
+        <div class="settings-tab-pane" id="settings-tab-access" style="display: none">
+          <div class="settings-section">
+            <div class="settings-section-title">Erişim Modu</div>
+            <div class="settings-section-desc">
+              Lyra'ya nasıl erişiliyor — değişiklikler restart ister.
+            </div>
+            <form id="settingsAccessForm">
+              <div class="form-group">
+                <label class="form-label">Bind Adresi</label>
+                <select class="form-select" id="setBind_address">
+                  <option value="127.0.0.1">127.0.0.1 (sadece localhost / SSH tunnel)</option>
+                  <option value="0.0.0.0">0.0.0.0 (LAN'dan erişilebilir)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px"
+                  ><input type="checkbox" id="setPublic_access" /> Public erişim aktif (reverse
+                  proxy var önde)</label
+                >
+              </div>
+              <div class="form-group">
+                <label class="form-label">Base Domain (public mode için)</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="setBase_domain"
+                  placeholder="lyra.example.com"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">code-server subdomain</label
+                ><input type="text" class="form-input" id="setSubdomain_code" placeholder="code" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">filebrowser subdomain</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="setSubdomain_files"
+                  placeholder="files"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">dbgate subdomain</label
+                ><input type="text" class="form-input" id="setSubdomain_db" placeholder="db" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Dev server pattern</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="setSubdomain_dev_pattern"
+                  placeholder="dev-{port}"
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">Kaydet</button>
+              <div
+                id="accessRestartHint"
+                style="
+                  margin-top: 12px;
+                  padding: 10px;
+                  background: rgba(255, 184, 77, 0.08);
+                  border: 1px solid rgba(255, 184, 77, 0.2);
+                  border-radius: 8px;
+                  font-size: 13px;
+                  color: #ffd699;
+                  display: none;
+                "
+              >
+                ⚠ bind_address veya public_access değişti — Lyra restart ister.
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- SERVICES -->
+        <div class="settings-tab-pane" id="settings-tab-services" style="display: none">
+          <div class="settings-section">
+            <div class="settings-section-title">Yönetilen Servisler</div>
+            <div class="settings-section-desc">
+              systemd unit'leri Lyra'nın bilmesi gereken. Reverse proxy ve log streaming bunları
+              kullanır.
+            </div>
+            <div id="servicesList" style="margin-bottom: 12px"></div>
+            <button class="btn btn-primary" id="btnAddService">+ Servis Ekle</button>
+          </div>
+        </div>
+
+        <!-- SECURITY -->
+        <div class="settings-tab-pane" id="settings-tab-security" style="display: none">
+          <div class="settings-section">
+            <div class="settings-section-title">Rate Limit</div>
+            <form id="settingsSecurityForm">
+              <div class="form-group">
+                <label class="form-label">Max Login Denemesi (Pencere Başına)</label
+                ><input
+                  type="number"
+                  class="form-input"
+                  id="setRate_limit_attempts"
+                  min="1"
+                  max="100"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Pencere Süresi (dakika)</label
+                ><input
+                  type="number"
+                  class="form-input"
+                  id="setRate_limit_window_minutes"
+                  min="1"
+                  max="1440"
+                />
+              </div>
+            </form>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Otomatik Ban</div>
+            <form id="settingsAutoBanForm">
+              <div class="form-group">
+                <label class="form-label">Bandan Önce Başarısız Giriş</label
+                ><input type="number" class="form-input" id="setAuto_ban_after" min="1" max="20" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bandan Önce Yetkisiz API İsteği</label
+                ><input
+                  type="number"
+                  class="form-input"
+                  id="setAuto_ban_api_after"
+                  min="1"
+                  max="200"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sayım Penceresi (dakika)</label
+                ><input
+                  type="number"
+                  class="form-input"
+                  id="setAuto_ban_window_minutes"
+                  min="1"
+                  max="60"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ban Süresi (dakika)</label
+                ><input
+                  type="number"
+                  class="form-input"
+                  id="setAuto_ban_duration_minutes"
+                  min="1"
+                  max="10080"
+                />
+              </div>
+            </form>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Oturum</div>
+            <form id="settingsSessionForm">
+              <div class="form-group">
+                <label class="form-label">Oturum TTL (gün)</label
+                ><input
+                  type="number"
+                  class="form-input"
+                  id="setSession_ttl_days"
+                  min="1"
+                  max="365"
+                />
+              </div>
+            </form>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnSaveSecurity">Hepsini Kaydet</button>
+
+          <div class="settings-section" style="margin-top: 24px">
+            <div class="settings-section-title">Banlı IP'ler</div>
+            <div class="settings-section-desc">
+              Otomatik veya manuel banlanan adresler. LAN/loopback adresleri hiçbir zaman banlanmaz.
+            </div>
+            <div id="bansList" style="margin-bottom: 12px">Yükleniyor...</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end">
+              <div class="form-group" style="margin-bottom: 0">
+                <label class="form-label">IP</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="banIp"
+                  placeholder="203.0.113.5"
+                  style="width: 170px"
+                />
+              </div>
+              <div class="form-group" style="margin-bottom: 0">
+                <label class="form-label">Sebep (opsiyonel)</label
+                ><input
+                  type="text"
+                  class="form-input"
+                  id="banReason"
+                  placeholder="manuel ban"
+                  style="width: 200px"
+                />
+              </div>
+              <div class="form-group" style="margin-bottom: 0">
+                <label class="form-label">Süre (dk, boş = kalıcı)</label
+                ><input
+                  type="number"
+                  class="form-input"
+                  id="banDuration"
+                  min="1"
+                  placeholder="60"
+                  style="width: 160px"
+                />
+              </div>
+              <button type="button" class="btn btn-primary" id="btnAddBan">Banla</button>
+            </div>
+          </div>
+
+          <div class="settings-section" style="margin-top: 24px">
+            <div class="settings-section-title">Olay Geçmişi (audit log)</div>
+            <div class="settings-section-desc">Login, ban, ayar değişiklikleri — son 50 olay.</div>
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                margin-bottom: 8px;
+                flex-wrap: wrap;
+                align-items: center;
+              "
+            >
+              <select class="form-select" id="auditFilter" style="width: auto; padding: 6px 10px">
+                <option value="">Tüm olaylar</option>
+                <option value="login_success">Başarılı giriş</option>
+                <option value="login_fail">Başarısız giriş</option>
+                <option value="api_unauth">Yetkisiz API/WS isteği</option>
+                <option value="ip_banned">IP ban</option>
+                <option value="ip_unbanned">IP unban</option>
+                <option value="setting_change">Ayar değişikliği</option>
+                <option value="service_add">Servis ekleme</option>
+                <option value="service_update">Servis güncelleme</option>
+                <option value="service_remove">Servis silme</option>
+                <option value="integration_update">Entegrasyon güncelleme</option>
+                <option value="admin_recovery">Admin recovery</option>
+              </select>
+              <button class="btn btn-sm" id="btnReloadAudit">Yenile</button>
+            </div>
+            <div
+              id="auditLogList"
+              style="
+                max-height: 400px;
+                overflow-y: auto;
+                font-family: var(--mono);
+                font-size: 11px;
+                background: var(--bg);
+                padding: 10px;
+                border-radius: 6px;
+                border: 1px solid var(--border);
+              "
+            >
+              Yükleniyor...
+            </div>
+          </div>
+        </div>
+
+        <!-- INTEGRATIONS -->
+        <div class="settings-tab-pane" id="settings-tab-integrations" style="display: none">
+          <div class="settings-section">
+            <div class="settings-section-title">GitHub Entegrasyonu</div>
+            <div class="settings-section-desc">
+              Personal Access Token ile GitHub hesabını bağla.
+            </div>
+            <div id="githubSettingsContent"></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Telegram Bildirimleri</div>
+            <div class="settings-section-desc">Login + güvenlik olayları için bot bildirimi.</div>
+            <div id="telegramSettingsContent"></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Cloudflare API Token</div>
+            <div class="settings-section-desc">CF Tunnel ingress yönetimi için (opsiyonel).</div>
+            <div id="cloudflareSettingsContent"></div>
+          </div>
+        </div>
+
+        <!-- ACCOUNT -->
+        <div class="settings-tab-pane" id="settings-tab-account" style="display: none">
+          <div class="settings-section">
+            <div class="settings-section-title">İki Faktörlü Doğrulama (2FA)</div>
+            <div class="settings-section-desc">Authenticator ile giriş güvenliğini artır.</div>
+            <div id="twoFAContent"></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Launcher Şifresi</div>
+            <form id="changePasswordForm">
+              <div class="form-group">
+                <label class="form-label">Mevcut Şifre</label
+                ><input type="password" class="form-input" id="currentPassword" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Yeni Şifre (en az 12 karakter)</label
+                ><input
+                  type="password"
+                  class="form-input"
+                  id="newPassword"
+                  minlength="12"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn">Şifreyi Değiştir</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" id="settingsCloseBtn">Kapat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GITHUB REPOS MODAL -->
+    <div class="modal-overlay" id="modalGithub">
+      <div class="modal wide">
+        <div class="modal-title">GitHub Depolari</div>
+        <div class="modal-subtitle" id="githubModalSubtitle">
+          Hesabindaki depolari goruntule ve klonla
+        </div>
         <div class="form-group">
-          <label class="form-label">Bind Adresi</label>
-          <select class="form-select" id="setBind_address">
-            <option value="127.0.0.1">127.0.0.1 (sadece localhost / SSH tunnel)</option>
-            <option value="0.0.0.0">0.0.0.0 (LAN'dan erişilebilir)</option>
-          </select>
+          <input type="text" class="form-input" id="repoSearch" placeholder="Repo ara..." />
+        </div>
+        <div class="repo-list" id="repoList">
+          <div style="text-align: center; color: var(--text-muted); padding: 20px">
+            Yukleniyor...
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="githubCloseBtn">Kapat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BRANCH SELECT MODAL -->
+    <div class="modal-overlay" id="modalBranch">
+      <div class="modal">
+        <div class="modal-title" id="branchModalTitle">Branch Sec</div>
+        <div class="modal-subtitle" id="branchModalSubtitle">Klonlanacak branch'i sec</div>
+        <div class="form-group">
+          <label class="form-label">Branch</label>
+          <select class="form-select" id="branchSelect"></select>
         </div>
         <div class="form-group">
-          <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="setPublic_access"> Public erişim aktif (reverse proxy var önde)</label>
+          <label class="form-label">Klasor Adi <span style="opacity: 0.5">(opsiyonel)</span></label>
+          <input
+            type="text"
+            class="form-input"
+            id="branchCloneName"
+            placeholder="Otomatik belirlenecek"
+          />
         </div>
-        <div class="form-group"><label class="form-label">Base Domain (public mode için)</label><input type="text" class="form-input" id="setBase_domain" placeholder="lyra.example.com"></div>
-        <div class="form-group"><label class="form-label">code-server subdomain</label><input type="text" class="form-input" id="setSubdomain_code" placeholder="code"></div>
-        <div class="form-group"><label class="form-label">filebrowser subdomain</label><input type="text" class="form-input" id="setSubdomain_files" placeholder="files"></div>
-        <div class="form-group"><label class="form-label">dbgate subdomain</label><input type="text" class="form-input" id="setSubdomain_db" placeholder="db"></div>
-        <div class="form-group"><label class="form-label">Dev server pattern</label><input type="text" class="form-input" id="setSubdomain_dev_pattern" placeholder="dev-{port}"></div>
-        <button type="submit" class="btn btn-primary">Kaydet</button>
-        <div id="accessRestartHint" style="margin-top:12px; padding:10px; background:rgba(255,184,77,0.08); border:1px solid rgba(255,184,77,0.2); border-radius:8px; font-size:13px; color:#ffd699; display:none;">⚠ bind_address veya public_access değişti — Lyra restart ister.</div>
-      </form>
-    </div>
-  </div>
-
-  <!-- SERVICES -->
-  <div class="settings-tab-pane" id="settings-tab-services" style="display:none;">
-    <div class="settings-section">
-      <div class="settings-section-title">Yönetilen Servisler</div>
-      <div class="settings-section-desc">systemd unit'leri Lyra'nın bilmesi gereken. Reverse proxy ve log streaming bunları kullanır.</div>
-      <div id="servicesList" style="margin-bottom:12px;"></div>
-      <button class="btn btn-primary" id="btnAddService">+ Servis Ekle</button>
-    </div>
-  </div>
-
-  <!-- SECURITY -->
-  <div class="settings-tab-pane" id="settings-tab-security" style="display:none;">
-    <div class="settings-section">
-      <div class="settings-section-title">Rate Limit</div>
-      <form id="settingsSecurityForm">
-        <div class="form-group"><label class="form-label">Max Login Denemesi (Pencere Başına)</label><input type="number" class="form-input" id="setRate_limit_attempts" min="1" max="100"></div>
-        <div class="form-group"><label class="form-label">Pencere Süresi (dakika)</label><input type="number" class="form-input" id="setRate_limit_window_minutes" min="1" max="1440"></div>
-      </form>
-    </div>
-    <div class="settings-section">
-      <div class="settings-section-title">Otomatik Ban</div>
-      <form id="settingsAutoBanForm">
-        <div class="form-group"><label class="form-label">Bandan Önce Başarısız Giriş</label><input type="number" class="form-input" id="setAuto_ban_after" min="1" max="20"></div>
-        <div class="form-group"><label class="form-label">Bandan Önce Yetkisiz API İsteği</label><input type="number" class="form-input" id="setAuto_ban_api_after" min="1" max="200"></div>
-        <div class="form-group"><label class="form-label">Sayım Penceresi (dakika)</label><input type="number" class="form-input" id="setAuto_ban_window_minutes" min="1" max="60"></div>
-        <div class="form-group"><label class="form-label">Ban Süresi (dakika)</label><input type="number" class="form-input" id="setAuto_ban_duration_minutes" min="1" max="10080"></div>
-      </form>
-    </div>
-    <div class="settings-section">
-      <div class="settings-section-title">Oturum</div>
-      <form id="settingsSessionForm">
-        <div class="form-group"><label class="form-label">Oturum TTL (gün)</label><input type="number" class="form-input" id="setSession_ttl_days" min="1" max="365"></div>
-      </form>
-    </div>
-    <button type="button" class="btn btn-primary" id="btnSaveSecurity">Hepsini Kaydet</button>
-
-    <div class="settings-section" style="margin-top:24px;">
-      <div class="settings-section-title">Banlı IP'ler</div>
-      <div class="settings-section-desc">Otomatik veya manuel banlanan adresler. LAN/loopback adresleri hiçbir zaman banlanmaz.</div>
-      <div id="bansList" style="margin-bottom:12px;">Yükleniyor...</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">IP</label><input type="text" class="form-input" id="banIp" placeholder="203.0.113.5" style="width:170px;"></div>
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Sebep (opsiyonel)</label><input type="text" class="form-input" id="banReason" placeholder="manuel ban" style="width:200px;"></div>
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Süre (dk, boş = kalıcı)</label><input type="number" class="form-input" id="banDuration" min="1" placeholder="60" style="width:160px;"></div>
-        <button type="button" class="btn btn-primary" id="btnAddBan">Banla</button>
+        <div
+          id="branchLoading"
+          style="text-align: center; padding: 16px; color: var(--text-muted); display: none"
+        >
+          <div
+            style="
+              display: inline-block;
+              width: 18px;
+              height: 18px;
+              border: 2px solid var(--border);
+              border-top-color: var(--accent);
+              border-radius: 50%;
+              animation: rotate 0.6s linear infinite;
+            "
+          ></div>
+          <span style="margin-left: 8px">Branch'ler yukleniyor...</span>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="branchBackBtn">Geri</button>
+          <button class="btn btn-primary" id="branchCloneBtn">Klonla</button>
+        </div>
       </div>
     </div>
 
-    <div class="settings-section" style="margin-top:24px;">
-      <div class="settings-section-title">Olay Geçmişi (audit log)</div>
-      <div class="settings-section-desc">Login, ban, ayar değişiklikleri — son 50 olay.</div>
-      <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; align-items:center;">
-        <select class="form-select" id="auditFilter" style="width:auto; padding:6px 10px;">
-          <option value="">Tüm olaylar</option>
-          <option value="login_success">Başarılı giriş</option>
-          <option value="login_fail">Başarısız giriş</option>
-          <option value="api_unauth">Yetkisiz API/WS isteği</option>
-          <option value="ip_banned">IP ban</option>
-          <option value="ip_unbanned">IP unban</option>
-          <option value="setting_change">Ayar değişikliği</option>
-          <option value="service_add">Servis ekleme</option>
-          <option value="service_update">Servis güncelleme</option>
-          <option value="service_remove">Servis silme</option>
-          <option value="integration_update">Entegrasyon güncelleme</option>
-          <option value="admin_recovery">Admin recovery</option>
-        </select>
-        <button class="btn btn-sm" id="btnReloadAudit">Yenile</button>
+    <!-- CLONE PROGRESS MODAL -->
+    <div class="modal-overlay" id="modalProgress">
+      <div class="modal">
+        <div class="progress-content">
+          <div class="progress-icon spinning" id="progressIcon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <div class="progress-phase" id="progressPhase">Klonlaniyor...</div>
+          <div class="progress-detail" id="progressDetail"></div>
+          <div class="progress-bar">
+            <div class="progress-bar-fill indeterminate" id="progressBarFill"></div>
+          </div>
+          <div class="progress-percent" id="progressPercent"></div>
+          <div class="progress-log" id="progressLog"></div>
+        </div>
+        <div class="modal-actions" id="progressActions" style="display: none">
+          <button class="btn" id="progressCloseBtn">Kapat</button>
+          <a
+            id="progressOpenBtn"
+            class="btn btn-primary"
+            style="text-decoration: none"
+            target="_blank"
+            >Projede Ac</a
+          >
+        </div>
       </div>
-      <div id="auditLogList" style="max-height:400px; overflow-y:auto; font-family:var(--mono); font-size:11px; background:var(--bg); padding:10px; border-radius:6px; border:1px solid var(--border);">
-        Yükleniyor...
+    </div>
+
+    <!-- NOTES MODAL -->
+    <div class="modal-overlay" id="modalNotes">
+      <div class="modal notes-modal">
+        <div class="notes-header">
+          <div class="notes-title" id="notesTitle">Notlar</div>
+          <div class="notes-status" id="notesStatus"></div>
+          <button class="btn btn-icon btn-ghost" id="notesCloseBtn" title="Kapat">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="notes-body">
+          <textarea
+            id="notesTextarea"
+            class="notes-textarea"
+            placeholder="Yazmaya basla, otomatik kaydedilir..."
+            spellcheck="false"
+          ></textarea>
+          <div id="notesPreview" class="notes-preview"></div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- INTEGRATIONS -->
-  <div class="settings-tab-pane" id="settings-tab-integrations" style="display:none;">
-    <div class="settings-section">
-      <div class="settings-section-title">GitHub Entegrasyonu</div>
-      <div class="settings-section-desc">Personal Access Token ile GitHub hesabını bağla.</div>
-      <div id="githubSettingsContent"></div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-section-title">Telegram Bildirimleri</div>
-      <div class="settings-section-desc">Login + güvenlik olayları için bot bildirimi.</div>
-      <div id="telegramSettingsContent"></div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-section-title">Cloudflare API Token</div>
-      <div class="settings-section-desc">CF Tunnel ingress yönetimi için (opsiyonel).</div>
-      <div id="cloudflareSettingsContent"></div>
-    </div>
-  </div>
+    <div class="toast-container" id="toasts"></div>
 
-  <!-- ACCOUNT -->
-  <div class="settings-tab-pane" id="settings-tab-account" style="display:none;">
-    <div class="settings-section">
-      <div class="settings-section-title">İki Faktörlü Doğrulama (2FA)</div>
-      <div class="settings-section-desc">Authenticator ile giriş güvenliğini artır.</div>
-      <div id="twoFAContent"></div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-section-title">Launcher Şifresi</div>
-      <form id="changePasswordForm">
-        <div class="form-group"><label class="form-label">Mevcut Şifre</label><input type="password" class="form-input" id="currentPassword" required></div>
-        <div class="form-group"><label class="form-label">Yeni Şifre (en az 12 karakter)</label><input type="password" class="form-input" id="newPassword" minlength="12" required></div>
-        <button type="submit" class="btn">Şifreyi Değiştir</button>
-      </form>
-    </div>
-  </div>
+    <script src="vendor/marked.min.js"></script>
 
-  <div class="modal-actions"><button type="button" class="btn" id="settingsCloseBtn">Kapat</button></div>
-</div></div>
+    <script type="module">
+      import { initApp, registerTab, switchTab } from "./js/app.js";
+      import * as projects from "./js/projects.js";
+      import * as ports from "./js/ports.js";
+      import * as git from "./js/git.js";
+      import * as env from "./js/env.js";
+      import * as logs from "./js/logs.js";
+      import * as docker from "./js/docker.js";
+      import * as cf from "./js/cloudflare.js";
+      import * as notes from "./js/notes.js";
+      import * as settings from "./js/settings.js";
+      import * as connectInfo from "./js/connect-info.js";
 
-<!-- GITHUB REPOS MODAL -->
-<div class="modal-overlay" id="modalGithub"><div class="modal wide">
-  <div class="modal-title">GitHub Depolari</div>
-  <div class="modal-subtitle" id="githubModalSubtitle">Hesabindaki depolari goruntule ve klonla</div>
-  <div class="form-group"><input type="text" class="form-input" id="repoSearch" placeholder="Repo ara..."></div>
-  <div class="repo-list" id="repoList"><div style="text-align:center; color: var(--text-muted); padding: 20px;">Yukleniyor...</div></div>
-  <div class="modal-actions"><button type="button" class="btn" id="githubCloseBtn">Kapat</button></div>
-</div></div>
+      registerTab("projects", projects);
+      registerTab("ports", ports);
+      registerTab("git", git);
+      registerTab("env", env);
+      registerTab("logs", logs);
+      registerTab("docker", docker);
+      registerTab("cf", cf);
 
-<!-- BRANCH SELECT MODAL -->
-<div class="modal-overlay" id="modalBranch"><div class="modal">
-  <div class="modal-title" id="branchModalTitle">Branch Sec</div>
-  <div class="modal-subtitle" id="branchModalSubtitle">Klonlanacak branch'i sec</div>
-  <div class="form-group">
-    <label class="form-label">Branch</label>
-    <select class="form-select" id="branchSelect"></select>
-  </div>
-  <div class="form-group">
-    <label class="form-label">Klasor Adi <span style="opacity:0.5">(opsiyonel)</span></label>
-    <input type="text" class="form-input" id="branchCloneName" placeholder="Otomatik belirlenecek">
-  </div>
-  <div id="branchLoading" style="text-align:center; padding:16px; color:var(--text-muted); display:none;">
-    <div style="display:inline-block; width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation: rotate 0.6s linear infinite;"></div>
-    <span style="margin-left:8px;">Branch'ler yukleniyor...</span>
-  </div>
-  <div class="modal-actions">
-    <button class="btn" id="branchBackBtn">Geri</button>
-    <button class="btn btn-primary" id="branchCloneBtn">Klonla</button>
-  </div>
-</div></div>
+      notes.init();
+      settings.init();
+      connectInfo.init();
 
-<!-- CLONE PROGRESS MODAL -->
-<div class="modal-overlay" id="modalProgress"><div class="modal">
-  <div class="progress-content">
-    <div class="progress-icon spinning" id="progressIcon">
-      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10"/><polyline points="12 6 12 12 16 14"/></svg>
-    </div>
-    <div class="progress-phase" id="progressPhase">Klonlaniyor...</div>
-    <div class="progress-detail" id="progressDetail"></div>
-    <div class="progress-bar"><div class="progress-bar-fill indeterminate" id="progressBarFill"></div></div>
-    <div class="progress-percent" id="progressPercent"></div>
-    <div class="progress-log" id="progressLog"></div>
-  </div>
-  <div class="modal-actions" id="progressActions" style="display:none">
-    <button class="btn" id="progressCloseBtn">Kapat</button>
-    <a id="progressOpenBtn" class="btn btn-primary" style="text-decoration:none" target="_blank">Projede Ac</a>
-  </div>
-</div></div>
-
-<!-- NOTES MODAL -->
-<div class="modal-overlay" id="modalNotes">
-  <div class="modal notes-modal">
-    <div class="notes-header">
-      <div class="notes-title" id="notesTitle">Notlar</div>
-      <div class="notes-status" id="notesStatus"></div>
-      <button class="btn btn-icon btn-ghost" id="notesCloseBtn" title="Kapat">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="notes-body">
-      <textarea id="notesTextarea" class="notes-textarea" placeholder="Yazmaya basla, otomatik kaydedilir..." spellcheck="false"></textarea>
-      <div id="notesPreview" class="notes-preview"></div>
-    </div>
-  </div>
-</div>
-
-<div class="toast-container" id="toasts"></div>
-
-<script src="vendor/marked.min.js"></script>
-
-<script type="module">
-  import { initApp, registerTab, switchTab } from './js/app.js';
-  import * as projects from './js/projects.js';
-  import * as ports from './js/ports.js';
-  import * as git from './js/git.js';
-  import * as env from './js/env.js';
-  import * as logs from './js/logs.js';
-  import * as docker from './js/docker.js';
-  import * as cf from './js/cloudflare.js';
-  import * as notes from './js/notes.js';
-  import * as settings from './js/settings.js';
-  import * as connectInfo from './js/connect-info.js';
-
-  registerTab('projects', projects);
-  registerTab('ports', ports);
-  registerTab('git', git);
-  registerTab('env', env);
-  registerTab('logs', logs);
-  registerTab('docker', docker);
-  registerTab('cf', cf);
-
-  notes.init();
-  settings.init();
-  connectInfo.init();
-
-  initApp();
-</script>
-</body>
+      initApp();
+    </script>
+  </body>
 </html>

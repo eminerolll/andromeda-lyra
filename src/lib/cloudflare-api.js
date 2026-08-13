@@ -80,19 +80,21 @@ function assertId(value, label) {
 
 function buildApiError(errors, status, permission) {
   const list = Array.isArray(errors) ? errors : [];
-  const codes = list.map(e => e && e.code).filter(Boolean);
+  const codes = list.map((e) => e && e.code).filter(Boolean);
 
-  const parts = list.map(e => {
+  const parts = list.map((e) => {
     const code = e && e.code;
     const known = ERROR_MESSAGES[code];
     const raw = (e && e.message) || "";
     if (known) return `${known} (${raw || "-"}, kod ${code})`;
-    return raw ? `${raw}${code ? ` (kod ${code})` : ""}` : `bilinmeyen hata${code ? ` (kod ${code})` : ""}`;
+    return raw
+      ? `${raw}${code ? ` (kod ${code})` : ""}`
+      : `bilinmeyen hata${code ? ` (kod ${code})` : ""}`;
   });
 
   let msg = parts.length ? parts.join(" · ") : `beklenmeyen cevap (HTTP ${status}).`;
 
-  const authIssue = status === 401 || status === 403 || codes.some(c => AUTH_CODES.includes(c));
+  const authIssue = status === 401 || status === 403 || codes.some((c) => AUTH_CODES.includes(c));
   if (authIssue && permission) {
     msg += ` Token'da su izin eksik gorunuyor: ${permission}.`;
   }
@@ -101,12 +103,7 @@ function buildApiError(errors, status, permission) {
 }
 
 async function request(token, pathname, opts = {}) {
-  const {
-    method = "GET",
-    body = null,
-    timeout = DEFAULT_TIMEOUT_MS,
-    permission = null
-  } = opts;
+  const { method = "GET", body = null, timeout = DEFAULT_TIMEOUT_MS, permission = null } = opts;
 
   if (typeof token !== "string" || token.trim().length < 20) {
     throw new CloudflareError("Cloudflare API token'i eksik veya cok kisa.");
@@ -117,7 +114,7 @@ async function request(token, pathname, opts = {}) {
     res = await fetch(API_BASE + pathname, {
       method,
       headers: {
-        "Authorization": `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -130,7 +127,7 @@ async function request(token, pathname, opts = {}) {
       : scrub(err && err.message, token);
     throw new CloudflareError(
       `Cloudflare API'ye ulasilamadi (${method} ${pathname}): ${reason}. ` +
-      "Sunucunun internet cikisini ve DNS ayarlarini kontrol et."
+        "Sunucunun internet cikisini ve DNS ayarlarini kontrol et."
     );
   }
 
@@ -142,10 +139,9 @@ async function request(token, pathname, opts = {}) {
   }
 
   if (!data || typeof data !== "object") {
-    throw new CloudflareError(
-      `Cloudflare beklenmeyen bir cevap dondu (HTTP ${res.status}).`,
-      { status: res.status }
-    );
+    throw new CloudflareError(`Cloudflare beklenmeyen bir cevap dondu (HTTP ${res.status}).`, {
+      status: res.status
+    });
   }
 
   if (!data.success) {
@@ -164,7 +160,7 @@ async function verifyToken(token) {
   if (status !== "active") {
     throw new CloudflareError(
       `API token aktif degil (durum: ${status || "bilinmiyor"}). ` +
-      "Cloudflare panelinden token'i yeniden etkinlestir ya da yenisini olustur."
+        "Cloudflare panelinden token'i yeniden etkinlestir ya da yenisini olustur."
     );
   }
   return { id: (result && result.id) || null, status };
@@ -177,7 +173,7 @@ async function verifyToken(token) {
 // (bkz. resolveAccount).
 async function listAccounts(token) {
   const result = await request(token, "/accounts?per_page=50", { permission: PERM.ACCOUNT });
-  return (result || []).map(a => ({ id: a.id, name: a.name }));
+  return (result || []).map((a) => ({ id: a.id, name: a.name }));
 }
 
 // Zone cevabindaki hesap bilgisi. Ekstra izin gerektirmez: /zones cevabi
@@ -191,7 +187,7 @@ function accountFromZone(zone) {
 const ACCOUNT_UNRESOLVED =
   "Cloudflare hesap id'si belirlenemedi: domain'in zone kaydindan hesap bilgisi gelmedi ve " +
   "hesap listesi bos dondu. GET /accounts'un bos donmesi token'in yetersiz oldugu anlamina " +
-  "gelmez — hesap LISTELEME icin \"Account Settings: Read\" izni gerekir, tunnel islemleri " +
+  'gelmez — hesap LISTELEME icin "Account Settings: Read" izni gerekir, tunnel islemleri ' +
   "icin gerekmez. Hesap id'sini Cloudflare panelinde hesap ana sayfasinin adresinden " +
   "(dash.cloudflare.com/<hesap-id>) kopyalayip kurulum sihirbazina elle girebilirsin.";
 
@@ -205,9 +201,8 @@ async function resolveAccount(token, preferredId = null, opts = {}) {
   const zoneAccount = accountFromZone(opts.zone);
 
   if (preferredId) {
-    const account = zoneAccount && zoneAccount.id === preferredId
-      ? zoneAccount
-      : { id: preferredId, name: null };
+    const account =
+      zoneAccount && zoneAccount.id === preferredId ? zoneAccount : { id: preferredId, name: null };
     return { account, accounts: [account], source: "manual" };
   }
 
@@ -234,7 +229,9 @@ async function resolveAccount(token, preferredId = null, opts = {}) {
 // "https://Example.COM/" -> "example.com". Gecersizse null.
 function normalizeDomain(input) {
   if (typeof input !== "string") return null;
-  const d = input.trim().toLowerCase()
+  const d = input
+    .trim()
+    .toLowerCase()
     .replace(/^https?:\/\//, "")
     .replace(/\/.*$/, "")
     .replace(/\.$/, "");
@@ -252,8 +249,8 @@ async function findZone(token, domain) {
   if (!zone) {
     throw new CloudflareError(
       `"${name}" bu Cloudflare hesabinda bulunamadi. Domain'i once Cloudflare'e ekleyip ` +
-      "nameserver'lari yonlendirmelisin. Buraya zone apex'i yazilmali " +
-      "(example.com dogru, alt.example.com degil)."
+        "nameserver'lari yonlendirmelisin. Buraya zone apex'i yazilmali " +
+        "(example.com dogru, alt.example.com degil)."
     );
   }
   // account: hesap id'sinin birincil kaynagi. Cagiran taraf bunu
@@ -338,8 +335,10 @@ async function putIngress(token, accountId, tunnelId, ingress) {
       "Ingress listesinin son elemani hostname'siz catch-all olmali (ornek: http_status:404)."
     );
   }
-  if (ingress.slice(0, -1).some(r => !r || !r.hostname || !r.service)) {
-    throw new CloudflareError("Catch-all disindaki tum ingress kurallarinda hostname ve service olmali.");
+  if (ingress.slice(0, -1).some((r) => !r || !r.hostname || !r.service)) {
+    throw new CloudflareError(
+      "Catch-all disindaki tum ingress kurallarinda hostname ve service olmali."
+    );
   }
   return request(
     token,
@@ -374,15 +373,11 @@ function toFqdn(name, zoneName) {
 }
 
 async function listDnsRecords(token, zoneId, name = null) {
-  const query = name
-    ? `?per_page=50&name=${encodeURIComponent(name)}`
-    : "?per_page=50";
-  const result = await request(
-    token,
-    `/zones/${assertId(zoneId, "zone id")}/dns_records${query}`,
-    { permission: PERM.DNS }
-  );
-  return (result || []).map(r => ({
+  const query = name ? `?per_page=50&name=${encodeURIComponent(name)}` : "?per_page=50";
+  const result = await request(token, `/zones/${assertId(zoneId, "zone id")}/dns_records${query}`, {
+    permission: PERM.DNS
+  });
+  return (result || []).map((r) => ({
     id: r.id,
     type: r.type,
     name: r.name,
@@ -394,12 +389,12 @@ async function listDnsRecords(token, zoneId, name = null) {
 
 function describeConflict(target, existing) {
   const lines = existing.map(
-    r => `${r.type} ${r.name} -> ${r.content}${r.proxied ? " (proxied)" : ""}`
+    (r) => `${r.type} ${r.name} -> ${r.content}${r.proxied ? " (proxied)" : ""}`
   );
   return (
     `"${target.name}" icin zaten DNS kaydi var: ${lines.join(", ")}. ` +
     `Lyra buraya ${target.type} ${target.name} -> ${target.content} yazmak istiyor. ` +
-    "Mevcut kaydi onayin olmadan degistirmiyoruz: ya \"uzerine yaz\" secenegini " +
+    'Mevcut kaydi onayin olmadan degistirmiyoruz: ya "uzerine yaz" secenegini ' +
     "isaretle, ya da panel icin farkli bir alt alan adi kullan."
   );
 }

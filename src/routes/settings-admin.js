@@ -54,9 +54,14 @@ router.get("/api/settings/access", (req, res) => {
 
 router.put("/api/settings/access", (req, res) => {
   const allowed = [
-    "access_mode", "bind_address", "public_access",
-    "base_domain", "subdomain_code", "subdomain_files",
-    "subdomain_db", "subdomain_dev_pattern"
+    "access_mode",
+    "bind_address",
+    "public_access",
+    "base_domain",
+    "subdomain_code",
+    "subdomain_files",
+    "subdomain_db",
+    "subdomain_dev_pattern"
   ];
   const body = req.body || {};
   const updates = {};
@@ -103,9 +108,12 @@ router.get("/api/settings/security", (req, res) => {
 
 router.put("/api/settings/security", (req, res) => {
   const allowed = [
-    "rate_limit_attempts", "rate_limit_window_minutes",
-    "auto_ban_after", "auto_ban_api_after",
-    "auto_ban_window_minutes", "auto_ban_duration_minutes",
+    "rate_limit_attempts",
+    "rate_limit_window_minutes",
+    "auto_ban_after",
+    "auto_ban_api_after",
+    "auto_ban_window_minutes",
+    "auto_ban_duration_minutes",
     "session_ttl_days"
   ];
   const body = req.body || {};
@@ -153,7 +161,9 @@ router.post("/api/services", (req, res) => {
     enabled: body.enabled !== false ? 1 : 0
   });
   audit.log({
-    event_type: "service_add", ip: req.ip, user_id: req.session.userId,
+    event_type: "service_add",
+    ip: req.ip,
+    user_id: req.session.userId,
     details: { unit_name: body.unit_name }
   });
   res.json({ success: true, service: created });
@@ -166,7 +176,9 @@ router.put("/api/services/:id", (req, res) => {
   if (!existing) return res.status(404).json({ error: "Servis bulunamadi" });
   const updated = services.update(id, req.body || {});
   audit.log({
-    event_type: "service_update", ip: req.ip, user_id: req.session.userId,
+    event_type: "service_update",
+    ip: req.ip,
+    user_id: req.session.userId,
     details: { id, changes: Object.keys(req.body || {}) }
   });
   res.json({ success: true, service: updated });
@@ -179,7 +191,9 @@ router.delete("/api/services/:id", (req, res) => {
   if (!existing) return res.status(404).json({ error: "Servis bulunamadi" });
   services.remove(id);
   audit.log({
-    event_type: "service_remove", ip: req.ip, user_id: req.session.userId,
+    event_type: "service_remove",
+    ip: req.ip,
+    user_id: req.session.userId,
     details: { id, unit_name: existing.unit_name }
   });
   res.json({ success: true });
@@ -207,7 +221,10 @@ router.put("/api/integrations/:name", async (req, res) => {
   const body = req.body || {};
   // Mevcut config'i koruyup uzerine yaz (token degismediyse maskli geliyor olabilir)
   const existing = integrations.get(req.params.name);
-  const newConfig = { ...(existing && existing.config ? existing.config : {}), ...(body.config || {}) };
+  const newConfig = {
+    ...(existing && existing.config ? existing.config : {}),
+    ...(body.config || {})
+  };
   // Mask karakterleri varsa eski degeri koru
   for (const key of Object.keys(newConfig)) {
     if (typeof newConfig[key] === "string" && newConfig[key].includes("•")) {
@@ -238,7 +255,9 @@ router.put("/api/integrations/:name", async (req, res) => {
       config: newConfig
     });
     audit.log({
-      event_type: "integration_update", ip: req.ip, user_id: req.session.userId,
+      event_type: "integration_update",
+      ip: req.ip,
+      user_id: req.session.userId,
       details: { name: req.params.name, enabled: !!body.enabled }
     });
     res.json({ success: true });
@@ -250,7 +269,9 @@ router.put("/api/integrations/:name", async (req, res) => {
 router.delete("/api/integrations/:name", (req, res) => {
   integrations.remove(req.params.name);
   audit.log({
-    event_type: "integration_remove", ip: req.ip, user_id: req.session.userId,
+    event_type: "integration_remove",
+    ip: req.ip,
+    user_id: req.session.userId,
     details: { name: req.params.name }
   });
   res.json({ success: true });

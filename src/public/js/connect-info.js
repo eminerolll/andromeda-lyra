@@ -49,22 +49,30 @@ function render(info) {
       <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
         🏠 LAN modu — bu URL'lerden erişebilirsin:
       </div>
-      ${(info.finalUrls || []).map(u => `
+      ${(info.finalUrls || [])
+        .map(
+          (u) => `
         <a href="${escapeHtml(u)}" target="_blank" class="quick-link">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           ${escapeHtml(u)}
         </a>
-      `).join("")}
+      `
+        )
+        .join("")}
     `;
   } else if (info.finalUrls && info.finalUrls.length) {
     html = `
       <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">🌍 Public erişim:</div>
-      ${info.finalUrls.map(u => `
+      ${info.finalUrls
+        .map(
+          (u) => `
         <a href="${escapeHtml(u)}" target="_blank" class="quick-link">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
           ${escapeHtml(u)}
         </a>
-      `).join("")}
+      `
+        )
+        .join("")}
     `;
   } else {
     html = '<div style="font-size:12px; color:var(--text-muted);">Erişim bilgisi yok</div>';
@@ -76,11 +84,14 @@ function render(info) {
   const copyBtn = inner.querySelector("#copySsh");
   if (copyBtn) {
     copyBtn.addEventListener("click", () => {
-      navigator.clipboard.writeText(info.sshCommand).then(() => {
-        toast("SSH komutu kopyalandı");
-      }).catch(() => {
-        toast("Kopyalanamadı", "error");
-      });
+      navigator.clipboard
+        .writeText(info.sshCommand)
+        .then(() => {
+          toast("SSH komutu kopyalandı");
+        })
+        .catch(() => {
+          toast("Kopyalanamadı", "error");
+        });
     });
   }
 }

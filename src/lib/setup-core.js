@@ -83,7 +83,10 @@ function systemUserInfo() {
 function ensureProjectsDir(dir) {
   const who = systemUserInfo().user;
   if (!dir || !path.isAbsolute(dir)) {
-    return { ok: false, error: "Projeler dizini mutlak bir yol olmali (ornek: /home/ubuntu/projects)" };
+    return {
+      ok: false,
+      error: "Projeler dizini mutlak bir yol olmali (ornek: /home/ubuntu/projects)"
+    };
   }
   try {
     if (!fs.existsSync(dir)) {
@@ -153,7 +156,9 @@ function systemdUnitActive(unit = LYRA_UNIT_NAME) {
 const DEFAULT_PANEL_SUBDOMAIN = "lyra";
 
 function normalizePanelSub(input) {
-  const s = String(input === undefined || input === null ? "" : input).trim().toLowerCase();
+  const s = String(input === undefined || input === null ? "" : input)
+    .trim()
+    .toLowerCase();
   if (!s) return DEFAULT_PANEL_SUBDOMAIN;
   return /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(s) ? s : null;
 }
@@ -164,9 +169,8 @@ function cfPlanFromBody(body) {
   const domain = cfApi.normalizeDomain(body.domain);
   const hostMode = body.cfHostMode === "subdomain" ? "subdomain" : "apex";
   const panelSub = normalizePanelSub(body.cfPanelSubdomain);
-  const panelHost = domain && panelSub
-    ? (hostMode === "subdomain" ? `${panelSub}.${domain}` : domain)
-    : null;
+  const panelHost =
+    domain && panelSub ? (hostMode === "subdomain" ? `${panelSub}.${domain}` : domain) : null;
   return {
     token: String(body.cfApiToken || "").trim(),
     accountId: body.cfAccountId ? String(body.cfAccountId).trim() : null,
@@ -334,7 +338,7 @@ function applyFinalize(body, { totpSecret = null } = {}) {
   // cf-api'de domain normalize edilmis haliyle yazilir; panel_host apex ya da
   // secilen alt alan adidir (wildcard ingress ikisini de karsilar).
   const baseDomain = cfPlan ? cfPlan.domain : body.domain;
-  const panelHost = cfPlan ? cfPlan.panelHost : (body.domain || null);
+  const panelHost = cfPlan ? cfPlan.panelHost : body.domain || null;
 
   // 1. Settings
   settings.setMany({
@@ -387,7 +391,10 @@ function applyFinalize(body, { totpSecret = null } = {}) {
   //     gorunup panelden oldurulebiliyordu. lyra_service_name yazilmayinca
   //     Logs sekmesinde sadece ssh listeleniyordu.
   const { DEFAULT_SYSTEM_PORTS } = require("../routes/ports");
-  const registeredPorts = services.list().map((s) => s.port).filter(Boolean);
+  const registeredPorts = services
+    .list()
+    .map((s) => s.port)
+    .filter(Boolean);
   settings.setMany({
     system_ports: [...new Set([...DEFAULT_SYSTEM_PORTS, config.PORT, ...registeredPorts])],
     lyra_service_name: LYRA_UNIT_NAME
@@ -543,7 +550,13 @@ function caddyfileHasDomain(domain) {
 // stdin uzerinden verilir (bkz. cloudflared-installer.installService).
 async function runCfApiSteps(body, progress, log) {
   const plan = cfPlanFromBody(body);
-  const state = { accountId: null, zoneId: null, zoneName: null, tunnelId: null, connectorToken: null };
+  const state = {
+    accountId: null,
+    zoneId: null,
+    zoneName: null,
+    tunnelId: null,
+    connectorToken: null
+  };
   let ok;
 
   ok = await progress.runStep("cf-verify", async () => {
@@ -554,7 +567,7 @@ async function runCfApiSteps(body, progress, log) {
     if (!account) {
       throw new Error(
         `Token ${accounts.length} hesaba erisiyor; hangisinin kullanilacagi secilmeli. ` +
-        "Sihirbazi bastan calistirip hesabi sec."
+          "Sihirbazi bastan calistirip hesabi sec."
       );
     }
     state.accountId = account.id;
@@ -598,7 +611,10 @@ async function runCfApiSteps(body, progress, log) {
         includeApex: plan.hostMode === "apex"
       });
       await cfApi.putIngress(plan.token, state.accountId, state.tunnelId, ingress);
-      const hosts = ingress.filter((r) => r.hostname).map((r) => r.hostname).join(", ");
+      const hosts = ingress
+        .filter((r) => r.hostname)
+        .map((r) => r.hostname)
+        .join(", ");
       return `${hosts} -> localhost:${config.PORT}`;
     });
   }
@@ -751,11 +767,14 @@ async function runPostSetup(mode, body, progress, { log, transition = "self" } =
       await sudo([
         "systemd-run",
         "--collect",
-        "--unit", "lyra-setup-finish",
+        "--unit",
+        "lyra-setup-finish",
         "--description=Lyra kurulum modundan cikis",
         "--timer-property=AccuracySec=1s",
         "--on-active=3",
-        "/bin/sh", "-c", script
+        "/bin/sh",
+        "-c",
+        script
       ]);
       return "Gecis planlandi (3 sn)";
     });
@@ -790,7 +809,7 @@ async function runPostSetup(mode, body, progress, { log, transition = "self" } =
       if (!(await systemdUnitActive())) {
         throw new Error(
           `${LYRA_UNIT_NAME}.service ayaga kalkmadi. Sunucuda: ` +
-          `sudo journalctl -u ${LYRA_UNIT_NAME} -n 50 --no-pager`
+            `sudo journalctl -u ${LYRA_UNIT_NAME} -n 50 --no-pager`
         );
       }
       // Gecici tam-yetki sudoers dosyasi en son gider: yukaridaki komutlar ona
@@ -830,7 +849,8 @@ function cleanupSetupPrivileges() {
     if (err) {
       console.warn(
         `[lyra] Gecici kurulum sudoers dosyasi silinemedi (${SETUP_SUDOERS}). ` +
-        "Varsa elle sil: sudo rm -f " + SETUP_SUDOERS
+          "Varsa elle sil: sudo rm -f " +
+          SETUP_SUDOERS
       );
     }
   });

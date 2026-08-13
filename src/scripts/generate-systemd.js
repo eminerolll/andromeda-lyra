@@ -85,7 +85,9 @@ if (printOnly) {
 }
 
 if (process.getuid && process.getuid() !== 0) {
-  console.error("Bu script root yetkisi ister. `sudo node scripts/generate-systemd.js` calistirin.");
+  console.error(
+    "Bu script root yetkisi ister. `sudo node scripts/generate-systemd.js` calistirin."
+  );
   console.error("Icerigi gormek icin: node scripts/generate-systemd.js --print");
   process.exit(1);
 }

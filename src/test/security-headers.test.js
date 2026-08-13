@@ -5,9 +5,15 @@ import { freshHome, cleanup, require } from "./setup.js";
 function collectHeaders() {
   const securityHeaders = require("../lib/security-headers");
   const headers = {};
-  const res = { setHeader: (k, v) => { headers[k] = v; } };
+  const res = {
+    setHeader: (k, v) => {
+      headers[k] = v;
+    }
+  };
   let nextCalled = false;
-  securityHeaders({}, res, () => { nextCalled = true; });
+  securityHeaders({}, res, () => {
+    nextCalled = true;
+  });
   expect(nextCalled).toBe(true);
   return headers;
 }

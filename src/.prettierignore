@@ -4,3 +4,5 @@ package-lock.json
 public/css
 *.min.js
 *.min.css
+public/vendor
+public/fonts

@@ -22,9 +22,15 @@ export function configureMarked() {
   if (markedConfigured || typeof marked === "undefined") return;
   marked.use({
     renderer: {
-      html(raw) { return escapeHtml(raw); },
-      link(href, title, text) { return isSafeUrl(href) ? false : text; },
-      image(href, title, text) { return isSafeUrl(href) ? false : escapeHtml(text); }
+      html(raw) {
+        return escapeHtml(raw);
+      },
+      link(href, title, text) {
+        return isSafeUrl(href) ? false : text;
+      },
+      image(href, title, text) {
+        return isSafeUrl(href) ? false : escapeHtml(text);
+      }
     }
   });
   markedConfigured = true;
@@ -71,7 +77,10 @@ async function flushSave() {
   if (!pendingSave) return;
   const { project, content } = pendingSave;
   pendingSave = null;
-  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
   try {
     await api("/api/notes/" + encodeURIComponent(project), {
       method: "PUT",

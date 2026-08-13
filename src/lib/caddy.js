@@ -20,7 +20,9 @@ function isActive() {
   try {
     const out = execSync("systemctl is-active caddy 2>/dev/null", {
       stdio: ["ignore", "pipe", "ignore"]
-    }).toString().trim();
+    })
+      .toString()
+      .trim();
     return out === "active";
   } catch (_) {
     return false;
@@ -113,7 +115,7 @@ function buildCaddyfile({ domain, email, upstream = "127.0.0.1:3000", subdomains
   }
   // Apex once: subdomain'lerden birinin DNS'i eksikse sertifikasi basarisiz
   // olur ama dashboard calismaya devam eder (Caddy blok basina sertifika alir).
-  for (const host of [domain, ...subdomains.filter(h => h && h !== domain)]) {
+  for (const host of [domain, ...subdomains.filter((h) => h && h !== domain)]) {
     lines.push(`${host} {`);
     lines.push(`\treverse_proxy ${upstream}`);
     lines.push("}");
@@ -140,7 +142,9 @@ async function applyConfig({ domain, email, upstream, subdomains, onLog }) {
       stdio: ["ignore", "pipe", "pipe"]
     });
   } finally {
-    try { fs.unlinkSync(tmp); } catch (_) {}
+    try {
+      fs.unlinkSync(tmp);
+    } catch (_) {}
   }
 
   log("Caddy validate ediliyor...");
@@ -187,7 +191,7 @@ async function waitForCert(domain, timeoutMs = 60000) {
     }
     if (/^HTTP\/[12](\.\d)? 2\d\d/.test(out)) return { ok: true };
     if (/^HTTP\/[12](\.\d)? 3\d\d/.test(out)) return { ok: true }; // redirect to login
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, 3000));
   }
   return { ok: false, error: "Sertifika dogrulanamadi (timeout)" };
 }

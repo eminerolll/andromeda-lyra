@@ -11,7 +11,7 @@ const router = express.Router();
 function readCpuTemp() {
   try {
     const zonesDir = "/sys/class/thermal";
-    const zones = fs.readdirSync(zonesDir).filter(n => n.startsWith("thermal_zone"));
+    const zones = fs.readdirSync(zonesDir).filter((n) => n.startsWith("thermal_zone"));
     let chosen = null;
     for (const z of zones) {
       try {
@@ -34,7 +34,9 @@ function readDf(mountPath) {
   try {
     const out = execFileSync("df", ["-h", mountPath], {
       stdio: ["pipe", "pipe", "ignore"]
-    }).toString().trim();
+    })
+      .toString()
+      .trim();
     const lastLine = out.split("\n").pop();
     const parts = lastLine.split(/\s+/);
     return { total: parts[1], used: parts[2], available: parts[3], percent: parts[4] };
@@ -45,15 +47,21 @@ function readDf(mountPath) {
 
 function readGpu() {
   try {
-    const out = execFileSync("nvidia-smi", [
-      "--query-gpu=name,temperature.gpu,memory.used,memory.total,utilization.gpu",
-      "--format=csv,noheader,nounits"
-    ], {
-      stdio: ["pipe", "pipe", "ignore"],
-      timeout: 3000
-    }).toString().trim();
+    const out = execFileSync(
+      "nvidia-smi",
+      [
+        "--query-gpu=name,temperature.gpu,memory.used,memory.total,utilization.gpu",
+        "--format=csv,noheader,nounits"
+      ],
+      {
+        stdio: ["pipe", "pipe", "ignore"],
+        timeout: 3000
+      }
+    )
+      .toString()
+      .trim();
     const firstLine = out.split("\n")[0];
-    const [name, temp, memUsed, memTotal, util] = firstLine.split(",").map(s => s.trim());
+    const [name, temp, memUsed, memTotal, util] = firstLine.split(",").map((s) => s.trim());
     return {
       name: (name || "GPU").replace(/^NVIDIA\s+GeForce\s+/, ""),
       temp: temp ? temp + "°C" : "?",
@@ -91,7 +99,7 @@ router.get("/api/system", (req, res) => {
       disk: diskInfo,
       secondaryDisk,
       secondaryDiskPath: secondaryPath,
-      loadAvg: loadAvg.map(l => l.toFixed(2)),
+      loadAvg: loadAvg.map((l) => l.toFixed(2)),
       cpuCores: os.cpus().length,
       gpu
     });

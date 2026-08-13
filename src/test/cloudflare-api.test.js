@@ -115,7 +115,9 @@ describe("cloudflare-api / hata cevirisi", () => {
   it("JSON olmayan cevabi anlasilir hataya cevirir", async () => {
     global.fetch = vi.fn(async () => ({
       status: 502,
-      json: async () => { throw new Error("not json"); }
+      json: async () => {
+        throw new Error("not json");
+      }
     }));
     await expect(cf.verifyToken(TOKEN)).rejects.toThrow(/beklenmeyen bir cevap.*502/i);
   });
@@ -129,10 +131,12 @@ describe("cloudflare-api / hesap ve zone", () => {
   });
 
   it("birden fazla hesapta sessizce secim yapmaz", async () => {
-    mockFetch([ok([
-      { id: ACCOUNT_ID, name: "Kisisel" },
-      { id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", name: "Sirket" }
-    ])]);
+    mockFetch([
+      ok([
+        { id: ACCOUNT_ID, name: "Kisisel" },
+        { id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", name: "Sirket" }
+      ])
+    ]);
     const r = await cf.resolveAccount(TOKEN);
     expect(r.account).toBe(null);
     expect(r.accounts).toHaveLength(2);
@@ -161,12 +165,16 @@ describe("cloudflare-api / hesap ve zone", () => {
   });
 
   it("zone'u isme gore bulur ve zone'un hesabini birlikte dondurur", async () => {
-    mockFetch([ok([{
-      id: ZONE_ID,
-      name: "example.com",
-      status: "active",
-      account: { id: ACCOUNT_ID, name: "Kisisel" }
-    }])]);
+    mockFetch([
+      ok([
+        {
+          id: ZONE_ID,
+          name: "example.com",
+          status: "active",
+          account: { id: ACCOUNT_ID, name: "Kisisel" }
+        }
+      ])
+    ]);
     const zone = await cf.findZone(TOKEN, "  HTTPS://Example.com/  ");
     expect(zone).toEqual({
       id: ZONE_ID,
@@ -198,10 +206,7 @@ describe("cloudflare-api / dar kapsamli token ile hesap kesfi", () => {
 
   it("GET /accounts bos donerken hesap id'si zone'dan turetilir ve akis devam eder", async () => {
     // Sadece zone cagrisi mock'lanir; /accounts hic cagrilmamali.
-    mockFetch([
-      ok([ZONE]),
-      ok({ id: TUNNEL_ID, name: "lyra-example-com" })
-    ]);
+    mockFetch([ok([ZONE]), ok({ id: TUNNEL_ID, name: "lyra-example-com" })]);
 
     const zone = await cf.findZone(TOKEN, "example.com");
     const { account, source } = await cf.resolveAccount(TOKEN, null, { zone });
@@ -209,7 +214,7 @@ describe("cloudflare-api / dar kapsamli token ile hesap kesfi", () => {
     expect(account).toEqual({ id: ACCOUNT_ID, name: "Kisisel" });
     expect(source).toBe("zone");
     expect(calls).toHaveLength(1);
-    expect(calls.some(c => c.url.includes("/accounts?"))).toBe(false);
+    expect(calls.some((c) => c.url.includes("/accounts?"))).toBe(false);
 
     // Akis kesilmiyor: cozulen hesapla tunnel olusturulabiliyor.
     const tunnel = await cf.createTunnel(TOKEN, account.id, "lyra-example-com");
@@ -261,7 +266,9 @@ describe("cloudflare-api / tunnel", () => {
     const t = await cf.createTunnel(TOKEN, ACCOUNT_ID, "lyra-example-com");
     expect(t.id).toBe(TUNNEL_ID);
     expect(calls[0].method).toBe("POST");
-    expect(calls[0].url).toBe(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/cfd_tunnel`);
+    expect(calls[0].url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/cfd_tunnel`
+    );
     expect(calls[0].body.name).toBe("lyra-example-com");
     expect(calls[0].body.config_src).toBe("cloudflare");
     expect(Buffer.from(calls[0].body.tunnel_secret, "base64")).toHaveLength(32);
@@ -277,7 +284,9 @@ describe("cloudflare-api / tunnel", () => {
 
   it("gecersiz tunnel id'yi path'e koymadan reddeder", async () => {
     mockFetch([]);
-    await expect(cf.getTunnelToken(TOKEN, ACCOUNT_ID, "../../evil")).rejects.toThrow(/Gecersiz tunnel id/);
+    await expect(cf.getTunnelToken(TOKEN, ACCOUNT_ID, "../../evil")).rejects.toThrow(
+      /Gecersiz tunnel id/
+    );
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -301,7 +310,7 @@ describe("cloudflare-api / ingress", () => {
 
   it("apex istenmediginde apex kuralini eklemez ama catch-all yine sonda kalir", () => {
     const rules = cf.buildIngress({ domain: "example.com", port: 3000, includeApex: false });
-    expect(rules.map(r => r.hostname)).toEqual(["*.example.com", undefined]);
+    expect(rules.map((r) => r.hostname)).toEqual(["*.example.com", undefined]);
     expect(rules[rules.length - 1].service).toBe("http_status:404");
   });
 
@@ -320,12 +329,16 @@ describe("cloudflare-api / ingress", () => {
       { service: "http_status:404" },
       { hostname: "example.com", service: "http://localhost:3000" }
     ];
-    await expect(cf.putIngress(TOKEN, ACCOUNT_ID, TUNNEL_ID, bad)).rejects.toThrow(/son elemani.*catch-all/i);
+    await expect(cf.putIngress(TOKEN, ACCOUNT_ID, TUNNEL_ID, bad)).rejects.toThrow(
+      /son elemani.*catch-all/i
+    );
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("mevcut ingress'i ve remotely-managed bilgisini okur", async () => {
-    mockFetch([ok({ source: "cloudflare", config: { ingress: [{ service: "http_status:404" }] } })]);
+    mockFetch([
+      ok({ source: "cloudflare", config: { ingress: [{ service: "http_status:404" }] } })
+    ]);
     const r = await cf.getIngress(TOKEN, ACCOUNT_ID, TUNNEL_ID);
     expect(r.source).toBe("cloudflare");
     expect(r.ingress).toHaveLength(1);
@@ -341,7 +354,8 @@ describe("cloudflare-api / DNS cakisma tespiti", () => {
       ok({ id: "rec1", type: "CNAME", name: "example.com", content: cname, proxied: true })
     ]);
     const r = await cf.upsertDnsRecord(
-      TOKEN, ZONE_ID,
+      TOKEN,
+      ZONE_ID,
       { type: "CNAME", name: "@", content: cname, proxied: true },
       { zoneName: "example.com" }
     );
@@ -354,7 +368,8 @@ describe("cloudflare-api / DNS cakisma tespiti", () => {
   it("wildcard adini zone ile birlestirir", async () => {
     mockFetch([ok([]), ok({ id: "rec2" })]);
     await cf.upsertDnsRecord(
-      TOKEN, ZONE_ID,
+      TOKEN,
+      ZONE_ID,
       { type: "CNAME", name: "*", content: cname, proxied: true },
       { zoneName: "example.com" }
     );
@@ -370,7 +385,8 @@ describe("cloudflare-api / DNS cakisma tespiti", () => {
     let err;
     try {
       await cf.upsertDnsRecord(
-        TOKEN, ZONE_ID,
+        TOKEN,
+        ZONE_ID,
         { type: "CNAME", name: "@", content: cname, proxied: true },
         { zoneName: "example.com" }
       );
@@ -398,7 +414,8 @@ describe("cloudflare-api / DNS cakisma tespiti", () => {
       ok({ id: "old2" })
     ]);
     const r = await cf.upsertDnsRecord(
-      TOKEN, ZONE_ID,
+      TOKEN,
+      ZONE_ID,
       { type: "CNAME", name: "@", content: cname, proxied: true },
       { zoneName: "example.com", overwrite: true }
     );
@@ -416,7 +433,8 @@ describe("cloudflare-api / DNS cakisma tespiti", () => {
       ok([{ id: "rec", type: "CNAME", name: "*.example.com", content: cname, proxied: true }])
     ]);
     const r = await cf.upsertDnsRecord(
-      TOKEN, ZONE_ID,
+      TOKEN,
+      ZONE_ID,
       { type: "CNAME", name: "*", content: cname, proxied: true },
       { zoneName: "example.com" }
     );
@@ -430,10 +448,12 @@ describe("cloudflare-api / DNS cakisma tespiti", () => {
       ok([]),
       ok({ id: "rec3" })
     ]);
-    await cf.upsertDnsRecord(
-      TOKEN, ZONE_ID,
-      { type: "CNAME", name: "@", content: cname, proxied: true }
-    );
+    await cf.upsertDnsRecord(TOKEN, ZONE_ID, {
+      type: "CNAME",
+      name: "@",
+      content: cname,
+      proxied: true
+    });
     expect(calls[0].url).toContain(`/zones/${ZONE_ID}`);
     expect(calls[2].body.name).toBe("example.com");
   });
