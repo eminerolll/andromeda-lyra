@@ -98,7 +98,16 @@ edilmezse bugünkü davranış korunur.
 Bayraklar: `-y` / `--yes` / `--non-interactive` (hiçbir şey sorma),
 `--access <cf-api\|direct\|cli>`, `--domain`, `--cf-api-token`,
 `--cf-account-id`, `--cf-host-mode`, `--cf-panel-subdomain`,
-`--cf-overwrite-dns`, `-h` / `--help`.
+`--cf-overwrite-dns`, `--cf-tunnel-name`, `--cf-tunnel-existing`,
+`--replace-cloudflared`, `-h` / `--help`.
+
+Yeniden kurulumda iki çakışma çıkar ve ikisi de **kurulum başlamadan** yakalanır:
+sunucuda duran `cloudflared` servisi (`--replace-cloudflared` ile değiştirilir)
+ve Cloudflare hesabında aynı adda duran tunnel
+(`--cf-tunnel-existing reuse|recreate`, ya da `--cf-tunnel-name <ad>`).
+Aktif bağlantısı olan tunnel hiçbir ayarla devralınmaz — başka bir makinede
+canlı olabilir. Varsayılan `fail`: karar verilmeden hiçbir şey devralınmaz veya
+silinmez.
 
 Token `--cf-api-token` ile verilirse `install.sh` onu çocuk process'in
 argümanına koymaz: `0600` geçici bir dosyaya yazıp yolunu geçirir

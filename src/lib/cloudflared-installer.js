@@ -57,12 +57,113 @@ async function install({ onLog }) {
   return { ok: true };
 }
 
+const SERVICE_UNIT = "cloudflared";
+const LEGACY_CONFIG = "/etc/cloudflared/config.yml";
+
+// systemd unit metni. Yoksa null. `systemctl cat` root gerektirmez.
+function serviceUnitText() {
+  try {
+    return execSync(`systemctl cat ${SERVICE_UNIT} 2>/dev/null`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+// Connector token base64'lenmis bir JSON'dur: {"a":hesap,"t":tunnel,"s":secret}.
+// Token'in KENDISI hicbir yere yazilmaz; yalnizca tunnel id'si disari verilir.
+function tunnelIdFromToken(token) {
+  try {
+    const parsed = JSON.parse(Buffer.from(String(token), "base64").toString("utf8"));
+    const id = parsed && parsed.t;
+    return typeof id === "string" && id.length >= 20 ? id : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Unit'in ExecStart'i iki bicimden birini tasir:
+//   ... tunnel run --token <base64>      (token yontemi — bizim kullandigimiz)
+//   ... tunnel run <UUID>                (kimlik dosyasi yontemi)
+function tunnelIdFromUnit(text) {
+  if (!text) return null;
+  const withToken = text.match(/--token[= ]\s*([A-Za-z0-9_+/=-]{40,})/);
+  if (withToken) {
+    const id = tunnelIdFromToken(withToken[1]);
+    if (id) return id;
+  }
+  const byId = text.match(/tunnel\s+run\s+([0-9a-fA-F-]{36})/);
+  return byId ? byId[1] : null;
+}
+
+// Eski (config dosyasi tabanli) kurulumlarda tunnel id'si buradadir.
+function tunnelIdFromConfig() {
+  try {
+    const text = fs.readFileSync(LEGACY_CONFIG, "utf8");
+    const m = text.match(/^\s*tunnel:\s*([0-9a-fA-F-]{36})\s*$/m);
+    return m ? m[1] : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Sistemde ZATEN bir cloudflared servisi var mi, hangi tunnel'a bagli?
+//
+// Bunu bilmek zorundayiz: "cloudflared service install" mevcut bir unit
+// uzerine calistiginda hata verir. Kurulum bunu sessizce yiyip yarida
+// kalmasin diye tunnel yaratmadan ONCE bakiyoruz (bkz. lib/setup-core.js).
+function detectService() {
+  const text = serviceUnitText();
+  if (!text) return { present: false, active: false, tunnelId: null };
+  return {
+    present: true,
+    active: isServiceActive(),
+    tunnelId: tunnelIdFromUnit(text) || tunnelIdFromConfig()
+  };
+}
+
+// Mevcut servisi anlatan tek satir. Token gecmez, yalnizca tunnel id'si.
+function describeService(svc) {
+  const parts = [svc.active ? "calisiyor" : "durmus"];
+  if (svc.tunnelId) parts.push(`bagli tunnel: ${svc.tunnelId}`);
+  return parts.join(", ");
+}
+
 // Connector token ile cloudflared servisini install et + start.
 // Token CF dashboard'da tunnel olusturulurken alinir.
-async function installService({ token, onLog }) {
+//
+// replace: sistemde zaten bir cloudflared servisi varsa ne yapilacagi.
+// Varsayilan HAYIR — sessizce devralmak baskasinin tunnel'ini kesebilir.
+async function installService({ token, onLog, replace = false }) {
   const log = onLog || (() => {});
   if (!token || token.length < 50) {
     return { ok: false, error: "Gecersiz connector token" };
+  }
+
+  const existing = detectService();
+  if (existing.present) {
+    if (!replace) {
+      return {
+        ok: false,
+        existingService: existing,
+        error:
+          `Bu sunucuda zaten bir cloudflared servisi var (${describeService(existing)}). ` +
+          "Uzerine kurmak 'cloudflared service install' komutunu patlatir; sessizce " +
+          "devralmiyoruz. Degistirmek icin --replace-cloudflared ver, ya da once elle " +
+          "kaldir: sudo cloudflared service uninstall"
+      };
+    }
+    log(`Mevcut cloudflared servisi kaldiriliyor (${describeService(existing)})...`);
+    const removed = await uninstallService({ onLog: log });
+    if (!removed.ok) {
+      return {
+        ok: false,
+        existingService: existing,
+        error: `Mevcut cloudflared servisi kaldirilamadi: ${removed.error}`
+      };
+    }
   }
 
   log("cloudflared servisi olusturuluyor...");
@@ -92,7 +193,7 @@ async function installService({ token, onLog }) {
   }
 
   log("cloudflared aktif edildi.");
-  return { ok: true };
+  return { ok: true, replacedService: existing.present ? existing : null };
 }
 
 function isServiceActive() {
@@ -124,10 +225,15 @@ async function uninstallService({ onLog }) {
 }
 
 module.exports = {
+  SERVICE_UNIT,
   isInstalled,
   getVersion,
   install,
   installService,
   isServiceActive,
+  detectService,
+  describeService,
+  tunnelIdFromToken,
+  tunnelIdFromUnit,
   uninstallService
 };

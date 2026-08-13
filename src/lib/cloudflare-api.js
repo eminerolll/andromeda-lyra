@@ -293,6 +293,50 @@ async function getTunnelToken(token, accountId, tunnelId) {
   return result;
 }
 
+// Cloudflare'in tunnel kaydini tek bicime indir. connections dizisi canli
+// connector'lari tasir; status "healthy" / "degraded" / "inactive" / "down".
+function normalizeTunnel(t) {
+  const conns = Array.isArray(t && t.connections) ? t.connections : [];
+  return {
+    id: (t && t.id) || null,
+    name: (t && t.name) || null,
+    status: (t && t.status) || null,
+    connections: conns.length,
+    createdAt: (t && t.created_at) || null,
+    connsActiveAt: (t && t.conns_active_at) || null
+  };
+}
+
+// Hesaptaki tunnel'lar. Silinmisler haric tutulur — Cloudflare onlari da
+// listeler ve "ayni isim zaten var" karari yanlis cikardi.
+async function listTunnels(token, accountId, opts = {}) {
+  const params = new URLSearchParams({ is_deleted: "false", per_page: "50" });
+  if (opts.name) params.set("name", String(opts.name));
+  const result = await request(
+    token,
+    `/accounts/${assertId(accountId, "hesap id")}/cfd_tunnel?${params.toString()}`,
+    { permission: PERM.TUNNEL }
+  );
+  return (result || []).map(normalizeTunnel);
+}
+
+// Ayni ADDA tunnel var mi? Cloudflare'in name filtresine korukoru guvenmiyoruz;
+// donen kayitlarda tam eslesme ariyoruz.
+async function findTunnelByName(token, accountId, name) {
+  const wanted = String(name || "");
+  if (!wanted) return null;
+  const list = await listTunnels(token, accountId, { name: wanted });
+  return list.find((t) => t.name === wanted) || null;
+}
+
+// Tunnel'da canli connector var mi? Yalnizca connections sayisina bakmak
+// yetmez: Cloudflare bu diziyi bazen bos dondurup durumu status'te tasir.
+function tunnelHasConnections(tunnel) {
+  if (!tunnel) return false;
+  if (Number(tunnel.connections) > 0) return true;
+  return tunnel.status === "healthy" || tunnel.status === "degraded";
+}
+
 async function deleteTunnel(token, accountId, tunnelId) {
   await request(
     token,
@@ -487,6 +531,9 @@ module.exports = {
   getZone,
   createTunnel,
   getTunnelToken,
+  listTunnels,
+  findTunnelByName,
+  tunnelHasConnections,
   deleteTunnel,
   buildIngress,
   isCatchAll,

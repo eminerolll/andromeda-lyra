@@ -59,6 +59,8 @@ const VALUE_OPTS = {
   "--cf-account-id": "cfAccountId",
   "--cf-host-mode": "cfHostMode",
   "--cf-panel-subdomain": "cfPanelSubdomain",
+  "--cf-tunnel-name": "cfTunnelName",
+  "--cf-tunnel-existing": "cfTunnelExisting",
   "--user": "username",
   "--password": "password",
   "--projects-dir": "projectsDir",
@@ -72,6 +74,7 @@ const VALUE_OPTS = {
 const BOOL_OPTS = {
   "--provision-tunnel": "provisionTunnel",
   "--cf-overwrite-dns": "cfOverwriteDns",
+  "--replace-cloudflared": "replaceCloudflared",
   "--2fa": "want2fa",
   "--no-2fa": "no2fa",
   "--no-services": "noServices",
@@ -140,6 +143,15 @@ Moda ozel:
   --cf-host-mode <apex|subdomain>  panel apex'te mi alt alan adinda mi (varsayilan: apex)
   --cf-panel-subdomain <ad>      subdomain modunda panel adi (varsayilan: lyra)
   --cf-overwrite-dns             cakisan DNS kayitlarinin uzerine yaz
+  --cf-tunnel-name <ad>          tunnel adi (varsayilan: lyra-<domain>)
+  --cf-tunnel-existing <davranis>  ayni ADDA tunnel varsa ne yapilsin:
+                                   fail     (varsayilan) dur, hicbir sey yapma
+                                   reuse    mevcut tunnel'i devral, ingress'i yeniden yaz
+                                   recreate sil ve yeniden yarat
+                                 Aktif baglantisi olan tunnel HICBIR degerde
+                                 devralinmaz — baska bir makineyi kesebilir.
+  --replace-cloudflared          sunucuda zaten bir cloudflared servisi varsa
+                                 kaldirip yenisini kur (verilmezse kurulum durur)
 
 Panel:
   --app-name <ad>                panel basligi
@@ -242,6 +254,27 @@ function cfApiToken() {
   return null;
 }
 
+// --cf-tunnel-existing / --cf-tunnel-name dogrulamasi. Gecersiz deger
+// sessizce varsayilana dusmez: hangi degerlerin gecerli oldugu yazilir.
+function cfTunnelFlags() {
+  const existing = args.cfTunnelExisting || "fail";
+  if (!core.TUNNEL_EXISTING_MODES.includes(existing)) {
+    die(`--cf-tunnel-existing gecersiz: ${existing}`, [
+      `Gecerli degerler: ${core.TUNNEL_EXISTING_MODES.join(", ")}`
+    ]);
+  }
+  if (args.cfTunnelName && !core.normalizeTunnelName(args.cfTunnelName)) {
+    die(`--cf-tunnel-name gecersiz: ${args.cfTunnelName}`, [
+      "Harf/rakam ile baslamali; harf, rakam, nokta, tire ve alt cizgi kullanilabilir."
+    ]);
+  }
+  return {
+    cfTunnelName: args.cfTunnelName || null,
+    cfTunnelExisting: existing,
+    cfReplaceCloudflared: !!args.replaceCloudflared
+  };
+}
+
 function parseServiceList(value) {
   return String(value || "")
     .split(",")
@@ -321,6 +354,7 @@ function buildBodyNonInteractive() {
     cfHostMode: args.cfHostMode === "subdomain" ? "subdomain" : "apex",
     cfPanelSubdomain: args.cfPanelSubdomain || null,
     cfOverwriteDns: !!args.cfOverwriteDns,
+    ...cfTunnelFlags(),
     appName: args.appName,
     projectsDir: args.projectsDir,
     user: { username: args.username, password: pass, enable2FA: !!args.want2fa },
@@ -430,6 +464,96 @@ async function askCfTunnel(body) {
   body.cfToken = a.cfToken.trim();
 }
 
+// Sunucuda zaten bir cloudflared servisi varsa: sessizce patlama, sor.
+// Degistirme secilirse mevcut servis kaldirilip yenisi kurulur.
+async function askCloudflaredService(body, svc) {
+  if (!svc || !svc.present) return;
+  warn(`Bu sunucuda zaten bir cloudflared servisi var (${svc.active ? "calisiyor" : "durmus"}).`);
+  if (svc.tunnelId) info(`Bagli tunnel: ${svc.tunnelId}`);
+  info("Uzerine kurmak 'cloudflared service install' komutunu patlatir.");
+  const { what } = await ask({
+    type: "select",
+    name: "what",
+    message: "Ne yapilsin?",
+    choices: [
+      { title: "Degistir — mevcut servisi kaldir, yeni token ile kur", value: "replace" },
+      { title: "Iptal et — once kendim bakayim", value: "cancel" }
+    ],
+    initial: 0
+  });
+  if (what !== "replace") {
+    die("Mevcut cloudflared servisi degistirilmedi.", [
+      "Kaldirmak icin : sudo cloudflared service uninstall",
+      "Sonra bu komutu tekrar calistir."
+    ]);
+  }
+  body.cfReplaceCloudflared = true;
+}
+
+// Ayni ADDA tunnel varsa: kopya uretmek yok. Aktif baglantisi varsa
+// devralmiyoruz (baska bir makine olabilir); yoksa karar kullanicinin.
+// Karar verildikten sonra on-kontrol tekrar calisir — yeni ad da yeni bir
+// cakismaya girebilir.
+async function askExistingTunnel(body, pre) {
+  let current = pre;
+  while (current.existingTunnel) {
+    const t = current.existingTunnel;
+    if (t.hasConnections) {
+      warn(
+        `"${t.name}" adinda bir tunnel zaten var ve AKTIF: ${t.connections} baglanti ` +
+          `(durum: ${t.status || "bilinmiyor"}, id: ${t.id}).`
+      );
+      warn("Baska bir makinede calisiyor olabilir; devralmak o sistemin erisimini keser.");
+      const { name } = await ask({
+        type: "text",
+        name: "name",
+        message: "Kullanilacak farkli tunnel adi (bos birak = iptal)"
+      });
+      const picked = core.normalizeTunnelName(name);
+      if (!picked) {
+        die("Aktif tunnel devralinmadi — hicbir sey degistirilmedi.", [
+          "Once o makinedeki cloudflared'i durdur: sudo cloudflared service uninstall",
+          "Ya da farkli bir tunnel adi ile tekrar calistir."
+        ]);
+      }
+      body.cfTunnelName = picked;
+    } else {
+      warn(`"${t.name}" adinda bir tunnel zaten var (id: ${t.id}, aktif baglanti yok).`);
+      const { what } = await ask({
+        type: "select",
+        name: "what",
+        message: "Ne yapilsin?",
+        choices: [
+          { title: "Devral — mevcut tunnel'i yeniden yapilandir", value: "reuse" },
+          { title: "Sil ve yeniden yarat", value: "recreate" },
+          { title: "Farkli bir ad kullan", value: "rename" },
+          { title: "Iptal et", value: "cancel" }
+        ],
+        initial: 0
+      });
+      if (what === "cancel") die("Tunnel cakismasi cozulmedi — hicbir sey degistirilmedi.");
+      if (what !== "rename") {
+        body.cfTunnelExisting = what;
+        return current;
+      }
+      const { name } = await ask({
+        type: "text",
+        name: "name",
+        message: "Yeni tunnel adi",
+        validate: (v) => (core.normalizeTunnelName(v) ? true : "Gecersiz ad")
+      });
+      body.cfTunnelName = core.normalizeTunnelName(name);
+    }
+
+    try {
+      current = await core.cfPreflight(core.cfPlanFromBody(body));
+    } catch (err) {
+      die(`Cloudflare on-kontrolu basarisiz: ${err.message}`);
+    }
+  }
+  return current;
+}
+
 // preset: install.sh token/domain'i onceden vermis olabilir (dosya/env/bayrak).
 // Verilmeyen alan sorulur; geri kalan akis (preflight, hesap secimi, apex
 // cakismasi, uzerine yazma onayi) her iki yolda da AYNIDIR.
@@ -457,6 +581,9 @@ async function askCfApi(body, preset = {}) {
   if (preset.accountId) body.cfAccountId = preset.accountId;
   body.cfHostMode = "apex";
   body.cfPanelSubdomain = core.DEFAULT_PANEL_SUBDOMAIN;
+  // Bayrakla verilmis tunnel tercihleri interaktif modda da baslangic degeri
+  // olur; asagidaki sorular gerekirse uzerine yazar.
+  Object.assign(body, cfTunnelFlags());
 
   info("Cloudflare token'i, zone ve mevcut DNS kayitlari kontrol ediliyor...");
   let pre;
@@ -485,6 +612,11 @@ async function askCfApi(body, preset = {}) {
   if (pre.zone.status !== "active") {
     warn("Zone aktif degil — nameserver yayilmasi bitene kadar adres calismayabilir.");
   }
+
+  // Cakismalar kurulum BASLAMADAN cozulur: boylece "fail" durumunda
+  // Cloudflare hesabinda hicbir kaynak olusmamis olur.
+  await askCloudflaredService(body, pre.cloudflaredService);
+  pre = await askExistingTunnel(body, pre);
 
   if (pre.conflicts.length) {
     warn("Bu hostlarda zaten DNS kaydi var:");
@@ -799,6 +931,18 @@ function makeProgressPrinter() {
   };
 }
 
+// Yarida kalan Cloudflare zinciri geride ne biraktiysa DURUSTCE yaz.
+// Otomatik geri alma yok — kullanicinin hesabindaki kaynagi biz silmiyoruz.
+function printLeftovers(progress) {
+  const report = progress && progress.leftovers;
+  const lines = core.formatLeftovers(report);
+  if (!lines.length) return;
+  console.log("");
+  warn(lines[0]);
+  for (const line of lines.slice(1)) console.log(`  ${line}`);
+  console.log("");
+}
+
 async function run(body, totpSecret) {
   // install.sh tunnel'i sihirbazdan once kurduysa cf-api modunda token
   // sorulmaz, dogrulanmaz ve kurulum sonrasi adimlarda tekrarlanmaz.
@@ -840,6 +984,7 @@ async function run(body, totpSecret) {
     return 0;
   }
 
+  printLeftovers(progress);
   warn("Kurulum sonrasi adimlarin bir kismi basarisiz oldu.");
   console.log(`  Yonetici hesabi ve ayarlar yazildi; yukaridaki ${red("✗")} satirlarini duzeltip`);
   console.log("  ilgili adimi elle tamamlayabilirsin. Servis durumu: " + dim("lyra status") + "\n");
@@ -870,7 +1015,8 @@ function provisionFlagBody() {
     cfAccountId: args.cfAccountId || null,
     cfHostMode: args.cfHostMode === "subdomain" ? "subdomain" : "apex",
     cfPanelSubdomain: args.cfPanelSubdomain || core.DEFAULT_PANEL_SUBDOMAIN,
-    cfOverwriteDns: !!args.cfOverwriteDns
+    cfOverwriteDns: !!args.cfOverwriteDns,
+    ...cfTunnelFlags()
   };
 }
 
@@ -891,6 +1037,55 @@ async function provisionPreflightNonInteractive(body) {
     );
   }
   const plan = core.cfPlanFromBody(body);
+
+  // Mevcut cloudflared servisi: karar bayrakta olmali, sessizce devralinmaz.
+  const svc = pre.cloudflaredService;
+  if (svc && svc.present && !plan.replaceCloudflared) {
+    die(
+      `Bu sunucuda zaten bir cloudflared servisi var (${svc.active ? "calisiyor" : "durmus"}` +
+        `${svc.tunnelId ? `, bagli tunnel: ${svc.tunnelId}` : ""}).`,
+      [
+        "Uzerine kurmak 'cloudflared service install' komutunu patlatir; sessizce devralmiyoruz.",
+        "",
+        "Secenekler:",
+        "  --replace-cloudflared    mevcut servisi kaldirip yenisini kur",
+        "  sudo cloudflared service uninstall    (once elle kaldir, sonra tekrar calistir)",
+        "",
+        "Hicbir sey kurulmadi."
+      ]
+    );
+  }
+
+  // Ayni ADDA tunnel: aktifse hicbir bayrakla devralinmaz.
+  const t = pre.existingTunnel;
+  if (t && t.hasConnections) {
+    die(
+      `"${t.name}" adinda bir tunnel zaten var ve AKTIF: ${t.connections} baglanti ` +
+        `(durum: ${t.status || "bilinmiyor"}, id: ${t.id}).`,
+      [
+        "Baska bir makinede calisiyor olabilir; devralmak o sistemin erisimini keser.",
+        "",
+        "Secenekler:",
+        "  o makinede: sudo cloudflared service uninstall   (baglantilari kapat)",
+        "  --cf-tunnel-name <ad>                            (farkli ad kullan)",
+        "",
+        "Hicbir sey kurulmadi."
+      ]
+    );
+  }
+  if (t && !t.hasConnections && plan.tunnelExisting === "fail") {
+    die(`"${t.name}" adinda bir tunnel zaten var (id: ${t.id}, aktif baglanti yok).`, [
+      "Kopya tunnel uretmiyoruz; ne yapilacagi acikca secilmeli.",
+      "",
+      "Secenekler:",
+      "  --cf-tunnel-existing reuse       mevcut tunnel'i devral, ingress'i yeniden yaz",
+      "  --cf-tunnel-existing recreate    sil ve yeniden yarat",
+      "  --cf-tunnel-name <ad>            farkli ad kullan",
+      "",
+      "Hicbir sey kurulmadi."
+    ]);
+  }
+
   const blocking = pre.conflicts.filter(
     (c) => c.host === plan.panelHost || c.host === `*.${plan.domain}`
   );
@@ -965,7 +1160,8 @@ async function provisionTunnel() {
   console.log("");
   if (!result.ok) {
     warn("Cloudflare kurulumu tamamlanamadi — yukaridaki ✗ satirina bak.");
-    console.log("  Hicbir kalici ayar yazilmadi; duzeltip tekrar deneyebilirsin.\n");
+    console.log("  Lyra'da hicbir kalici ayar yazilmadi; duzeltip tekrar deneyebilirsin.");
+    printLeftovers(result.progress);
     return 1;
   }
   ok(`Tunnel hazir: ${cyan(result.finalUrl)}`);

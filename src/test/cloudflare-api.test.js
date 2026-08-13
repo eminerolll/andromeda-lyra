@@ -297,6 +297,56 @@ describe("cloudflare-api / tunnel", () => {
   });
 });
 
+// Ayni ADDA tunnel arama. Kurulum bunu tunnel yaratmadan ONCE sorar; eskiden
+// rastgele son ekli kopya uretiliyordu ve hesapta olu tunnel yigini kaliyordu.
+describe("cloudflare-api / tunnel listeleme", () => {
+  it("silinmisleri haric tutarak isme gore arar", async () => {
+    mockFetch([ok([{ id: TUNNEL_ID, name: "lyra-example-com", status: "inactive" }])]);
+    const t = await cf.findTunnelByName(TOKEN, ACCOUNT_ID, "lyra-example-com");
+    expect(t.id).toBe(TUNNEL_ID);
+    expect(t.connections).toBe(0);
+    expect(calls[0].url).toContain("is_deleted=false");
+    expect(calls[0].url).toContain("name=lyra-example-com");
+  });
+
+  it("adi tam eslesmeyen kaydi kabul etmez", async () => {
+    mockFetch([ok([{ id: TUNNEL_ID, name: "lyra-example-com-beb1", status: "inactive" }])]);
+    expect(await cf.findTunnelByName(TOKEN, ACCOUNT_ID, "lyra-example-com")).toBeNull();
+  });
+
+  it("bos listede null doner", async () => {
+    mockFetch([ok([])]);
+    expect(await cf.findTunnelByName(TOKEN, ACCOUNT_ID, "lyra-example-com")).toBeNull();
+  });
+
+  it("connector sayisini ve durumu okur", async () => {
+    mockFetch([
+      ok([
+        {
+          id: TUNNEL_ID,
+          name: "lyra-example-com",
+          status: "healthy",
+          connections: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }],
+          conns_active_at: "2026-08-01T00:00:00Z"
+        }
+      ])
+    ]);
+    const list = await cf.listTunnels(TOKEN, ACCOUNT_ID);
+    expect(list[0].connections).toBe(4);
+    expect(list[0].status).toBe("healthy");
+    expect(cf.tunnelHasConnections(list[0])).toBe(true);
+  });
+
+  it("canli connector tespiti connections dizisine tek basina guvenmez", () => {
+    // Cloudflare dizisi bos donse bile status canli olabilir.
+    expect(cf.tunnelHasConnections({ connections: 0, status: "healthy" })).toBe(true);
+    expect(cf.tunnelHasConnections({ connections: 0, status: "degraded" })).toBe(true);
+    expect(cf.tunnelHasConnections({ connections: 0, status: "inactive" })).toBe(false);
+    expect(cf.tunnelHasConnections({ connections: 0, status: "down" })).toBe(false);
+    expect(cf.tunnelHasConnections(null)).toBe(false);
+  });
+});
+
 describe("cloudflare-api / ingress", () => {
   it("wildcard once, apex sonra, catch-all EN SONDA olacak sekilde kurar", () => {
     const rules = cf.buildIngress({ domain: "example.com", port: 3000 });

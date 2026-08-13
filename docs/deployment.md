@@ -225,6 +225,55 @@ değiştirilmez. İki seçenek sunulur:
 `base_domain` her iki durumda da domain'in kendisidir; `panel_host` panelin
 gerçekte durduğu adrestir.
 
+#### Yeniden kurulum: aynı adda tunnel ve duran cloudflared servisi
+
+`lyra uninstall` sunucudaki `cloudflared` servisine ve Cloudflare hesabındaki
+tunnel'a **bilerek dokunmaz** — uzaktaki bir kaynağı sessizce silmiyoruz. Bu
+yüzden ikinci kurulumda iki çakışma çıkar. İkisi de **tunnel yaratılmadan
+önce**, yani hesapta hiçbir kaynak oluşmadan yakalanır.
+
+**1. Sunucuda zaten bir `cloudflared` servisi var.** Üzerine kurmak
+`cloudflared service install` komutunu patlatır. Lyra servisi bulur, hangi
+tunnel'a bağlı olduğunu (`--token`'dan çözülen tunnel id'si, token'ın kendisi
+hiçbir yere yazılmaz) ve çalışıp çalışmadığını gösterir:
+
+- sihirbaz: onay kutusu — mevcut servis kaldırılıp yenisi kurulur
+- CLI: `--replace-cloudflared`
+- elle: `sudo cloudflared service uninstall`
+
+Bayrak verilmezse **kurulum durur** ve komut ekrana yazılır. Sessiz devralma yok.
+
+**2. Cloudflare hesabında aynı adda tunnel var.** Eskiden bu durumda rastgele
+son ekli bir **kopya** yaratılıyordu; gerçek kullanımda iki başarısız denemede
+hesapta iki ölü tunnel bıraktı (`lyra-x-beb1`, `lyra-x-d2b8`). Artık kopya
+üretilmiyor:
+
+| Tunnel'ın durumu | Davranış |
+|------------------|----------|
+| **Aktif bağlantısı var** (`healthy` / `degraded` / `connections > 0`) | **Her zaman durur.** Tunnel başka bir makinede canlı olabilir; devralmak o sistemin erişimini keser. Hiçbir bayrakla geçilemez. Önce oradaki `cloudflared`'i durdur, ya da `--cf-tunnel-name <ad>` ile farklı bir ad kullan. |
+| **Bağlantısı yok** (`inactive` / `down`) | Karar senin: `--cf-tunnel-existing reuse` (devral — token API'den alınır, ingress yeniden yazılır, yeni tunnel yaratılmaz), `recreate` (sil ve yeniden yarat), `--cf-tunnel-name <ad>` (farklı ad). Varsayılan `fail`: dur ve seçenekleri yaz. |
+
+#### Zincir yarıda kalırsa: ne bırakıldığı yazılır
+
+Tunnel oluşturulduktan sonraki bir adım patlarsa (DNS, `cloudflared` kurulumu,
+servis başlatma) Lyra **otomatik geri alma yapmaz** — kullanıcının hesabındaki
+kaynakları, hele devralınmış bir tunnel'ı silmek geri alınamaz zarar verebilir.
+Bunun yerine geride ne kaldığını ve nereden temizleneceğini yazar:
+
+```
+! Kurulum yarida kaldi. Su kaynaklar olustu:
+    tunnel : lyra-ornek-com (bde016f2-...)
+    DNS    : ornek.com, *.ornek.com
+  Tekrar denemeden once temizlemek istersen:
+    Tunnel : https://one.dash.cloudflare.com/<hesap-id>/networks/tunnels
+    DNS    : https://dash.cloudflare.com/<hesap-id>/ornek.com/dns
+    Sunucu : sudo cloudflared service uninstall
+```
+
+Aynı rapor tarayıcı sihirbazının kurulum ekranında da görünür (`leftovers`
+alanı, `/api/setup/progress`). Devralınan tunnel raporda "Lyra yaratmadı, silme"
+notuyla işaretlenir ve onun için silme bağlantısı verilmez.
+
 ### 2c. Cloudflare Tunnel — connector token (ileri seçenek)
 
 Tunnel'ı ve public hostname'leri Cloudflare dashboard'da kendin yönetmek

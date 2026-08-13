@@ -517,6 +517,361 @@ describe("setup-core servis secimi ve kurulumu", () => {
   });
 });
 
+// Faz 10 — gercek kullanimda ortaya cikan uc kusur:
+//   1) sistemde zaten duran cloudflared servisi kurulumu patlatiyordu
+//   2) ayni adda tunnel varsa rastgele son ekli KOPYA yaratiliyordu
+//      (hesapta olu tunnel yigini)
+//   3) zincir yarida kalinca geride ne kaldigi soylenmiyordu
+//
+// Testler MOCK'LU: Cloudflare API'sine ve sisteme HICBIR cagri yapilmaz.
+describe("setup-core cf-api cakisma yonetimi", () => {
+  let home;
+  beforeEach(() => {
+    home = freshHome();
+    require("../db/migrate").migrate();
+  });
+  afterEach(() => cleanup(home));
+
+  const ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
+  const ZONE_ID = "fedcba9876543210fedcba9876543210";
+  const NEW_TUNNEL_ID = "11111111-2222-3333-4444-555555555555";
+  const OLD_TUNNEL_ID = "99999999-8888-7777-6666-555555555555";
+  const CONNECTOR_TOKEN = "connector-token-".padEnd(80, "x");
+
+  function cfBody(over = {}) {
+    return {
+      accessMode: "cf-api",
+      cfApiToken: "cf-test-token-0123456789abcdef",
+      domain: "ornek.com",
+      cfHostMode: "apex",
+      ...over
+    };
+  }
+
+  // Ag cagrisi yapan fonksiyonlarin taklidi. buildIngress / tunnelCname /
+  // tunnelHasConnections gibi saf fonksiyonlar GERCEK kalir.
+  function mockCfApi(over = {}) {
+    const cfApi = require("../lib/cloudflare-api");
+    const calls = { createTunnel: [], deleteTunnel: [], tunnelToken: [], dns: [], ingress: [] };
+    const zone = {
+      id: ZONE_ID,
+      name: "ornek.com",
+      status: "active",
+      account: { id: ACCOUNT_ID, name: "Hesap" }
+    };
+    cfApi.verifyToken = async () => ({ id: "tok", status: "active" });
+    cfApi.findZone = async () => zone;
+    cfApi.resolveAccount = async () => ({
+      account: zone.account,
+      accounts: [zone.account],
+      source: "zone"
+    });
+    cfApi.findTunnelByName = async () => null;
+    cfApi.createTunnel = async (_t, _a, name) => {
+      calls.createTunnel.push(name);
+      return { id: NEW_TUNNEL_ID, name };
+    };
+    cfApi.deleteTunnel = async (_t, _a, id) => {
+      calls.deleteTunnel.push(id);
+      return { ok: true };
+    };
+    cfApi.getTunnelToken = async (_t, _a, id) => {
+      calls.tunnelToken.push(id);
+      return CONNECTOR_TOKEN;
+    };
+    cfApi.putIngress = async (_t, _a, _id, ingress) => {
+      calls.ingress.push(ingress);
+      return {};
+    };
+    cfApi.upsertDnsRecord = async (_t, _z, record) => {
+      calls.dns.push(record.name);
+      return { action: "created", record: { name: `${record.name}.ornek.com` } };
+    };
+    Object.assign(cfApi, over);
+    return { cfApi, calls };
+  }
+
+  function mockCloudflared(over = {}) {
+    const cfd = require("../lib/cloudflared-installer");
+    const calls = { install: 0, installService: [] };
+    cfd.detectService = () => ({ present: false, active: false, tunnelId: null });
+    cfd.install = async () => {
+      calls.install += 1;
+      return { ok: true };
+    };
+    cfd.installService = async (opts) => {
+      calls.installService.push({ replace: !!opts.replace, token: opts.token });
+      return { ok: true };
+    };
+    Object.assign(cfd, over);
+    return { cfd, calls };
+  }
+
+  function failedStep(progress) {
+    return progress.payload().steps.find((s) => s.status === "failed") || null;
+  }
+
+  // ── Kusur 1: mevcut cloudflared servisi ──
+
+  it("mevcut cloudflared servisi varken tunnel YARATILMADAN durur", async () => {
+    const { calls: api } = mockCfApi();
+    mockCloudflared({
+      detectService: () => ({ present: true, active: true, tunnelId: OLD_TUNNEL_ID })
+    });
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody());
+
+    expect(r.ok).toBe(false);
+    const step = failedStep(r.progress);
+    expect(step.key).toBe("cf-verify");
+    expect(step.error).toMatch(/zaten bir cloudflared servisi var/i);
+    expect(step.error).toMatch(/--replace-cloudflared/);
+    // Cloudflare'de hicbir sey olusmadi — dolayisiyla temizlenecek de bir sey yok.
+    expect(api.createTunnel).toEqual([]);
+    expect(r.progress.payload().leftovers).toBeNull();
+  });
+
+  it("--replace-cloudflared verilince mevcut servis degistirilerek devam eder", async () => {
+    mockCfApi();
+    const { calls: cfd } = mockCloudflared({
+      detectService: () => ({ present: true, active: false, tunnelId: OLD_TUNNEL_ID })
+    });
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody({ cfReplaceCloudflared: true }));
+
+    expect(r.ok).toBe(true);
+    // Karar asagiya kadar tasinir: installService mevcut servisi kaldirir.
+    expect(cfd.installService).toEqual([{ replace: true, token: CONNECTOR_TOKEN }]);
+  });
+
+  // ── Kusur 2: ayni adda tunnel ──
+
+  const activeTunnel = {
+    id: OLD_TUNNEL_ID,
+    name: "lyra-ornek-com",
+    status: "healthy",
+    connections: 4
+  };
+  const idleTunnel = {
+    id: OLD_TUNNEL_ID,
+    name: "lyra-ornek-com",
+    status: "inactive",
+    connections: 0
+  };
+
+  it("aktif baglantili ayni adli tunnel HICBIR ayarla devralinmaz", async () => {
+    for (const mode of ["fail", "reuse", "recreate"]) {
+      const { calls: api } = mockCfApi({ findTunnelByName: async () => ({ ...activeTunnel }) });
+      mockCloudflared();
+      const core = require("../lib/setup-core");
+
+      const r = await core.provisionCloudflare(cfBody({ cfTunnelExisting: mode }));
+
+      expect(r.ok).toBe(false);
+      const step = failedStep(r.progress);
+      expect(step.key).toBe("cf-tunnel");
+      expect(step.error).toMatch(/AKTIF/);
+      expect(step.error).toMatch(/4 baglanti/);
+      // Ne devralma, ne silme, ne de kopya uretme.
+      expect(api.createTunnel).toEqual([]);
+      expect(api.deleteTunnel).toEqual([]);
+      expect(api.tunnelToken).toEqual([]);
+    }
+  });
+
+  it("baglantisiz ayni adli tunnelda varsayilan davranis durmaktir (fail)", async () => {
+    const { calls: api } = mockCfApi({ findTunnelByName: async () => ({ ...idleTunnel }) });
+    mockCloudflared();
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody());
+
+    expect(r.ok).toBe(false);
+    const step = failedStep(r.progress);
+    expect(step.error).toMatch(/zaten var/);
+    expect(step.error).toMatch(/--cf-tunnel-existing reuse/);
+    // ESKI DAVRANISIN TESTI: rastgele son ekli kopya URETILMEZ.
+    expect(api.createTunnel).toEqual([]);
+    expect(api.deleteTunnel).toEqual([]);
+  });
+
+  it("reuse: baglantisiz tunnel devralinir, yenisi yaratilmaz", async () => {
+    const { calls: api } = mockCfApi({ findTunnelByName: async () => ({ ...idleTunnel }) });
+    mockCloudflared();
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody({ cfTunnelExisting: "reuse" }));
+
+    expect(r.ok).toBe(true);
+    expect(api.createTunnel).toEqual([]);
+    expect(api.deleteTunnel).toEqual([]);
+    // Token mevcut tunnel'dan alinir, ingress yeniden yazilir.
+    expect(api.tunnelToken).toEqual([OLD_TUNNEL_ID]);
+    expect(api.ingress.length).toBe(1);
+    const { integrations } = require("../db/repos");
+    expect(integrations.get("cloudflare").config.tunnelId).toBe(OLD_TUNNEL_ID);
+  });
+
+  it("recreate: baglantisiz tunnel silinip ayni adla yeniden yaratilir", async () => {
+    const { calls: api } = mockCfApi({ findTunnelByName: async () => ({ ...idleTunnel }) });
+    mockCloudflared();
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody({ cfTunnelExisting: "recreate" }));
+
+    expect(r.ok).toBe(true);
+    expect(api.deleteTunnel).toEqual([OLD_TUNNEL_ID]);
+    expect(api.createTunnel).toEqual(["lyra-ornek-com"]);
+  });
+
+  it("farkli tunnel adi verilince cakisma olusmaz", async () => {
+    const { calls: api } = mockCfApi({
+      findTunnelByName: async (_t, _a, name) =>
+        name === "lyra-ornek-com" ? { ...idleTunnel } : null
+    });
+    mockCloudflared();
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody({ cfTunnelName: "lyra-yedek" }));
+
+    expect(r.ok).toBe(true);
+    expect(api.createTunnel).toEqual(["lyra-yedek"]);
+  });
+
+  // ── Kusur 3: yarida kalan kurulumun raporu ──
+
+  it("DNS adiminda patlarsa olusan tunnel ve DNS kayitlari raporlanir", async () => {
+    let dnsCall = 0;
+    mockCfApi({
+      upsertDnsRecord: async () => {
+        dnsCall += 1;
+        if (dnsCall === 1) return { action: "created", record: { name: "ornek.com" } };
+        throw new Error("DNS yazilamadi");
+      }
+    });
+    mockCloudflared();
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody());
+
+    expect(r.ok).toBe(false);
+    const left = r.progress.payload().leftovers;
+    expect(left).not.toBeNull();
+    expect(left.items.join("\n")).toMatch(/tunnel : lyra-ornek-com \(11111111-/);
+    expect(left.items.join("\n")).toMatch(/DNS +: ornek\.com/);
+    // Somut temizleme yolu gosterilir; otomatik geri alma YOK.
+    expect(left.hints.join("\n")).toMatch(/one\.dash\.cloudflare\.com/);
+    expect(left.hints.join("\n")).toMatch(/dash\.cloudflare\.com\/.+\/ornek\.com\/dns/);
+
+    const lines = core.formatLeftovers(left);
+    expect(lines[0]).toMatch(/Kurulum yarida kaldi/);
+    expect(lines.join("\n")).toMatch(/Tekrar denemeden once temizlemek istersen/);
+  });
+
+  it("devralinan tunnel raporda 'silme' notuyla isaretlenir", async () => {
+    mockCfApi({
+      findTunnelByName: async () => ({ ...idleTunnel }),
+      putIngress: async () => {
+        throw new Error("ingress yazilamadi");
+      }
+    });
+    mockCloudflared();
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody({ cfTunnelExisting: "reuse" }));
+
+    expect(r.ok).toBe(false);
+    const left = r.progress.payload().leftovers;
+    expect(left.items.join("\n")).toMatch(/devralindi — Lyra yaratmadi, silme/);
+    // Devraldigimiz tunnel icin "sil" yonlendirmesi verilmez.
+    expect(left.hints.join("\n")).not.toMatch(/networks\/tunnels/);
+  });
+
+  it("hicbir kaynak olusmadan patlarsa rapor da uretilmez", async () => {
+    mockCfApi({
+      verifyToken: async () => {
+        throw new Error("token gecersiz");
+      }
+    });
+    mockCloudflared();
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody());
+    expect(r.ok).toBe(false);
+    expect(r.progress.payload().leftovers).toBeNull();
+  });
+
+  it("cloudflared servisi kurulduktan sonraki hata servisi de raporlar", async () => {
+    mockCfApi();
+    mockCloudflared({
+      installService: async () => ({ ok: false, error: "servis kurulamadi" })
+    });
+    const core = require("../lib/setup-core");
+
+    const r = await core.provisionCloudflare(cfBody());
+    expect(r.ok).toBe(false);
+    // Servis kurulamadi -> "servis" satiri raporda OLMAMALI (yalan olurdu).
+    const left = r.progress.payload().leftovers;
+    expect(left.items.join("\n")).not.toMatch(/servis :/);
+    expect(left.items.join("\n")).toMatch(/tunnel :/);
+  });
+});
+
+describe("setup-core tunnel plani", () => {
+  let home;
+  beforeEach(() => {
+    home = freshHome();
+    require("../db/migrate").migrate();
+  });
+  afterEach(() => cleanup(home));
+
+  it("tunnel adi domain'den turetilir, verilirse o kullanilir", () => {
+    const core = require("../lib/setup-core");
+    expect(core.cfPlanFromBody({ domain: "ornek.com" }).tunnelName).toBe("lyra-ornek-com");
+    expect(core.cfPlanFromBody({ domain: "a.b.ornek.com" }).tunnelName).toBe("lyra-a-b-ornek-com");
+    expect(core.cfPlanFromBody({ domain: "ornek.com", cfTunnelName: "elle" }).tunnelName).toBe(
+      "elle"
+    );
+    expect(
+      core.cfPlanFromBody({ domain: "ornek.com", cfTunnelName: "-kotu" }).tunnelName
+    ).toBeNull();
+  });
+
+  it("cakisma davranisinin varsayilani 'fail'", () => {
+    const core = require("../lib/setup-core");
+    expect(core.cfPlanFromBody({ domain: "ornek.com" }).tunnelExisting).toBe("fail");
+    expect(
+      core.cfPlanFromBody({ domain: "ornek.com", cfTunnelExisting: "reuse" }).tunnelExisting
+    ).toBe("reuse");
+    // Gecersiz deger sessizce kabul edilmez; plan "fail"de kalir, dogrulama
+    // ayrica hata verir.
+    expect(
+      core.cfPlanFromBody({ domain: "ornek.com", cfTunnelExisting: "sil" }).tunnelExisting
+    ).toBe("fail");
+  });
+
+  it("dogrulama gecersiz cakisma davranisini ve tunnel adini reddeder", () => {
+    const core = require("../lib/setup-core");
+    const body = {
+      accessMode: "cf-api",
+      appName: "Lyra",
+      projectsDir: "/home/lyra/projects",
+      user: { username: "admin", password: "supersecret1234", enable2FA: false },
+      cfApiToken: "token",
+      domain: "ornek.com"
+    };
+    expect(core.validateFinalize({ ...body, cfTunnelExisting: "sil" }).errors.join(" ")).toMatch(
+      /Bilinmeyen tunnel cakisma davranisi/
+    );
+    expect(core.validateFinalize({ ...body, cfTunnelName: "!!" }).errors.join(" ")).toMatch(
+      /Gecersiz tunnel adi/
+    );
+    expect(core.validateFinalize({ ...body, cfTunnelExisting: "reuse" }).errors).toEqual([]);
+  });
+});
+
 describe("setup-core ensureProjectsDir", () => {
   let home;
   beforeEach(() => {

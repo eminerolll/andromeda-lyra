@@ -109,7 +109,25 @@ Bu adresi laptop'unun tarayıcısında aç, token'ı yapıştır, sihirbazı bit
 | `--cf-host-mode <apex\|subdomain>` | Panel apex'te mi alt alan adında mı |
 | `--cf-panel-subdomain <ad>` | `subdomain` modunda panel adı (varsayılan: `lyra`) |
 | `--cf-overwrite-dns` | Çakışan DNS kayıtlarının üzerine yaz |
+| `--cf-tunnel-name <ad>` | Tunnel adı (varsayılan: `lyra-<domain>`) |
+| `--cf-tunnel-existing <fail\|reuse\|recreate>` | Aynı **adda** tunnel varsa: dur (varsayılan) / devral / sil ve yeniden yarat |
+| `--replace-cloudflared` | Sunucuda zaten bir `cloudflared` servisi varsa kaldırıp yenisini kur |
 | `--help` | Yardım |
+
+> **Yeniden kurulumda çıkan iki tuzak.** `lyra uninstall` sunucudaki
+> `cloudflared` servisine ve Cloudflare hesabındaki tunnel'a **bilerek
+> dokunmaz** (uzaktaki kaynağı sessizce silmiyoruz). Bu yüzden ikinci kurulumda:
+>
+> - Sunucuda duran `cloudflared` servisi `cloudflared service install`'ı
+>   patlatır → `--replace-cloudflared` ver ya da önce
+>   `sudo cloudflared service uninstall` çalıştır.
+> - Aynı adda tunnel zaten vardır → `--cf-tunnel-existing reuse` ile devral,
+>   `recreate` ile sil-yeniden yarat, ya da `--cf-tunnel-name` ile başka bir ad
+>   kullan. Kopya tunnel **üretmiyoruz**.
+>
+> Tunnel'ın **aktif bağlantısı** varsa hiçbir bayrakla devralınmaz: o tunnel
+> başka bir makinede canlı olabilir ve devralmak o sistemin erişimini keser.
+> Önce oradaki `cloudflared`'i durdur.
 
 Non-interactive kurulum örneği (bulut sunucu, tunnel ile):
 
@@ -400,6 +418,8 @@ sudo -u <kullanici> LYRA_HOME=/var/lib/lyra \
 | `--cf-token` | `cf-tunnel` connector token'ı |
 | `--cf-api-token`, `--cf-api-token-file`, `--cf-account-id` | `cf-api` API token'ı (`LYRA_CF_API_TOKEN` env'i ya da `0600` dosya tercih edilir) / hesap seçimi |
 | `--cf-host-mode`, `--cf-panel-subdomain`, `--cf-overwrite-dns` | Panel apex'te mi alt alan adında mı, DNS çakışması yönetimi |
+| `--cf-tunnel-name`, `--cf-tunnel-existing <fail\|reuse\|recreate>` | Tunnel adı; aynı adda tunnel varsa davranış (varsayılan `fail` — dur). Aktif bağlantılı tunnel hiçbir değerde devralınmaz |
+| `--replace-cloudflared` | Sunucuda duran `cloudflared` servisini kaldırıp yenisini kur (verilmezse kurulum durur) |
 | `--app-name`, `--projects-dir` | Zorunlu |
 | `--user`, `--password` | Zorunlu (`LYRA_ADMIN_PASSWORD` env'i tercih edilir — komut satırı `ps` çıktısında görünür) |
 | `--2fa` / `--no-2fa` | **Biri zorunlu.** `--2fa` verilirse secret ekrana basılır ve 2FA açılır; kaybedersen `lyra reset-admin --disable-2fa` |

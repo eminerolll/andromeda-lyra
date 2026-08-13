@@ -9,7 +9,6 @@
 // sorularin nasil soruldugu ve kurulum modundan cikisin kim tarafindan
 // tetiklendigidir (bkz. runPostSetup -> transition).
 
-const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -172,6 +171,22 @@ function normalizePanelSub(input) {
   return /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(s) ? s : null;
 }
 
+// Ayni ADDA tunnel bulunursa ne yapilacak? Varsayilan "fail": karar
+// verilmeden hicbir sey devralinmaz, silinmez.
+const TUNNEL_EXISTING_MODES = ["fail", "reuse", "recreate"];
+
+// Domain'den turetilen varsayilan tunnel adi.
+function defaultTunnelName(domain) {
+  return domain ? `lyra-${domain.replace(/\./g, "-")}` : null;
+}
+
+// Cloudflare tunnel adi: harf/rakam/tire/alt cizgi/nokta, 1-64 karakter.
+function normalizeTunnelName(input) {
+  const s = String(input === undefined || input === null ? "" : input).trim();
+  if (!s) return null;
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(s) ? s : null;
+}
+
 // cf-api govdesini tek yerde cozumle — preflight ve finalize ayni kurallari
 // kullansin diye.
 function cfPlanFromBody(body) {
@@ -187,7 +202,16 @@ function cfPlanFromBody(body) {
     hostMode,
     panelSub,
     panelHost,
-    overwriteDns: !!body.cfOverwriteDns
+    overwriteDns: !!body.cfOverwriteDns,
+    // Tunnel adi verilmediyse domain'den turetilir; gecersiz ad null kalir ve
+    // dogrulamada yakalanir.
+    tunnelName: body.cfTunnelName
+      ? normalizeTunnelName(body.cfTunnelName)
+      : defaultTunnelName(domain),
+    tunnelExisting: TUNNEL_EXISTING_MODES.includes(body.cfTunnelExisting)
+      ? body.cfTunnelExisting
+      : "fail",
+    replaceCloudflared: !!body.cfReplaceCloudflared
   };
 }
 
@@ -196,6 +220,53 @@ const DNS_ACTION_TR = {
   unchanged: "zaten dogruydu",
   replaced: "uzerine yazildi"
 };
+
+const TUNNEL_ACTION_TR = {
+  created: "olusturuldu",
+  reused: "devralindi (mevcut tunnel yeniden yapilandirildi)",
+  recreated: "silinip yeniden olusturuldu"
+};
+
+// Yarida kalan cf-api zinciri geride NE BIRAKTI?
+//
+// Otomatik geri alma (rollback) YAPMIYORUZ: kullanicinin hesabindaki
+// kaynaklari silmek — hele devraldigimiz bir tunnel'i — geri alinamaz zarar
+// verebilir. Bunun yerine ne olustugunu ve nereden temizlenecegini soyluyoruz.
+function cfLeftoverReport(state, plan) {
+  const items = [];
+  if (state.tunnel) {
+    items.push(
+      `tunnel : ${state.tunnel.name} (${state.tunnel.id})` +
+        (state.tunnelReused ? "  [mevcut tunnel devralindi — Lyra yaratmadi, silme]" : "")
+    );
+  }
+  if (state.dnsWritten.length) items.push(`DNS    : ${state.dnsWritten.join(", ")}`);
+  if (state.serviceInstalled) items.push("servis : cloudflared (bu sunucuda kuruldu ve calisiyor)");
+  if (!items.length) return null;
+
+  const acc = state.accountId || "<hesap-id>";
+  const hints = [];
+  if (state.tunnel && !state.tunnelReused) {
+    hints.push(`Tunnel : https://one.dash.cloudflare.com/${acc}/networks/tunnels`);
+  }
+  if (state.dnsWritten.length) {
+    hints.push(`DNS    : https://dash.cloudflare.com/${acc}/${plan.domain}/dns`);
+  }
+  if (state.serviceInstalled) hints.push("Sunucu : sudo cloudflared service uninstall");
+  return { items, hints };
+}
+
+// Raporu iki arayuzun da ayni sekilde basabilecegi duz satirlara cevir.
+function formatLeftovers(report) {
+  if (!report || !report.items || !report.items.length) return [];
+  const lines = ["Kurulum yarida kaldi. Su kaynaklar olustu:"];
+  for (const item of report.items) lines.push(`    ${item}`);
+  if (report.hints.length) {
+    lines.push("Tekrar denemeden once temizlemek istersen:");
+    for (const hint of report.hints) lines.push(`    ${hint}`);
+  }
+  return lines;
+}
 
 // Cloudflare API modu on-kontrolu. Kurulum baslamadan once token/hesap/zone
 // dogrulanir ve MEVCUT DNS kayitlari okunur. Amac: apex'te eski hosting'den
@@ -207,6 +278,7 @@ async function cfPreflight(plan) {
   if (!plan.token) throw new Error("Cloudflare API token gerekli");
   if (!plan.domain) throw new Error("Gecerli bir domain gerekli (ornek: example.com)");
   if (!plan.panelSub) throw new Error("Gecersiz alt alan adi (ornek: lyra)");
+  if (!plan.tunnelName) throw new Error("Gecersiz tunnel adi (ornek: lyra-ornek-com)");
 
   await cfApi.verifyToken(plan.token);
 
@@ -245,6 +317,11 @@ async function cfPreflight(plan) {
   const apexBlocked = conflicts.some((c) => c.scope === "apex");
   const panelBlocked = conflicts.some((c) => c.scope === "panel");
 
+  // Ayni adda tunnel + bu sunucudaki mevcut cloudflared servisi. Ikisi de
+  // KURULUM BASLAMADAN once gorulmeli: gercek dunyada bu iki cakisma yarida
+  // kalmis kurulumlar ve hesapta olu tunnel'lar birakti.
+  const existingTunnel = await cfApi.findTunnelByName(plan.token, account.id, plan.tunnelName);
+
   return {
     ok: true,
     account,
@@ -253,23 +330,83 @@ async function cfPreflight(plan) {
     hosts,
     records,
     conflicts,
+    tunnelName: plan.tunnelName,
+    existingTunnel: existingTunnel
+      ? { ...existingTunnel, hasConnections: cfApi.tunnelHasConnections(existingTunnel) }
+      : null,
+    cloudflaredService: cloudflared.detectService(),
     // Apex doluysa varsayilan oneri: apex kaydina hic dokunma, paneli
     // wildcard uzerinden alt alan adinda ac.
     recommendation: apexBlocked && !panelBlocked ? "subdomain" : "apex"
   };
 }
 
-// Ayni isimde tunnel varsa (yarida kalmis bir kurulumdan) kurulum burada
-// tikanmasin diye bir kez rastgele son ekle tekrar deniyoruz. Cloudflare'in bu
-// durumda dondurdugu kodu canli dogrulamadik; mesaj metnine bakiyoruz.
-async function createTunnelOrRetry(token, accountId, baseName) {
-  try {
-    return await cfApi.createTunnel(token, accountId, baseName);
-  } catch (err) {
-    if (!/exist|duplicate|1015/i.test(err && err.message ? err.message : "")) throw err;
-    const suffix = crypto.randomBytes(2).toString("hex");
-    return cfApi.createTunnel(token, accountId, `${baseName}-${suffix}`);
+// Ayni ADDA tunnel varsa ne yapilir?
+//
+// ESKI DAVRANIS (kaldirildi): rastgele son ekli bir KOPYA yaratmak. Gercek
+// kullanimda bu, iki basarisiz denemede hesapta iki olu tunnel birakti
+// (lyra-x-beb1, lyra-x-d2b8) ve kullanici sebebini goremedi.
+//
+// SIMDI:
+//   - aktif baglantisi varsa  -> HER ZAMAN dur. Tunnel baska bir makinede
+//     canli olabilir; devralmak o sistemi keser. Bu karar bayrakla
+//     gecilemez, cunku zarari geri alinamaz.
+//   - baglantisi yoksa        -> tunnelExisting'e bak:
+//       reuse    : mevcut tunnel devralinir, ingress yeniden yazilir
+//       recreate : silinip yeniden yaratilir
+//       fail     : (varsayilan) durur, secenekleri soyler
+async function resolveTunnel(plan, accountId, log) {
+  const existing = await cfApi.findTunnelByName(plan.token, accountId, plan.tunnelName);
+  if (!existing) {
+    const created = await cfApi.createTunnel(plan.token, accountId, plan.tunnelName);
+    return { tunnel: created, action: "created" };
   }
+
+  if (cfApi.tunnelHasConnections(existing)) {
+    throw new Error(
+      `"${existing.name}" adinda bir tunnel zaten var ve AKTIF: ${existing.connections} baglanti ` +
+        `(durum: ${existing.status || "bilinmiyor"}, id: ${existing.id}). Bu tunnel baska bir ` +
+        "makinede calisiyor olabilir; devralmak o sistemin erisimini keser, o yuzden " +
+        "otomatik devralmiyoruz. Once oradaki cloudflared'i durdur " +
+        "(sudo cloudflared service uninstall), ya da --cf-tunnel-name <ad> ile farkli bir ad kullan."
+    );
+  }
+
+  if (plan.tunnelExisting === "reuse") {
+    log(`Mevcut tunnel devralindi: ${existing.name} (${existing.id})`);
+    return { tunnel: existing, action: "reused" };
+  }
+
+  if (plan.tunnelExisting === "recreate") {
+    log(`Mevcut tunnel siliniyor: ${existing.name} (${existing.id})`);
+    await cfApi.deleteTunnel(plan.token, accountId, existing.id);
+    const created = await cfApi.createTunnel(plan.token, accountId, plan.tunnelName);
+    return { tunnel: created, action: "recreated" };
+  }
+
+  throw new Error(
+    `"${existing.name}" adinda bir tunnel zaten var (id: ${existing.id}, aktif baglanti yok). ` +
+      "Kopya tunnel uretmiyoruz; ne yapilacagi acikca secilmeli: " +
+      "--cf-tunnel-existing reuse (mevcut tunnel'i devral, ingress'i yeniden yaz) | " +
+      "--cf-tunnel-existing recreate (sil ve yeniden yarat) | " +
+      "--cf-tunnel-name <ad> (farkli ad kullan)."
+  );
+}
+
+// Mevcut cloudflared servisi kurulumu sessizce patlatmasin: tunnel
+// YARATILMADAN once bakiyoruz, boylece "fail" durumunda hesapta hicbir sey
+// birakmiyoruz.
+function assertCloudflaredUsable(plan) {
+  const svc = cloudflared.detectService();
+  if (!svc.present) return null;
+  if (plan.replaceCloudflared) return svc;
+  throw new Error(
+    `Bu sunucuda zaten bir cloudflared servisi var (${cloudflared.describeService(svc)}). ` +
+      "Uzerine kurmak 'cloudflared service install' komutunu patlatir ve kurulum yarida kalir; " +
+      "sessizce devralmiyoruz. Mevcut servisi degistirmek icin --replace-cloudflared ver " +
+      "(kaldirilip yeni token ile yeniden kurulur), ya da once elle kaldir: " +
+      "sudo cloudflared service uninstall"
+  );
 }
 
 // Cloudflare entegrasyon kaydini guncelle. Token integrations tablosunda
@@ -377,6 +514,19 @@ function validateFinalize(
     if (!cfPlan.token) errors.push("Cloudflare API token gerekli");
     if (!cfPlan.domain) errors.push("Gecerli bir domain gerekli (ornek: example.com)");
     if (!cfPlan.panelSub) errors.push("Gecersiz alt alan adi (ornek: lyra)");
+    if (!cfPlan.tunnelName) errors.push("Gecersiz tunnel adi (ornek: lyra-ornek-com)");
+    // Sessizce varsayilana kacmiyoruz: gecersiz bir deger "fail"e dusup
+    // kullaniciyi neden durdugunu anlamadan birakirdi.
+    if (
+      body.cfTunnelExisting !== undefined &&
+      body.cfTunnelExisting !== null &&
+      !TUNNEL_EXISTING_MODES.includes(body.cfTunnelExisting)
+    ) {
+      errors.push(
+        `Bilinmeyen tunnel cakisma davranisi: ${body.cfTunnelExisting} ` +
+          `(gecerli: ${TUNNEL_EXISTING_MODES.join(", ")})`
+      );
+    }
   }
   if (body.user && body.user.enable2FA && !totpVerified) {
     errors.push("2FA dogrulamasi tamamlanmali");
@@ -598,7 +748,10 @@ function createProgress({ onUpdate } = {}) {
     startedAt: null,
     finishedAt: null,
     finalUrl: null,
-    steps: []
+    steps: [],
+    // Yarida kalan Cloudflare zincirinin geride biraktiklari (bkz.
+    // cfLeftoverReport). null = geride bir sey yok.
+    leftovers: null
   };
 
   const notify = (step) => {
@@ -613,10 +766,16 @@ function createProgress({ onUpdate } = {}) {
     p.finishedAt = null;
     p.finalUrl = finalUrl || null;
     p.steps = buildSteps(mode, opts);
+    p.leftovers = null;
     return p;
   };
 
   p.step = (key) => p.steps.find((s) => s.key === key) || null;
+
+  p.setLeftovers = (report) => {
+    p.leftovers = report && report.items && report.items.length ? report : null;
+    return p.leftovers;
+  };
 
   p.payload = () => ({
     active: p.active,
@@ -624,6 +783,7 @@ function createProgress({ onUpdate } = {}) {
     restarting: p.restarting,
     failed: p.steps.some((s) => s.status === "failed"),
     finalUrl: p.finalUrl,
+    leftovers: p.leftovers,
     steps: p.steps.map((s) => ({
       key: s.key,
       label: s.label,
@@ -694,11 +854,20 @@ async function runCfApiSteps(body, progress, log) {
     zoneId: null,
     zoneName: null,
     tunnelId: null,
-    connectorToken: null
+    connectorToken: null,
+    // Geride ne birakildiginin kaydi (bkz. cfLeftoverReport). Otomatik geri
+    // alma YOK; kullaniciya durustce ne olustugu soylenir.
+    tunnel: null,
+    tunnelReused: false,
+    dnsWritten: [],
+    serviceInstalled: false
   };
   let ok;
 
   ok = await progress.runStep("cf-verify", async () => {
+    // SIRA ONEMLI: yerel cloudflared cakismasi Cloudflare'de HICBIR SEY
+    // yaratilmadan once yakalanmali.
+    const replacing = assertCloudflaredUsable(plan);
     await cfApi.verifyToken(plan.token);
     // SIRA ONEMLI: hesap id'si zone cevabindan turetilir (bkz. cfPreflight).
     const zone = await cfApi.findZone(plan.token, plan.domain);
@@ -719,7 +888,9 @@ async function runCfApiSteps(body, progress, log) {
       zoneId: zone.id,
       zoneDomain: zone.name
     });
-    const note = `Hesap: ${account.name || account.id} · Zone: ${zone.name} (${zone.status})`;
+    const parts = [`Hesap: ${account.name || account.id}`, `Zone: ${zone.name} (${zone.status})`];
+    if (replacing) parts.push("mevcut cloudflared servisi degistirilecek");
+    const note = parts.join(" · ");
     return zone.status === "active"
       ? note
       : `${note} — zone aktif degil, nameserver yayilmasi tamamlanana kadar adres calismayabilir`;
@@ -727,16 +898,14 @@ async function runCfApiSteps(body, progress, log) {
 
   if (ok) {
     ok = await progress.runStep("cf-tunnel", async () => {
-      const tunnel = await createTunnelOrRetry(
-        plan.token,
-        state.accountId,
-        `lyra-${plan.domain.replace(/\./g, "-")}`
-      );
+      const { tunnel, action } = await resolveTunnel(plan, state.accountId, log);
       state.tunnelId = tunnel.id;
+      state.tunnel = { id: tunnel.id, name: tunnel.name };
+      state.tunnelReused = action === "reused";
       state.connectorToken = await cfApi.getTunnelToken(plan.token, state.accountId, tunnel.id);
       saveCfIntegration({ tunnelId: tunnel.id, tunnelName: tunnel.name });
-      log(`Tunnel olusturuldu: ${tunnel.name} (${tunnel.id})`);
-      return `${tunnel.name} · ${tunnel.id}`;
+      log(`Tunnel ${TUNNEL_ACTION_TR[action]}: ${tunnel.name} (${tunnel.id})`);
+      return `${tunnel.name} · ${tunnel.id} · ${TUNNEL_ACTION_TR[action]}`;
     });
   }
 
@@ -771,6 +940,7 @@ async function runCfApiSteps(body, progress, log) {
           { overwrite: plan.overwriteDns, zoneName: state.zoneName }
         );
         const shown = (r.record && r.record.name) || cfApi.toFqdn(name, state.zoneName);
+        if (r.action !== "unchanged") state.dnsWritten.push(shown);
         notes.push(`${shown}: ${DNS_ACTION_TR[r.action] || r.action}`);
       }
       return notes.join(" · ");
@@ -787,10 +957,25 @@ async function runCfApiSteps(body, progress, log) {
 
   if (ok) {
     ok = await progress.runStep("cloudflared-service", async () => {
-      const r = await cloudflared.installService({ token: state.connectorToken, onLog: log });
+      const r = await cloudflared.installService({
+        token: state.connectorToken,
+        onLog: log,
+        replace: plan.replaceCloudflared
+      });
       if (!r.ok) throw new Error(r.error || "cloudflared servisi olusturulamadi");
+      state.serviceInstalled = true;
       return `Panel adresi: https://${plan.panelHost}`;
     });
+  }
+
+  // Zincir yarida kaldiysa: geride ne kaldigini SOYLE. Otomatik geri alma yok
+  // (bkz. cfLeftoverReport).
+  if (!ok) {
+    const report = cfLeftoverReport(state, plan);
+    if (report) {
+      progress.setLeftovers(report);
+      for (const line of formatLeftovers(report)) log(line);
+    }
   }
 
   return ok;
@@ -935,9 +1120,15 @@ async function runPostSetup(
     });
     if (ok) {
       ok = await progress.runStep("cloudflared-service", async () => {
-        const r = await cloudflared.installService({ token: body.cfToken, onLog: emit });
+        // Elle verilen connector token'da da ayni kural: mevcut servis
+        // sessizce devralinmaz (bkz. cloudflared-installer.installService).
+        const r = await cloudflared.installService({
+          token: body.cfToken,
+          onLog: emit,
+          replace: !!body.cfReplaceCloudflared
+        });
         if (!r.ok) throw new Error(r.error || "cloudflared servisi olusturulamadi");
-        return null;
+        return r.replacedService ? "Mevcut cloudflared servisi degistirildi" : null;
       });
     }
   }
@@ -1089,6 +1280,7 @@ module.exports = {
   HAS_SEPARATE_SETUP_PORT,
   ACCESS_MODES,
   DEFAULT_PANEL_SUBDOMAIN,
+  TUNNEL_EXISTING_MODES,
   CF_PROVISIONED_KEY,
   cfProvisionedInfo,
   isCfProvisioned,
@@ -1097,8 +1289,14 @@ module.exports = {
   systemUserInfo,
   ensureProjectsDir,
   normalizePanelSub,
+  normalizeTunnelName,
+  defaultTunnelName,
   cfPlanFromBody,
   cfPreflight,
+  resolveTunnel,
+  assertCloudflaredUsable,
+  cfLeftoverReport,
+  formatLeftovers,
   validateFinalize,
   applyFinalize,
   servicesToInstall,

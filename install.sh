@@ -39,7 +39,8 @@
 #                    LYRA_CF_API_TOKEN (cf-api yonteminde API token'i)
 # Bayraklar: --yes / -y / --non-interactive, --access, --domain,
 #            --cf-api-token, --cf-account-id, --cf-host-mode,
-#            --cf-panel-subdomain, --cf-overwrite-dns, --help
+#            --cf-panel-subdomain, --cf-overwrite-dns, --cf-tunnel-name,
+#            --cf-tunnel-existing, --replace-cloudflared, --help
 
 set -euo pipefail
 
@@ -80,6 +81,13 @@ cf-api icin:
   --cf-host-mode <apex|subdomain>  panel apex'te mi alt alan adinda mi
   --cf-panel-subdomain <ad>      subdomain modunda panel adi (varsayilan: lyra)
   --cf-overwrite-dns             cakisan DNS kayitlarinin uzerine yaz
+  --cf-tunnel-name <ad>          tunnel adi (varsayilan: lyra-<domain>)
+  --cf-tunnel-existing <davranis>  ayni ADDA tunnel varsa: fail (varsayilan) |
+                                 reuse (devral) | recreate (sil, yeniden yarat).
+                                 Aktif baglantisi olan tunnel hicbir degerde
+                                 devralinmaz.
+  --replace-cloudflared          sunucuda zaten bir cloudflared servisi varsa
+                                 kaldirip yenisini kur (verilmezse kurulum durur)
 
 Ortam degiskenleri:
   LYRA_REPO        git repo URL'i (yerel kaynak yoksa zorunlu)
@@ -104,6 +112,9 @@ CF_ACCOUNT_ID=""
 CF_HOST_MODE=""
 CF_PANEL_SUB=""
 CF_OVERWRITE_DNS=0
+CF_TUNNEL_NAME=""
+CF_TUNNEL_EXISTING=""
+CF_REPLACE_CLOUDFLARED=0
 SETUP_PORT_GIVEN=0
 [[ -n "${LYRA_SETUP_PORT:-}" ]] && SETUP_PORT_GIVEN=1
 
@@ -128,6 +139,11 @@ while [[ $# -gt 0 ]]; do
     --cf-panel-subdomain) need_value "$1" "${2:-}"; CF_PANEL_SUB="$2"; shift ;;
     --cf-panel-subdomain=*) CF_PANEL_SUB="${1#*=}" ;;
     --cf-overwrite-dns) CF_OVERWRITE_DNS=1 ;;
+    --cf-tunnel-name) need_value "$1" "${2:-}"; CF_TUNNEL_NAME="$2"; shift ;;
+    --cf-tunnel-name=*) CF_TUNNEL_NAME="${1#*=}" ;;
+    --cf-tunnel-existing) need_value "$1" "${2:-}"; CF_TUNNEL_EXISTING="$2"; shift ;;
+    --cf-tunnel-existing=*) CF_TUNNEL_EXISTING="${1#*=}" ;;
+    --replace-cloudflared) CF_REPLACE_CLOUDFLARED=1 ;;
     *) fail "Bilinmeyen secenek: $1 (yardim: --help)" ;;
   esac
   shift
@@ -145,6 +161,10 @@ esac
 case "$CF_HOST_MODE" in
   ""|apex|subdomain) : ;;
   *) fail "--cf-host-mode yalnizca 'apex' ya da 'subdomain' olabilir (verilen: $CF_HOST_MODE)" ;;
+esac
+case "$CF_TUNNEL_EXISTING" in
+  ""|fail|reuse|recreate) : ;;
+  *) fail "--cf-tunnel-existing yalnizca 'fail', 'reuse' ya da 'recreate' olabilir (verilen: $CF_TUNNEL_EXISTING)" ;;
 esac
 
 # curl | bash akisinda stdin script'in kendisi — soru soramayiz.
@@ -572,6 +592,9 @@ provision_cloudflare() {
   [[ -n "$CF_HOST_MODE" ]] && cmd+=(--cf-host-mode "$CF_HOST_MODE")
   [[ -n "$CF_PANEL_SUB" ]] && cmd+=(--cf-panel-subdomain "$CF_PANEL_SUB")
   [[ "$CF_OVERWRITE_DNS" -eq 1 ]] && cmd+=(--cf-overwrite-dns)
+  [[ -n "$CF_TUNNEL_NAME" ]] && cmd+=(--cf-tunnel-name "$CF_TUNNEL_NAME")
+  [[ -n "$CF_TUNNEL_EXISTING" ]] && cmd+=(--cf-tunnel-existing "$CF_TUNNEL_EXISTING")
+  [[ "$CF_REPLACE_CLOUDFLARED" -eq 1 ]] && cmd+=(--replace-cloudflared)
   [[ "$ASSUME_YES" -eq 1 ]] && cmd+=(--yes)
   ( cd "$SRC_DIR" && as_target env LYRA_HOME="$LYRA_HOME" "${cmd[@]}" ) || rc=$?
   return "$rc"

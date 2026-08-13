@@ -1173,6 +1173,9 @@
         if (!domain) return showError(2, "Domain gerekli");
 
         const sub = cfCheck && cfCheck.panelSub ? cfCheck.panelSub : "lyra";
+        // Tunnel adi kullanici degistirdiyse korunur; bos birakilirsa sunucu
+        // domain'den turetir ve cevapta geri gonderir.
+        const tunnelName = cfCheck && cfCheck.tunnelName ? cfCheck.tunnelName : null;
         box.innerHTML =
           '<div class="alert alert-info"><span class="alert-icon"><span class="spinner"></span></span><span>Cloudflare kontrol ediliyor…</span></div>';
 
@@ -1184,7 +1187,8 @@
               cfApiToken: token,
               domain,
               cfAccountId: accountId || null,
-              cfPanelSubdomain: sub
+              cfPanelSubdomain: sub,
+              cfTunnelName: tunnelName
             }
           });
         } catch (err) {
@@ -1223,7 +1227,15 @@
           checkedToken: token,
           checkedDomain: domain,
           checkedSub: sub,
-          overwrite: false
+          overwrite: false,
+          // Ad cakismasi ve mevcut cloudflared servisi: karar VERILMEDEN
+          // kuruluma gecilmez (tunnelExisting null = secilmedi).
+          tunnelName: r.tunnelName,
+          checkedTunnelName: r.tunnelName,
+          existingTunnel: r.existingTunnel || null,
+          cloudflaredService: r.cloudflaredService || { present: false },
+          tunnelExisting: null,
+          replaceCloudflared: false
         };
         renderCfPlan();
       }
@@ -1263,6 +1275,115 @@
           .toLowerCase();
         const stale = $("cf-stale");
         if (stale) stale.style.display = cfCheck.panelSub === cfCheck.checkedSub ? "none" : "";
+      }
+
+      function cfSetTunnelExisting(value) {
+        if (cfCheck) cfCheck.tunnelExisting = value;
+      }
+
+      function cfSetReplaceCloudflared(checked) {
+        if (cfCheck) cfCheck.replaceCloudflared = !!checked;
+      }
+
+      // Tunnel adi degisince yeniden cizmiyoruz (input odagi kaybolur); ad
+      // degistiyse cakisma bilgisi bayattir, tekrar kontrol istenir.
+      function cfTunnelNameChanged(value) {
+        if (!cfCheck) return;
+        cfCheck.tunnelName = String(value || "").trim();
+        const stale = $("cf-tunnel-stale");
+        if (stale) {
+          stale.style.display = cfCheck.tunnelName === cfCheck.checkedTunnelName ? "none" : "";
+        }
+      }
+
+      // Sunucuda zaten duran cloudflared servisi. Sessizce uzerine kurmak
+      // "cloudflared service install" komutunu patlatir ve kurulum yarida kalir.
+      function cfServiceBlock() {
+        const svc = cfCheck && cfCheck.cloudflaredService;
+        if (!svc || !svc.present) return "";
+        return `
+    <div class="alert alert-warning" style="margin-top:16px;">
+      <span class="alert-icon">⚠</span>
+      <span>
+        Bu sunucuda <strong>zaten bir cloudflared servisi var</strong>
+        (${svc.active ? "çalışıyor" : "durmuş"}${svc.tunnelId ? `, bağlı tunnel: <code>${esc(svc.tunnelId)}</code>` : ""}).
+        Üzerine kurmak kurulumu yarıda bırakır. Onaylarsan mevcut servis kaldırılıp
+        yeni token ile yeniden kurulur — o tunnel bu sunucudan kopar.
+      </span>
+    </div>
+    <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; margin-top:10px;">
+      <input type="checkbox" id="cf-replace-service" ${cfCheck.replaceCloudflared ? "checked" : ""}
+             onchange="cfSetReplaceCloudflared(this.checked)"
+             style="accent-color:var(--accent); width:18px; height:18px; margin-top:2px;">
+      <span>Mevcut cloudflared servisinin <strong>kaldırılıp yenisinin kurulmasını</strong> onaylıyorum.</span>
+    </label>`;
+      }
+
+      // Ayni ADDA tunnel. Kopya tunnel URETMIYORUZ (eskiden rastgele son ek
+      // ekleniyordu; gercek kullanimda hesapta ölü tunnel yığını bıraktı).
+      function cfTunnelBlock() {
+        if (!cfCheck) return "";
+        const t = cfCheck.existingTunnel;
+        const nameField = `
+    <div style="margin-top:12px; font-size:13px;">
+      Tunnel adı:
+      <input type="text" class="input" value="${esc(cfCheck.tunnelName)}"
+             oninput="cfTunnelNameChanged(this.value)"
+             style="display:inline-block; width:220px; padding:4px 8px; margin-left:4px;">
+    </div>
+    <div id="cf-tunnel-stale" class="alert alert-warning" style="display:none; margin-top:10px;">
+      <span class="alert-icon">⚠</span>
+      <span>Tunnel adı değişti. "Cloudflare'i Kontrol Et" ile tekrar doğrula.</span>
+    </div>`;
+
+        if (!t) {
+          return `
+    <div style="margin-top:16px; font-weight:600; font-size:14px;">Tunnel</div>
+    <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">
+      <code>${esc(cfCheck.tunnelName)}</code> adında bir tunnel yok — yenisi oluşturulacak.
+    </div>
+    ${nameField}`;
+        }
+
+        if (t.hasConnections) {
+          return `
+    <div class="alert alert-error" style="margin-top:16px;">
+      <span class="alert-icon">✗</span>
+      <span>
+        <strong>${esc(t.name)}</strong> adında bir tunnel zaten var ve <strong>aktif</strong>:
+        ${esc(String(t.connections))} bağlantı (durum: <code>${esc(t.status || "bilinmiyor")}</code>,
+        id: <code>${esc(t.id)}</code>).
+        Başka bir makinede çalışıyor olabilir — devralmak o sistemin erişimini keser, o yüzden
+        devralmıyoruz. Ya o makinedeki cloudflared'i durdur
+        (<code>sudo cloudflared service uninstall</code>), ya da aşağıdan farklı bir tunnel adı seç.
+      </span>
+    </div>
+    ${nameField}`;
+        }
+
+        const radio = (value, label) => `
+    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; margin-top:6px;">
+      <input type="radio" name="cf-tunnel-existing" value="${value}"
+             ${cfCheck.tunnelExisting === value ? "checked" : ""}
+             onchange="cfSetTunnelExisting('${value}')" style="accent-color:var(--accent);">
+      <span>${label}</span>
+    </label>`;
+
+        return `
+    <div class="alert alert-warning" style="margin-top:16px;">
+      <span class="alert-icon">⚠</span>
+      <span>
+        <strong>${esc(t.name)}</strong> adında bir tunnel zaten var
+        (id: <code>${esc(t.id)}</code>, aktif bağlantı yok — büyük ihtimalle yarıda kalmış bir
+        kurulumdan). Kopyasını oluşturmuyoruz; ne yapılacağını seç.
+      </span>
+    </div>
+    ${radio("reuse", "<strong>Devral</strong> — mevcut tunnel'ı yeniden yapılandır (önerilen)")}
+    ${radio("recreate", "<strong>Sil ve yeniden yarat</strong>")}
+    <div style="font-size:12px; color:var(--text-dim); margin-top:8px;">
+      Ya da farklı bir ad kullan:
+    </div>
+    ${nameField}`;
       }
 
       function renderCfPlan() {
@@ -1366,6 +1487,8 @@
     </div>
     ${rows}
     ${conflictBlock}
+    ${cfTunnelBlock()}
+    ${cfServiceBlock()}
   `;
       }
 
@@ -1498,13 +1621,44 @@
               "Mevcut DNS kayıtlarının üzerine yazılmasını onaylamalısın ya da farklı bir panel adresi seçmelisin"
             );
           }
+          // Ad cakismasi / mevcut cloudflared servisi: kurulum BASLAMADAN
+          // cozulur, boylece hesapta yarim kaynak birakmayiz.
+          if (cfCheck.tunnelName !== cfCheck.checkedTunnelName) {
+            return showError(
+              2,
+              'Tunnel adı doğrulamadan sonra değişti — "Cloudflare\'i Kontrol Et" ile tekrar doğrula'
+            );
+          }
+          const svc = cfCheck.cloudflaredService;
+          if (svc && svc.present && !cfCheck.replaceCloudflared) {
+            return showError(
+              2,
+              "Bu sunucuda zaten bir cloudflared servisi var. Kaldırılıp yenisinin kurulmasını onayla ya da sunucuda önce kaldır: sudo cloudflared service uninstall"
+            );
+          }
+          const existingTunnel = cfCheck.existingTunnel;
+          if (existingTunnel && existingTunnel.hasConnections) {
+            return showError(
+              2,
+              `"${existingTunnel.name}" tunnel'ı aktif (${existingTunnel.connections} bağlantı) — devralmıyoruz. Farklı bir tunnel adı seçip tekrar doğrula.`
+            );
+          }
+          if (existingTunnel && !cfCheck.tunnelExisting) {
+            return showError(
+              2,
+              `"${existingTunnel.name}" adında bir tunnel zaten var — devralınsın mı, silinip yeniden mi yaratılsın, seçmelisin.`
+            );
+          }
           wizard.conn = {
             cfApiToken: cfCheck.checkedToken,
             domain: cfCheck.zone.name,
             cfAccountId: cfCheck.account.id,
             cfHostMode: cfCheck.hostMode,
             cfPanelSubdomain: cfCheck.panelSub,
-            cfOverwriteDns: !!cfCheck.overwrite
+            cfOverwriteDns: !!cfCheck.overwrite,
+            cfTunnelName: cfCheck.checkedTunnelName,
+            cfTunnelExisting: cfCheck.tunnelExisting || "fail",
+            cfReplaceCloudflared: !!cfCheck.replaceCloudflared
           };
           goStep(3);
         } else if (m === "cf-tunnel") {
@@ -1848,6 +2002,29 @@
   `;
       }
 
+      // Yarida kalan Cloudflare zinciri geride ne biraktiysa acikca yaz.
+      // Otomatik geri alma YAPMIYORUZ: kullanicinin hesabindaki kaynaklari
+      // silmek riskli. Ne olustugunu ve nereden temizlenecegini soyluyoruz.
+      function renderLeftovers(leftovers) {
+        if (!leftovers || !leftovers.items || !leftovers.items.length) return "";
+        const items = leftovers.items.map((i) => esc(i)).join("\n");
+        const hints = (leftovers.hints || []).map((h) => esc(h)).join("\n");
+        return `
+    <div class="alert alert-warning" style="margin-bottom:10px;">
+      <span class="alert-icon">⚠</span>
+      <span>Kurulum yarıda kaldı. Cloudflare hesabında / sunucuda şu kaynaklar oluştu:
+        <div class="code-block" style="margin-top:8px;">${items}</div>
+        ${
+          hints
+            ? `Tekrar denemeden önce temizlemek istersen:
+        <div class="code-block" style="margin-top:8px;">${hints}</div>`
+            : ""
+        }
+        Lyra bunları <strong>otomatik silmiyor</strong> — kararı sana bırakıyoruz.
+      </span>
+    </div>`;
+      }
+
       function showFailed(data) {
         const failed = (data.steps || []).filter((s) => s.status === "failed");
         $("step-6-icon").textContent = "⚠";
@@ -1862,6 +2039,7 @@
         const hint = $("step-6-hint");
         hint.style.display = "";
         hint.innerHTML = `
+    ${renderLeftovers(data.leftovers)}
     <div class="alert alert-warning">
       <span class="alert-icon">⚠</span>
       <span>Kurulum modu <strong>açık bırakıldı</strong>, sunucuda hiçbir şey yarım kalmadı.
