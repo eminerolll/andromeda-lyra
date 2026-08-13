@@ -38,7 +38,15 @@ describe("lyra komutu", () => {
   it("--help tum alt komutlari listeler", () => {
     const r = runNode("../bin/lyra.js", ["--help"]);
     expect(r.status).toBe(0);
-    for (const cmd of ["status", "update", "logs", "reset-admin", "connect", "uninstall"]) {
+    for (const cmd of [
+      "status",
+      "update",
+      "logs",
+      "reset-admin",
+      "connect",
+      "uninstall",
+      "install-service"
+    ]) {
       expect(r.stdout).toContain(cmd);
     }
     // Git'siz kurulum icin cikis kapisi yardimda gorunmeli.
@@ -65,6 +73,39 @@ describe("lyra komutu", () => {
       expect(r.stderr).toMatch(/root/i);
       expect(r.stderr).toMatch(new RegExp(`sudo lyra ${cmd}`));
     }
+  });
+
+  // Kurulum sonrasi servis kurma yolu. Sihirbaz bitince setup-mode drop-in'i
+  // silinir ve lyra.service yeniden ProtectSystem=full altina girer; panelden
+  // paket kurulamaz. Bu komut sandbox'in DISINDA calisan cikis kapisidir.
+  describe("install-service", () => {
+    it("--list root istemez, kurulabilirleri sebepleriyle listeler", () => {
+      const r = runNode("../bin/lyra.js", ["install-service", "--list"]);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain("code-server");
+      expect(r.stdout).toContain("filebrowser");
+      expect(r.stdout).toMatch(/sudo lyra install-service/);
+    });
+
+    it("argumansiz cagirinca listeyi basar ama basarili sayilmaz", () => {
+      const r = runNode("../bin/lyra.js", ["install-service"]);
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("code-server");
+    });
+
+    it("kurulumu root olmadan reddeder", () => {
+      if (typeof process.getuid === "function" && process.getuid() === 0) return;
+      const r = runNode("../bin/lyra.js", ["install-service", "code-server"]);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/root/i);
+      expect(r.stderr).toMatch(/sudo lyra install-service code-server/);
+    });
+
+    it("bilinmeyen servis tipini reddeder", () => {
+      const r = runNode("../bin/lyra.js", ["install-service", "uzay-servisi"]);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/Bilinmeyen servis/);
+    });
   });
 
   it("update --skip-pull bilinmeyen secenegi reddeder", () => {

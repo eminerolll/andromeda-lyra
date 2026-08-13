@@ -3,6 +3,7 @@
 
 const httpProxy = require("http-proxy");
 const config = require("./config");
+const pathProxy = require("./path-proxy");
 const { services } = require("../db/repos");
 
 const proxy = httpProxy.createProxyServer({ ws: true, changeOrigin: true });
@@ -11,6 +12,9 @@ proxy.on("error", (err, req, res) => {
   if (res && res.writeHead) res.writeHead(502, { "Content-Type": "text/plain" });
   if (res && res.end) res.end("Proxy hata: " + (err.message || "bilinmeyen"));
 });
+
+// parseHostname tipi -> services tablosundaki tip
+const HOST_TYPE_TO_SERVICE = { code: "code-server", files: "filebrowser", db: "dbgate" };
 
 // Host'a gore hedef port bul.
 // Onerilen siralama: services tablosundaki subdomain eslesmesi -> dev-{port} pattern
@@ -23,9 +27,8 @@ function findTargetPort(host) {
   if (parsed && parsed.type === "dev") return parsed.port;
 
   // type bazli (code/files/db) — services tablosundan ilk enabled olanin port'u
-  if (parsed && (parsed.type === "code" || parsed.type === "files" || parsed.type === "db")) {
-    const typeMap = { code: "code-server", files: "filebrowser", db: "dbgate" };
-    const list = services.getByType(typeMap[parsed.type]);
+  if (parsed && HOST_TYPE_TO_SERVICE[parsed.type]) {
+    const list = services.getByType(HOST_TYPE_TO_SERVICE[parsed.type]);
     const enabled = list.find((s) => s.enabled && s.port);
     if (enabled) return enabled.port;
   }
@@ -42,6 +45,23 @@ function findTargetPort(host) {
   }
 
   return null;
+}
+
+// Host bilinen bir servis subdomain'ine (code./files./db.) ait mi?
+// Ait ama servis kayitli degilse findTargetPort null doner ve istek dashboard'a
+// duserdi — kullanici "IDE'yi ac" deyip sessizce ana ekrana geri gelirdi.
+// Donen tanim path-tabanli katmanin route tanimidir: 503 metni orada
+// (path-proxy SERVICE_ROUTES + resolvePort) tek yerde uretilir, burada
+// kopyalanmaz. prefix bos birakilir; host-tabanli istekte URL'in soyulacak
+// bir on eki yok, boylece servis kayitliysa forward da bozulmaz.
+function serviceHostRoute(host) {
+  if (!host) return null;
+  const parsed = config.parseHostname(host.split(":")[0]);
+  if (!parsed) return null;
+  const type = HOST_TYPE_TO_SERVICE[parsed.type];
+  if (!type) return null;
+  const route = pathProxy.SERVICE_ROUTES.find((r) => r.type === type);
+  return route ? { kind: "service", ...route, prefix: "" } : null;
 }
 
 function isPublicBypassPath(host, url) {
@@ -68,4 +88,11 @@ function forwardWs(req, socket, head, port) {
   proxy.ws(req, socket, head, { target: "http://127.0.0.1:" + port });
 }
 
-module.exports = { findTargetPort, isPublicBypassPath, forwardWeb, forwardWs, proxy };
+module.exports = {
+  findTargetPort,
+  serviceHostRoute,
+  isPublicBypassPath,
+  forwardWeb,
+  forwardWs,
+  proxy
+};

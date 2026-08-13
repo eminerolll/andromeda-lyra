@@ -39,9 +39,11 @@ Script sırasıyla:
    yazar — bu adım kurulum sihirbazından önce gelir, bilinçli sıralama.
 8. **Erişim yöntemi.** Bulut metadata servisini (`169.254.169.254`) kısa
    bir timeout'la yoklar, sonra üç seçenekli menüyü gösterir (aşağıda).
-9. Seçime göre: kurulum modu drop-in'i + **geçici** sudoers dosyası
-   (`/etc/sudoers.d/lyra-setup`) + gerekiyorsa UFW'de sihirbaz portu +
-   `systemctl enable --now lyra`, ya da doğrudan terminal sihirbazı.
+9. Seçime göre: kurulum modu drop-in'i (`LYRA_SETUP_MODE=1` +
+   `ProtectSystem=off`; bkz. [Sandbox](#sandbox-neden-kurulum-modu-dropini-gerekli))
+   + **geçici** sudoers dosyası (`/etc/sudoers.d/lyra-setup`) + gerekiyorsa
+   UFW'de sihirbaz portu + `systemctl enable --now lyra`, ya da doğrudan
+   terminal sihirbazı.
 10. Kurulum token'i üretir, adresi ve token'ı ekrana basar.
 
 Kurulum daha önce tamamlanmışsa (yönetici hesabı zaten var), script
@@ -192,6 +194,49 @@ loopback'te doğrudur.
 Yapılandırmaları üreten fonksiyonlar saf ve test altındadır
 (`test/service-installer.test.js` → "loopback degismezi"): `0.0.0.0`
 içeren bir direktif üretilirse test kırılır.
+
+#### Sandbox: neden kurulum modu drop-in'i gerekli
+
+Bu servisler `/usr` ve `/usr/local` altına yazar (`code-server` `.deb`,
+`filebrowser` binary'si `/usr/local/bin`'e, `mongod` apt paketi). Lyra'nın
+systemd unit'inde `ProtectSystem=full` var: systemd `/usr`, `/boot` ve
+`/etc`'yi bu servis için salt-okunur **mount** eder. Kurulum Lyra'nın process
+ağacında çalıştığı için o mount namespace'ini miras alır — bu bir izin
+sorunu **değil**, `sudo` da kurtarmaz:
+
+```
+dpkg: unable to create '/usr/bin/code-server.dpkg-new': Read-only file system
+install: cannot create regular file '/usr/local/bin/filebrowser': Read-only file system
+```
+
+Bu yüzden `install.sh`'in yazdığı geçici drop-in
+(`lyra.service.d/setup-mode.conf`) her iki erişim yönteminde de
+`ProtectSystem=off` taşır. Yol yol `ReadWritePaths` açmak yerine bu seçildi:
+`dpkg`'nin yazma kümesi açık uçlu ve üçüncü parti kurucular her sürümde yeni
+yol ekleyebilir; liste kaçınılmaz olarak eksik kalır. Gevşeme yalnızca
+kurulum fazındadır — drop-in sihirbaz bitince silinir.
+
+Değişmez `test/scripts.test.js` ile kilitli: drop-in yazan her dal `/usr`
+yazma iznini vermeli, normal-mode unit'i ise `ProtectSystem=full` kalmalı.
+
+#### Kurulum sonrası servis eklemek
+
+Kurulum bittikten sonra sandbox tekrar devrededir, yani **panelden** servis
+kurulamaz. Kurulum, Lyra'nın process ağacının dışında ayrı bir root process
+olarak yapılır:
+
+```bash
+lyra install-service --list              # kurulabilirler + kurulamama sebepleri
+sudo lyra install-service code-server
+sudo lyra install-service filebrowser
+lyra status                              # "Kayitli servisler" altında görünür
+```
+
+Komut aynı `lib/service-installer.js`'i çağırır (loopback değişmezi korunur),
+başarılı kurulumu `services` tablosuna kendisi yazar ve `~/.config` altına
+root olarak yazdığı dosyaların sahipliğini servis kullanıcısına devreder.
+Kurulum yine "Read-only file system" derse `lyra.service` üzerinden
+çalışıyorsun demektir — komutu doğrudan kabuktan `sudo` ile çalıştır.
 
 ## 3. Erişim katmanları
 

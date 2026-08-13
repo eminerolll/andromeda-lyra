@@ -252,6 +252,135 @@ describe("service-installer — katalog ve host bilgisi", () => {
   });
 });
 
+// Gercek olay: kullanici sihirbazda code-server'i sectí, kurulum patladi ve
+// resmi install.sh'in icindeki curl'un ilerleme cubugu (binlerce "\r" ile
+// yeniden yazilan satir) oldugu gibi ekrana basildi. Sayfa 12.660 piksele
+// cikti, GERCEK hata gurultunun icinde kayboldu. Bu blok o davranisi kilitler.
+describe("service-installer — komut ciktisi ozeti (summarizeOutput)", () => {
+  // "#=#=# 1.5% # 1.8% ..." — tek satir, binlerce "\r".
+  function curlProgressNoise(chunks = 4000) {
+    let s = "";
+    for (let i = 0; i < chunks; i++) {
+      s += `#=#=# ${(i / 40).toFixed(1)}% ${"#".repeat((i % 60) + 1)}\r`;
+    }
+    return s;
+  }
+
+  it("ilerleme cubugunu atar, gercek hatayi birakir", () => {
+    const raw =
+      curlProgressNoise() +
+      "\ndpkg: error processing archive code-server.deb (--install):\n" +
+      " cannot access archive: No such file or directory\n" +
+      "E: Sub-process /usr/bin/dpkg returned an error code (1)\n";
+
+    const out = installer.summarizeOutput(raw);
+
+    expect(raw.length).toBeGreaterThan(100000);
+    expect(out).toContain("E: Sub-process /usr/bin/dpkg returned an error code (1)");
+    expect(out).toContain("cannot access archive");
+    expect(out).not.toContain("#=#=#");
+    expect(out.length).toBeLessThan(500);
+  });
+
+  it("bir satirda birden fazla \\r varsa yalnizca son parca kalir", () => {
+    // Terminalde gorunen sey budur: cubuk satiri ustune yazar.
+    const out = installer.summarizeOutput("indiriliyor 1%\rindiriliyor 50%\rBaglanti kesildi");
+    expect(out).toBe("Baglanti kesildi");
+  });
+
+  it("son 20 anlamli satiri tutar ve kirptigini soyler", () => {
+    const lines = [];
+    for (let i = 1; i <= 50; i++) lines.push(`satir ${i}: hata`);
+    const out = installer.summarizeOutput(lines.join("\n"));
+
+    expect(out).toContain(installer.SUMMARY_TRUNCATED_HINT);
+    expect(out).toContain("satir 50: hata");
+    expect(out).toContain("satir 31: hata");
+    expect(out).not.toContain("satir 30: hata");
+    // Ipucu + 20 satir.
+    expect(out.split("\n")).toHaveLength(installer.SUMMARY_MAX_LINES + 1);
+  });
+
+  it("tek satir da olsa toplam uzunlugu sinirlar", () => {
+    const out = installer.summarizeOutput("x".repeat(9000));
+    expect(out).toContain(installer.SUMMARY_TRUNCATED_HINT);
+    expect(out.length).toBeLessThanOrEqual(
+      installer.SUMMARY_MAX_CHARS + installer.SUMMARY_TRUNCATED_HINT.length + 1
+    );
+  });
+
+  it("kirpma olmayan kisa mesaji oldugu gibi birakir", () => {
+    const msg = "sudo: a password is required";
+    expect(installer.summarizeOutput(msg)).toBe(msg);
+    expect(installer.summarizeOutput(msg)).not.toContain(installer.SUMMARY_TRUNCATED_HINT);
+  });
+
+  it("renk kacis dizilerini temizler", () => {
+    const esc = String.fromCharCode(27);
+    const out = installer.summarizeOutput(`${esc}[31mkurulum basarisiz${esc}[0m`);
+    expect(out).toBe("kurulum basarisiz");
+  });
+
+  it("yalnizca gurultuden olusan ciktida bos doner (cagiran yer err.message'a duser)", () => {
+    expect(installer.summarizeOutput(curlProgressNoise(200))).toBe("");
+    expect(installer.summarizeOutput("")).toBe("");
+    expect(installer.summarizeOutput(null)).toBe("");
+    expect(installer.summarizeOutput(undefined)).toBe("");
+  });
+});
+
+// Gercek olay: Oracle Cloud sunucusunda code-server ve filebrowser kurulumu
+// "Read-only file system" ile coktu. Kullaniciya ham dpkg ciktisi gitti ve
+// mimari/disk/RAM sorunu gibi okundu; asil sebep lyra.service'in systemd
+// sandbox'iydi (ProtectSystem=full). Hata mesaji bunu SOYLEMELI.
+describe("service-installer — salt-okunur dosya sistemi teshisi", () => {
+  it("dpkg 'Read-only file system' ciktisini tanir", () => {
+    const raw =
+      "dpkg: error processing archive /root/.cache/code-server/code-server_4.132.0_amd64.deb (--install):\n" +
+      " unable to create '/usr/bin/code-server.dpkg-new' (while processing './usr/bin/code-server'):\n" +
+      "   Read-only file system\n";
+    expect(installer.readOnlyFsHint(raw)).toBe(installer.READONLY_FS_HINT);
+  });
+
+  it("install(1) ve Node EROFS bicimlerini de tanir", () => {
+    expect(
+      installer.readOnlyFsHint(
+        "install: cannot create regular file '/usr/local/bin/filebrowser': Read-only file system"
+      )
+    ).toBe(installer.READONLY_FS_HINT);
+    expect(installer.readOnlyFsHint("EROFS: read-only file system, open '/usr/local/bin/x'")).toBe(
+      installer.READONLY_FS_HINT
+    );
+  });
+
+  it("ilgisiz hatalara aciklama eklemez", () => {
+    expect(installer.readOnlyFsHint("E: Unable to locate package code-server")).toBe("");
+    expect(installer.readOnlyFsHint("")).toBe("");
+    expect(installer.readOnlyFsHint(null)).toBe("");
+    expect(installer.readOnlyFsHint(undefined)).toBe("");
+  });
+
+  // Aciklama EYLEME DONUK olmali: kullanici ne yapacagini bilmeli.
+  it("aciklama sebebi, eksik drop-in'i ve cikis yolunu gosterir", () => {
+    expect(installer.READONLY_FS_HINT).toContain("systemd sandbox");
+    expect(installer.READONLY_FS_HINT).toContain(installer.READONLY_FS_DROPIN);
+    expect(installer.READONLY_FS_DROPIN).toBe("/etc/systemd/system/lyra.service.d/setup-mode.conf");
+    expect(installer.READONLY_FS_HINT).toContain("lyra install-service");
+  });
+
+  // Ham dpkg ciktisi 20 satiri asabilir; ozet kirpsa bile sebep kaybolmamali.
+  it("uzun ciktida ozet kirpsa da sebep ham metinden tespit edilir", () => {
+    const lines = [];
+    for (let i = 1; i <= 40; i++) lines.push(`Preparing to unpack paket-${i} ...`);
+    lines.push("   Read-only file system");
+    for (let i = 1; i <= 40; i++) lines.push(`Errors were encountered ${i}`);
+    const raw = lines.join("\n");
+
+    expect(installer.summarizeOutput(raw)).not.toContain("Read-only file system");
+    expect(installer.readOnlyFsHint(raw)).toBe(installer.READONLY_FS_HINT);
+  });
+});
+
 describe("service-installer — os-release ayristirma", () => {
   it("tirnakli degerleri temizler", () => {
     // Gercek dosyayi okur; en azindan ayristirmanin patlamadigini dogrula.

@@ -815,10 +815,15 @@ function createProgress({ onUpdate } = {}) {
       notify(step);
       return true;
     } catch (err) {
+      // Hata metni ucuncu parti kurulum scriptlerinin ham ciktisini tasiyabilir
+      // (curl ilerleme cubugu = on binlerce byte). Kullaniciya OZET gider;
+      // ham hali journal'a yazilir, "lyra logs" ile okunur.
+      const raw = err && err.message ? err.message : String(err);
       step.status = "failed";
-      step.error = err && err.message ? err.message : String(err);
+      step.error =
+        installer.summarizeOutput(raw) || "Komut basarisiz oldu (ayrinti icin: lyra logs)";
       notify(step);
-      console.error(`[setup-post] ${key} basarisiz: ${step.error}`);
+      console.error(`[setup-post] ${key} basarisiz: ${raw}`);
       return false;
     }
   };

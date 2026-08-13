@@ -33,10 +33,94 @@ const LOOPBACK = "127.0.0.1";
 // (armv7, riscv64, ...) hicbir servis kurulmaz: dogrulanmis paketimiz yok.
 const ARCH_ALIASES = { x64: "amd64", arm64: "arm64" };
 
+// ─────────────────────── Komut ciktisi -> hata mesaji ───────────────────────
+//
+// Ucuncu parti kurulum scriptleri (ornek: code-server'in resmi install.sh'i)
+// curl'u kendi cagirir ve ilerleme cubugunu acik birakir. O cubuk "\r" ile
+// AYNI satiri binlerce kez yeniden yazar; stderr'i oldugu gibi kullaniciya
+// basmak sayfayi on binlerce piksel uzatir ve GERCEK hatayi gurultunun
+// icinde kaybeder.
+//
+// Bu fonksiyon YALNIZCA KULLANICIYA GOSTERILEN metni uretir. Ham stdout/stderr
+// onLog ile journal'a yazilir; kullanici "lyra logs" ile tamamina ulasir.
+const SUMMARY_MAX_LINES = 20;
+const SUMMARY_MAX_CHARS = 2000;
+const SUMMARY_TRUNCATED_HINT = "… (kirpildi — ciktinin tamami icin: lyra logs)";
+
+// Renk/imlec kacis dizileri: ilerleme cubugu bunlari da uretir.
+// ESC karakteri String.fromCharCode ile geliyor: regex literalinde kontrol
+// karakteri lint hatasi olur (no-control-regex).
+const ANSI_ESCAPE = new RegExp(String.fromCharCode(27) + "\\[[0-9;?]*[ -/]*[@-~]", "g");
+// Yalnizca ilerleme cubugu karakterlerinden olusan satir: "#=#=# 1.5% ## 3.0%".
+// Icinde tek bir harf bile yoksa tasidigi bilgi yok.
+const PROGRESS_ONLY = /^[#=\s%.\d:-]*$/;
+
+function summarizeOutput(raw, { maxLines = SUMMARY_MAX_LINES, maxChars = SUMMARY_MAX_CHARS } = {}) {
+  const text = String(raw === undefined || raw === null ? "" : raw);
+  if (!text) return "";
+
+  const lines = [];
+  for (const chunk of text.split("\n")) {
+    // Terminalde gorunen sey son "\r" parcasidir: cubuk satiri ustune yazar,
+    // biz de yalnizca son halini aliriz.
+    const visible = chunk
+      .slice(chunk.lastIndexOf("\r") + 1)
+      .replace(ANSI_ESCAPE, "")
+      .trimEnd();
+    if (!visible.trim()) continue;
+    if (PROGRESS_ONLY.test(visible)) continue;
+    lines.push(visible);
+  }
+  if (!lines.length) return "";
+
+  // Sebep genelde SONDA olur: bastan degil sondan kesiyoruz.
+  let truncated = lines.length > maxLines;
+  let out = lines.slice(-maxLines).join("\n");
+  if (out.length > maxChars) {
+    out = out.slice(out.length - maxChars);
+    // Yarim kalan ilk satiri at — ama yalnizca kisaysa; aksi halde kesilen
+    // parca butun ozetten daha uzun olurdu.
+    const nl = out.indexOf("\n");
+    if (nl > -1 && nl < 200) out = out.slice(nl + 1);
+    truncated = true;
+  }
+  return truncated ? `${SUMMARY_TRUNCATED_HINT}\n${out}` : out;
+}
+
+// ────────────────── "Read-only file system" -> anlasilir sebep ──────────────────
+//
+// Lyra'nin systemd unit'inde ProtectSystem=full var: /usr, /boot ve /etc bu
+// servis icin salt-okunur MOUNT edilir. Buradaki kurulumlar Lyra'nin process
+// agacinda calisir ve o mount namespace'ini miras alir — sudo bile kurtarmaz.
+// Sonuc ham cikti olarak dpkg'den "Read-only file system" seklinde gelir ve
+// kullaniciya mimari/disk/RAM sorunu gibi gorunur.
+//
+// Kurulum fazinda bu kisit install.sh'in yazdigi gecici drop-in ile
+// (ProtectSystem=off) kaldirilir. Bu mesaji goruyorsan drop-in ya hic
+// yazilmamis ya da erken silinmistir.
+const READONLY_FS_DROPIN = "/etc/systemd/system/lyra.service.d/setup-mode.conf";
+const READONLY_FS_HINT = [
+  "Sistem dizinleri salt-okunur (systemd sandbox: ProtectSystem).",
+  `Kurulum modu drop-in'i eksik ya da kaldirilmis olabilir: ${READONLY_FS_DROPIN}`,
+  "Kurulum tamamlandiysa servisi sunucuda dogrudan kur: sudo lyra install-service <servis>"
+].join("\n");
+const READONLY_FS_PATTERN = /read-only file system/i;
+
+// Ham cikti bir mount kisitina mi isaret ediyor? Evetse eklenecek aciklama,
+// degilse bos string.
+function readOnlyFsHint(raw) {
+  return READONLY_FS_PATTERN.test(String(raw === undefined || raw === null ? "" : raw))
+    ? READONLY_FS_HINT
+    : "";
+}
+
 // ─────────────────────────── Kabuk yardimcilari ───────────────────────────
 
 // execFile + arguman dizisi. Exception sizdirmaz; { ok, out, error } doner.
-function run(file, args, { timeout = 600000, env } = {}) {
+//
+// onLog verilirse hata halinde HAM cikti log'a (journal'a) gider; donen
+// "error" alani ise her zaman ozetlenmis, sinirli uzunluktaki metindir.
+function run(file, args, { timeout = 600000, env, onLog } = {}) {
   return new Promise((resolve) => {
     execFile(
       file,
@@ -45,8 +129,18 @@ function run(file, args, { timeout = 600000, env } = {}) {
       (err, stdout, stderr) => {
         const out = (stdout || "").toString();
         if (err) {
-          const msg = (stderr || "").toString().trim() || err.message;
-          return resolve({ ok: false, out, error: msg });
+          const rawErr = (stderr || "").toString();
+          if (onLog) {
+            onLog(
+              `Komut basarisiz: ${file} ${args.join(" ")}\n` +
+                `--- stderr (ham) ---\n${rawErr}\n--- stdout (ham) ---\n${out}`
+            );
+          }
+          const msg = summarizeOutput(rawErr) || summarizeOutput(out) || err.message;
+          // Aciklama HAM ciktidan tespit edilir: ozet kirpilmis olsa bile
+          // sebep kaybolmasin.
+          const hint = readOnlyFsHint(`${rawErr}\n${out}`);
+          return resolve({ ok: false, out, error: hint ? `${msg}\n\n${hint}` : msg });
         }
         resolve({ ok: true, out });
       }
@@ -84,11 +178,11 @@ function rmQuiet(p) {
 
 // Icerigi once tmp'e yaz, sonra "sudo install" ile hedefe koy (caddy.js ile
 // ayni desen: hedef yol da icerik de shell'e ugramaz).
-async function sudoInstallFile(content, target, mode = "644") {
+async function sudoInstallFile(content, target, { mode = "644", onLog } = {}) {
   const tmp = tmpFile("file");
   try {
     fs.writeFileSync(tmp, content, { mode: 0o600 });
-    const r = await sudo(["install", "-m", mode, tmp, target], { timeout: 30000 });
+    const r = await sudo(["install", "-m", mode, tmp, target], { timeout: 30000, onLog });
     if (!r.ok) return { ok: false, error: `${target} yazilamadi: ${r.error}` };
     return { ok: true };
   } catch (err) {
@@ -96,6 +190,21 @@ async function sudoInstallFile(content, target, mode = "644") {
   } finally {
     rmQuiet(tmp);
   }
+}
+
+// Home altina yazdigimiz dosyalarin sahibini hedef kullaniciya cevir.
+//
+// Sihirbaz Lyra'nin kendi kullanicisi olarak calisirken gerekmez. Ama kurulum
+// sonrasi yol ("sudo lyra install-service") ROOT olarak calisir: o zaman
+// ~/.config/code-server/config.yaml 0600 root:root olur ve code-server@<user>
+// unit'i kendi yapilandirmasini okuyamaz. Sessiz kalmiyoruz — hata donuyoruz.
+async function chownToUser(target, user, { onLog } = {}) {
+  if (!process.getuid || process.getuid() !== 0) return { ok: true };
+  if (!user || user === "root") return { ok: true };
+  // "user:" = kullanicinin login grubu. Grup adini ayrica cozmemize gerek yok.
+  const r = await run("chown", ["-R", `${user}:`, target], { timeout: 30000, onLog });
+  if (!r.ok) return { ok: false, error: `${target} sahipligi ${user} yapilamadi: ${r.error}` };
+  return { ok: true };
 }
 
 function osRelease() {
@@ -290,14 +399,18 @@ async function installCodeServer({ onLog, user, home, port }) {
     const script = tmpFile("code-server-install", ".sh");
     log("code-server resmi kurulum scripti indiriliyor...");
     const dl = await run("curl", ["-fsSL", "-o", script, CODE_SERVER_INSTALL_URL], {
-      timeout: 120000
+      timeout: 120000,
+      onLog: log
     });
     if (!dl.ok) {
       rmQuiet(script);
       return { ok: false, error: `Kurulum scripti indirilemedi: ${dl.error}` };
     }
     log("code-server kuruluyor (resmi .deb)...");
-    const r = await sudo(["sh", script]);
+    // Bu script curl'u KENDI cagirir ve ilerleme cubugunu kapatmaz; ciktisi
+    // on binlerce byte'lik gurultu olabilir. run() ham halini log'a yazar,
+    // error alanina yalnizca ozet koyar (bkz. summarizeOutput).
+    const r = await sudo(["sh", script], { onLog: log });
     rmQuiet(script);
     if (!r.ok) return { ok: false, error: `Kurulum basarisiz: ${r.error}` };
   }
@@ -312,9 +425,11 @@ async function installCodeServer({ onLog, user, home, port }) {
   } catch (err) {
     return { ok: false, error: `config.yaml yazilamadi (${file}): ${err.message}` };
   }
+  const owned = await chownToUser(dir, user, { onLog: log });
+  if (!owned.ok) return owned;
   log(`Yapilandirma: ${file} (bind ${LOOPBACK}:${port}, auth none)`);
 
-  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 120000 });
+  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 120000, onLog: log });
   if (!en.ok) return { ok: false, error: `${unit} baslatilamadi: ${en.error}` };
   return { ok: true, unit_name: unit, port };
 }
@@ -331,7 +446,8 @@ async function installFilebrowser({ onLog, user, home, port, arch }) {
     const dir = tmpFile("filebrowser-x");
     log(`filebrowser indiriliyor (linux-${arch})...`);
     const dl = await run("curl", ["-fsSL", "-o", tarball, FILEBROWSER_RELEASE(arch)], {
-      timeout: 180000
+      timeout: 180000,
+      onLog: log
     });
     if (!dl.ok) {
       rmQuiet(tarball);
@@ -343,14 +459,18 @@ async function installFilebrowser({ onLog, user, home, port, arch }) {
       rmQuiet(tarball);
       return { ok: false, error: `Gecici dizin olusturulamadi: ${err.message}` };
     }
-    const untar = await run("tar", ["-xzf", tarball, "-C", dir, "filebrowser"], { timeout: 60000 });
+    const untar = await run("tar", ["-xzf", tarball, "-C", dir, "filebrowser"], {
+      timeout: 60000,
+      onLog: log
+    });
     rmQuiet(tarball);
     if (!untar.ok) {
       rmQuiet(dir);
       return { ok: false, error: `Arsiv acilamadi: ${untar.error}` };
     }
     const inst = await sudo(["install", "-m", "755", path.join(dir, "filebrowser"), binary], {
-      timeout: 30000
+      timeout: 30000,
+      onLog: log
     });
     rmQuiet(dir);
     if (!inst.ok) return { ok: false, error: `Binary kurulamadi: ${inst.error}` };
@@ -363,17 +483,20 @@ async function installFilebrowser({ onLog, user, home, port, arch }) {
   } catch (err) {
     return { ok: false, error: `Veri dizini olusturulamadi (${dataDir}): ${err.message}` };
   }
+  const owned = await chownToUser(dataDir, user, { onLog: log });
+  if (!owned.ok) return owned;
 
   const written = await sudoInstallFile(
     buildFilebrowserUnit({ user, port, root: home, database, binary }),
-    `/etc/systemd/system/${unit}.service`
+    `/etc/systemd/system/${unit}.service`,
+    { onLog: log }
   );
   if (!written.ok) return written;
   log(`systemd unit yazildi: ${unit}.service (bind ${LOOPBACK}:${port}, auth kapali)`);
 
-  const reload = await sudo(["systemctl", "daemon-reload"], { timeout: 60000 });
+  const reload = await sudo(["systemctl", "daemon-reload"], { timeout: 60000, onLog: log });
   if (!reload.ok) return { ok: false, error: `daemon-reload basarisiz: ${reload.error}` };
-  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 120000 });
+  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 120000, onLog: log });
   if (!en.ok) return { ok: false, error: `${unit} baslatilamadi: ${en.error}` };
   return { ok: true, unit_name: unit, port };
 }
@@ -385,7 +508,7 @@ async function installDbgate({ onLog, port }) {
   if (!docker) return { ok: false, error: REQUIREMENTS.docker.reason };
 
   log(`${DBGATE_IMAGE} imaji cekiliyor...`);
-  const pull = await sudo([docker, "pull", DBGATE_IMAGE]);
+  const pull = await sudo([docker, "pull", DBGATE_IMAGE], { onLog: log });
   if (!pull.ok) return { ok: false, error: `Imaj cekilemedi: ${pull.error}` };
 
   const written = await sudoInstallFile(
@@ -396,14 +519,15 @@ async function installDbgate({ onLog, port }) {
       volume: DBGATE_VOLUME,
       docker
     }),
-    `/etc/systemd/system/${unit}.service`
+    `/etc/systemd/system/${unit}.service`,
+    { onLog: log }
   );
   if (!written.ok) return written;
   log(`systemd unit yazildi: ${unit}.service (publish ${LOOPBACK}:${port})`);
 
-  const reload = await sudo(["systemctl", "daemon-reload"], { timeout: 60000 });
+  const reload = await sudo(["systemctl", "daemon-reload"], { timeout: 60000, onLog: log });
   if (!reload.ok) return { ok: false, error: `daemon-reload basarisiz: ${reload.error}` };
-  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 180000 });
+  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 180000, onLog: log });
   if (!en.ok) return { ok: false, error: `${unit} baslatilamadi: ${en.error}` };
   return { ok: true, unit_name: unit, port };
 }
@@ -419,34 +543,34 @@ async function installMongod({ onLog, port }) {
   } else {
     const key = tmpFile("mongodb-key", ".asc");
     log("MongoDB imza anahtari indiriliyor...");
-    const dl = await run("curl", ["-fsSL", "-o", key, MONGO_KEY_URL], { timeout: 120000 });
+    const dl = await run("curl", ["-fsSL", "-o", key, MONGO_KEY_URL], {
+      timeout: 120000,
+      onLog: log
+    });
     if (!dl.ok) {
       rmQuiet(key);
       return { ok: false, error: `Anahtar indirilemedi: ${dl.error}` };
     }
     // gpg --dearmor -o: boru hattina (pipe) gerek yok, dolayisiyla shell de yok.
     const dearmor = await sudo(["gpg", "--batch", "--yes", "--dearmor", "-o", MONGO_KEYRING, key], {
-      timeout: 60000
+      timeout: 60000,
+      onLog: log
     });
     rmQuiet(key);
     if (!dearmor.ok) return { ok: false, error: `Anahtar yazilamadi: ${dearmor.error}` };
 
-    const list = await sudoInstallFile(buildMongoSourceList(repo), MONGO_LIST);
+    const list = await sudoInstallFile(buildMongoSourceList(repo), MONGO_LIST, { onLog: log });
     if (!list.ok) return list;
     log(`apt deposu eklendi: ${repo.id} ${repo.codename} (mongodb-org/${MONGO_VERSION})`);
 
-    const update = await sudo(["apt-get", "update"]);
+    const update = await sudo(["apt-get", "update"], { onLog: log });
     if (!update.ok) return { ok: false, error: `apt-get update basarisiz: ${update.error}` };
 
     log("mongodb-org kuruluyor (bu birkac dakika surebilir)...");
-    const inst = await sudo([
-      "env",
-      "DEBIAN_FRONTEND=noninteractive",
-      "apt-get",
-      "install",
-      "-y",
-      "mongodb-org"
-    ]);
+    const inst = await sudo(
+      ["env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", "mongodb-org"],
+      { onLog: log }
+    );
     if (!inst.ok) return { ok: false, error: `Kurulum basarisiz: ${inst.error}` };
   }
 
@@ -469,7 +593,7 @@ async function installMongod({ onLog, port }) {
   }
   log(`/etc/mongod.conf bindIp dogrulandi: ${bindIp}`);
 
-  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 180000 });
+  const en = await sudo(["systemctl", "enable", "--now", unit], { timeout: 180000, onLog: log });
   if (!en.ok) return { ok: false, error: `${unit} baslatilamadi: ${en.error}` };
   return { ok: true, unit_name: unit, port };
 }
@@ -660,12 +784,22 @@ async function install(type, { onLog, user, home } = {}) {
     arch: ARCH_ALIASES[process.arch]
   };
 
+  // fs.writeFileSync gibi dogrudan yazmalar da EROFS ile duser ("EROFS:
+  // read-only file system"). Tek cikis kapisi: mesaji burada zenginlestir.
+  // run() zaten eklediyse tekrarlamiyoruz.
+  const explain = (msg) => {
+    const text = String(msg || "Kurulum basarisiz");
+    if (text.includes(READONLY_FS_HINT)) return text;
+    const hint = readOnlyFsHint(text);
+    return hint ? `${text}\n\n${hint}` : text;
+  };
+
   try {
     const r = await svc.install(ctx);
-    if (!r || !r.ok) return { ok: false, error: (r && r.error) || "Kurulum basarisiz" };
+    if (!r || !r.ok) return { ok: false, error: explain(r && r.error) };
     return { ok: true, unit_name: r.unit_name, port: r.port, display_name: svc.display_name };
   } catch (err) {
-    return { ok: false, error: err && err.message ? err.message : String(err) };
+    return { ok: false, error: explain(err && err.message ? err.message : String(err)) };
   }
 }
 
@@ -677,6 +811,13 @@ module.exports = {
   MONGO_KEYRING,
   MONGO_LIST,
   MONGO_DISTS,
+  SUMMARY_MAX_LINES,
+  SUMMARY_MAX_CHARS,
+  SUMMARY_TRUNCATED_HINT,
+  READONLY_FS_DROPIN,
+  READONLY_FS_HINT,
+  summarizeOutput,
+  readOnlyFsHint,
   list,
   get,
   isSupported,

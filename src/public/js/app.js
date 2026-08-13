@@ -38,6 +38,33 @@ export function servicePort(key) {
   return found ? found.port : null;
 }
 
+// Servis kayitli degilken gosterilecek metin. Backend'in ayni durumda
+// dondugu 503 mesajiyla ayni yonlendirmeyi verir (bkz. lib/path-proxy.js).
+export function serviceMissingHint(key) {
+  const def = SERVICE_LINKS[key];
+  return (
+    (def ? def.type : key) + " kurulu degil. Ayarlar > Servisler bolumunden ekleyip etkinlestirin."
+  );
+}
+
+// Kayitli olmayan servisin linki aktif gorunmemeli: tiklandiginda istek
+// dashboard'a duser, kullanici ayni ekrana geri gelip sebebini anlamaz.
+// Link devre disi birakilir ve kullanici Ayarlar > Servisler'e yonlendirilir.
+export function markServiceUnavailable(el, key) {
+  if (!el) return;
+  const msg = serviceMissingHint(key);
+  el.removeAttribute("href");
+  el.removeAttribute("target");
+  el.setAttribute("aria-disabled", "true");
+  el.title = msg;
+  el.style.opacity = "0.45";
+  el.style.cursor = "not-allowed";
+  el.addEventListener("click", (e) => {
+    e.preventDefault();
+    toast(msg, "error");
+  });
+}
+
 // Servis kok adresi (sondaki "/" YOK — cagiran taraf ekler).
 // Domain varsa subdomain (Katman 2), yoksa path (Katman 1).
 export function serviceUrl(key) {
@@ -195,7 +222,10 @@ function applyBranding() {
   // Quick links: servis kayitliysa gosterilir. Domain sart degil —
   // path modunda ayni linkler /db, /files uzerinden calisir.
   const codeLink = document.getElementById("quickLinkCode");
-  if (codeLink) codeLink.href = serviceUrl("code") + "/";
+  if (codeLink) {
+    if (hasService("code")) codeLink.href = serviceUrl("code") + "/";
+    else markServiceUnavailable(codeLink, "code");
+  }
 
   const quick = document.getElementById("quickLinks");
   if (!quick) return;

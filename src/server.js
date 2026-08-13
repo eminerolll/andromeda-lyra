@@ -172,6 +172,22 @@ function handleRequest(req, res) {
         }
       });
     }
+
+    // Bilinen servis subdomain'i ama servis kayitli/etkin degil. Dashboard'i
+    // servis etmek kullaniciyi sessizce ana ekrana dusurur; bunun yerine
+    // path-tabanli katmanin verdigi 503 mesajinin aynisi doner.
+    // Apex host serviceHostRoute'tan null alir, dashboard'a dusmeye devam eder.
+    const svcRoute = proxyLib.serviceHostRoute(host);
+    if (svcRoute) {
+      return sessionMw(req, res, () => {
+        if (req.session && req.session.userId) {
+          pathProxy.forwardWeb(req, res, svcRoute);
+        } else {
+          res.writeHead(302, { Location: loginLocation() });
+          res.end();
+        }
+      });
+    }
   }
 
   // code-server'in port-forward linkleri auth bariyerinden once yakalanir
@@ -217,6 +233,9 @@ server.on("upgrade", (req, socket, head) => {
       });
       return;
     }
+    // Kayitli olmayan servis subdomain'inin WS upgrade'i: dashboard'in
+    // /ws/* kanallarina dusmesin.
+    if (proxyLib.serviceHostRoute(host)) return socket.destroy();
   }
 
   // Path-tabanli yollarin upgrade dali. code-server'in terminali ve LSP'si

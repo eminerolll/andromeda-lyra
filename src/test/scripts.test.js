@@ -50,6 +50,24 @@ describe("generate-systemd", () => {
     expect(unit).toMatch(/^ReadWritePaths=-\/etc\/caddy$/m);
   });
 
+  // NORMAL modda Lyra paket kurmaz: kurulum fazi icin acilan delik buraya
+  // sizmamali. Sizarsa panel omru boyunca /usr yazilabilir kalirdi.
+  it("normal mod unit'i sertlestirilmis kalir — kurulum gevsemesi sizmaz", () => {
+    expect(unit).not.toMatch(/^ProtectSystem=off$/m);
+    expect(unit).not.toMatch(/^ReadWritePaths=-?\/usr/m);
+    expect(unit).not.toMatch(/^ReadWritePaths=-?\/var\/lib\/dpkg/m);
+  });
+
+  // Faz 8'de kurulum drop-in'inden ProtectSystem=off kaldirildi, Faz 9'da
+  // /usr'a yazan servis kurucular eklendi — baglanti kurulmadi ve kurulum
+  // dpkg "Read-only file system" ile coktu. Unit'in kendisi de neden
+  // gevsetildigini soylemeli.
+  it("ProtectSystem satiri kurulum fazi istisnasini acikca anlatir", () => {
+    expect(unit).toMatch(/service-installer\.js/);
+    expect(unit).toMatch(/Read-only file system/);
+    expect(unit).toMatch(/setup-mode/);
+  });
+
   it("dogru kullanici ve ExecStart uretir", () => {
     expect(unit).toMatch(/^User=lyra$/m);
     expect(unit).toMatch(/^WorkingDirectory=.*opt.lyra.src$/m);
@@ -125,7 +143,6 @@ describe("install.sh erisim yontemi akisi", () => {
     expect(tunnelBlock).toMatch(/Environment=LYRA_SETUP_MODE=1/);
     expect(tunnelBlock).not.toMatch(/LYRA_SETUP_PORT/);
     expect(tunnelBlock).not.toMatch(/AmbientCapabilities/);
-    expect(tunnelBlock).not.toMatch(/ProtectSystem=off/);
   });
 
   it("port 80 acma yalnizca 'direct' yontemine ait", () => {
@@ -152,5 +169,74 @@ describe("install.sh erisim yontemi akisi", () => {
 
   it("cli yontemi sihirbazi dogrudan baslatir", () => {
     expect(script).toMatch(/node scripts\/setup-cli\.js \)/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGRESYON KILIDI — "Read-only file system" kurulum cokmesi.
+//
+// Gercek olay: Oracle Cloud sunucusunda sihirbazdan code-server + filebrowser
+// secildi, ikisi de coktu:
+//   dpkg: unable to create '/usr/bin/code-server.dpkg-new': Read-only file system
+//   install: cannot create '/usr/local/bin/filebrowser': Read-only file system
+//
+// Sebep mimari/RAM/disk degil: ana unit'teki ProtectSystem=full /usr'i salt
+// okunur MOUNT eder ve kurulum Lyra'nin process agacinda o namespace'i miras
+// alir — sudo kurtarmaz. Kurulum modu drop-in'i bunu ProtectSystem=off ile
+// ezmek zorunda.
+//
+// Bu blok degismezi kilitler: drop-in yazan HER dal servis kurulumunun
+// ihtiyac duydugu yazma iznini vermeli. Biri satiri tekrar kaldirirsa build
+// burada kirilir.
+describe("install.sh kurulum modu drop-in'i servis kurulumuna izin verir", () => {
+  const script = fs.readFileSync(require.resolve("../../install.sh"), "utf8");
+
+  // Heredoc govdeleri. Fonksiyonun ustundeki aciklama yorumu kapsam disi
+  // kalsin diye dilimler heredoc baslik satirlarindan aliniyor.
+  const tunnelBlock = script.slice(
+    script.indexOf("# Lyra kurulum modu (tunnel)"),
+    script.indexOf("# Lyra kurulum modu — install.sh")
+  );
+  const directBlock = script.slice(
+    script.indexOf("# Lyra kurulum modu — install.sh"),
+    script.indexOf('chmod 644 "$DROPIN_FILE"')
+  );
+  const branches = [
+    ["tunnel", tunnelBlock],
+    ["direct", directBlock]
+  ];
+
+  it("her iki dal da gercekten drop-in govdesi", () => {
+    for (const [name, block] of branches) {
+      expect(block, name).toContain("[Service]");
+      expect(block, name).toMatch(/Environment=LYRA_SETUP_MODE=1/);
+    }
+  });
+
+  it("her iki dal da /usr'i yazilabilir birakir", () => {
+    for (const [name, block] of branches) {
+      // ProtectSystem=off ya da /usr + /usr/local'i acan ReadWritePaths.
+      // (systemd'de ReadWritePaths=, ProtectSystem='in uzerine yazar.)
+      const off = /^ProtectSystem=off$/m.test(block);
+      const rw =
+        /^ReadWritePaths=.*\/usr\b/m.test(block) && /^ReadWritePaths=.*\/usr\/local\b/m.test(block);
+      expect(off || rw, `${name}: /usr yazilabilir degil — dpkg "Read-only file system" der`).toBe(
+        true
+      );
+    }
+  });
+
+  it("her iki dal da satirin NEDEN orada oldugunu yazar", () => {
+    for (const [name, block] of branches) {
+      expect(block, name).toMatch(/service-installer\.js/);
+      expect(block, name).toMatch(/Read-only file system/);
+    }
+  });
+
+  it("drop-in gecici kalir — sihirbaz bitince silinme yolu duruyor", () => {
+    expect(script).toMatch(/rm -f "\$DROPIN_FILE"/);
+    for (const [name, block] of branches) {
+      expect(block, name).toContain("GECICI");
+    }
   });
 });

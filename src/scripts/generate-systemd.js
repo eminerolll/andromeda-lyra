@@ -66,6 +66,18 @@ StandardError=journal
 #   NoNewPrivileges=   : port tarayici ve reverse proxy yonetimi
 #                        /etc/sudoers.d/${serviceName} ile kisitlanmis sudo cagirir;
 #                        setuid sudo NoNewPrivileges altinda calismaz.
+#
+# ProtectSystem=full: /usr, /boot ve /etc bu servis icin salt-okunur mount
+# edilir. Normal calismada dogru — Lyra paket kurmaz.
+#
+# KURULUM FAZI ISTISNASI: sihirbaz Lyra'nin process agacinda paket kurar
+# (lib/service-installer.js -> code-server .deb, filebrowser /usr/local/bin,
+# mongod apt paketi). Bu satir orada gecerli olsaydi dpkg
+# "Read-only file system" ile duserdi; bu bir izin sorunu degil mount
+# namespace kisitidir, sudo kurtarmaz.
+# O yuzden install.sh'in yazdigi GECICI setup-mode drop-in'i
+# ProtectSystem=off ile bu satiri ezer ve sihirbaz bitince silinir
+# (bkz. install.sh -> write_setup_dropin, test/scripts.test.js).
 ProtectSystem=full
 PrivateTmp=yes
 # ProtectSystem=full /etc'yi read-only yapar; Caddy/cloudflared config'lerini

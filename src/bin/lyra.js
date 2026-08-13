@@ -255,6 +255,130 @@ function cmdUpdate(argv) {
   return 0;
 }
 
+// ─────────────────────── lyra install-service ───────────────────────
+//
+// KURULUM SONRASI yol. Sihirbaz bittiginde setup-mode drop-in'i silinir ve
+// lyra.service yeniden ProtectSystem=full altina girer: /usr salt-okunur olur,
+// yani panelden paket kurulamaz (dpkg "Read-only file system" der).
+//
+// Bu komut Lyra'nin process agacinin DISINDA, ayri bir root process olarak
+// calisir; systemd sandbox'i miras almaz. Kurulum mantigi kopyalanmaz —
+// sihirbazin cagirdigi lib/service-installer.js'in ta kendisi cagirilir, o
+// yuzden loopback bind degismezi de aynen korunur.
+
+function servicesTable() {
+  const installer = require("../lib/service-installer");
+  return installer.list().map((s) => ({
+    type: s.type,
+    display_name: s.display_name,
+    port: s.default_port,
+    state: installer.installability(s.type)
+  }));
+}
+
+// lyra.db + SQLite yan dosyalarini servis kullanicisina geri ver.
+function restoreDbOwnership(user) {
+  if (!isRoot() || !user || user === "root") return;
+  const home = require("../lib/config").LYRA_HOME;
+  const targets = ["lyra.db", "lyra.db-wal", "lyra.db-shm"]
+    .map((f) => path.join(home, f))
+    .filter((f) => fs.existsSync(f));
+  if (!targets.length) return;
+  const r = spawnSync("chown", [`${user}:`, ...targets], { stdio: "ignore" });
+  if (r.status !== 0) {
+    warn(`Veritabani sahipligi ${user} yapilamadi — elle: sudo chown ${user}: ${home}/lyra.db*`);
+  }
+}
+
+function printServiceList() {
+  console.log(`\n${cyan("Kurulabilir servisler")}\n`);
+  for (const s of servicesTable()) {
+    const tag = s.state.installable ? green("kurulabilir") : red("kurulamaz");
+    console.log(`  ${s.type.padEnd(12)} ${String(s.display_name).padEnd(14)} :${s.port}  ${tag}`);
+    if (!s.state.installable) console.log(`    ${dim(s.state.reason)}`);
+  }
+  console.log(`\n  ${dim("Kurulum: sudo lyra install-service <tip>")}\n`);
+}
+
+async function cmdInstallService(argv) {
+  const types = argv.filter((a) => !a.startsWith("-"));
+  const unknownFlags = argv.filter((a) => a.startsWith("-") && a !== "--list");
+  if (unknownFlags.length) {
+    die(`Bilinmeyen secenek: ${unknownFlags[0]}`, [
+      "Kullanim: sudo lyra install-service <tip>",
+      "Liste   : lyra install-service --list"
+    ]);
+  }
+  if (argv.includes("--list")) {
+    printServiceList();
+    return 0;
+  }
+  if (!types.length) {
+    printServiceList();
+    return 1;
+  }
+  if (types.length > 1) {
+    die("Tek seferde tek servis kurulur.", [`Once: sudo lyra install-service ${types[0]}`]);
+  }
+
+  const type = types[0];
+  const installer = require("../lib/service-installer");
+  if (!installer.get(type)) {
+    die(`Bilinmeyen servis: ${type}`, ["Liste: lyra install-service --list"]);
+  }
+  // apt/dpkg, /usr/local/bin'e yazma ve "systemctl enable" root ister. Kurulum
+  // sonrasi lyra kullanicisinin sudoers'i bunlari icermez (bilerek dar) —
+  // o yuzden komut dogrudan root calisir.
+  requireRoot(`install-service ${type}`);
+
+  const state = installer.installability(type);
+  if (!state.installable) die(`${type} bu sunucuda kurulamaz.`, [state.reason || ""]);
+
+  loadEnv();
+  const core = require("../lib/setup-core");
+  const unitUser = capture("systemctl", ["show", "-p", "User", "--value", UNIT_NAME]);
+  const who =
+    unitUser && unitUser !== "root"
+      ? { user: unitUser, home: core.homeOfUser(unitUser) }
+      : core.systemUserInfo();
+  if (!who.user || !who.home) {
+    die("Lyra'nin calistigi kullanici cozulemedi.", [
+      `Kontrol: systemctl show -p User --value ${UNIT_NAME}`
+    ]);
+  }
+
+  step(`${type} kuruluyor (${who.user}, ${who.home})`);
+  const r = await installer.install(type, {
+    onLog: (m) => info(m),
+    user: who.user,
+    home: who.home
+  });
+  if (!r.ok) {
+    console.error("");
+    for (const line of String(r.error || "Kurulum basarisiz").split("\n")) {
+      console.error(`    ${line}`);
+    }
+    console.error(`\n${red("✗")} ${type} kurulamadi.\n`);
+    return 1;
+  }
+
+  // Sadece BASARILI kurulum panele kaydedilir (setup-core ile ayni kural).
+  core.registerService({
+    type,
+    unit_name: r.unit_name,
+    display_name: r.display_name,
+    port: r.port
+  });
+  // DB'ye ROOT yazdi: SQLite yan dosyalari (-wal/-shm) root'a ait olarak
+  // yaratilmis olabilir ve servis kullanicisi DB'yi yazamaz hale gelir
+  // (reset-admin ayni tuzagi servis kullanicisina duserek asiyor).
+  restoreDbOwnership(who.user);
+  ok(`${r.unit_name} — ${installer.LOOPBACK}:${r.port}`);
+  info("Panele kaydedildi (Ayarlar > Servisler).");
+  console.log(`\n  Durum: ${dim("lyra status")}\n`);
+  return 0;
+}
+
 // ─────────────────────────── Digerleri ───────────────────────────
 
 function cmdUninstall(argv) {
@@ -304,6 +428,8 @@ Komutlar:
   update [--skip-pull]   Kodu guncelle, bagimliliklar + migrasyon, servisi restart
                          --skip-pull: kodu sen kopyaladin, git'e dokunma
   logs [journalctl-arg]  Servis loglari (varsayilan: -f)
+  install-service <tip>  Kurulum sonrasi servis kur (code-server, filebrowser...)
+                         --list: kurulabilir servisleri sebepleriyle listeler
   reset-admin [arg]      Sifre / 2FA / ban sifirlama (scripts/reset-admin.js)
   connect [arg]          Uzak sunucuya SSH tunnel (laptop tarafi yardimcisi)
   uninstall [--keep-data] [--yes]
@@ -311,13 +437,15 @@ Komutlar:
   --version              Surum
   --help                 Bu yardim
 
-Root gerektirenler: update, uninstall
+Root gerektirenler: update, uninstall, install-service
 
 Ornekler:
   lyra status
   sudo lyra update
   sudo lyra update --skip-pull      # elle kopyalanmis kurulum
   lyra logs -n 100 --no-pager
+  lyra install-service --list
+  sudo lyra install-service code-server
   sudo lyra uninstall --keep-data
 `);
 }
@@ -349,6 +477,8 @@ function main() {
       return cmdResetAdmin(rest);
     case "logs":
       return cmdLogs(rest);
+    case "install-service":
+      return cmdInstallService(rest);
     case "connect":
       return cmdConnect(rest);
     default:
@@ -357,4 +487,14 @@ function main() {
   }
 }
 
-process.exit(main());
+// Alt komutlarin cogu senkron; install-service Promise doner. process.exit'i
+// beklemeden cagirmak kurulumu yarida keserdi.
+const result = main();
+if (result && typeof result.then === "function") {
+  result.then(
+    (code) => process.exit(code),
+    (err) => die(err && err.message ? err.message : String(err))
+  );
+} else {
+  process.exit(result);
+}

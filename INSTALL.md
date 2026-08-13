@@ -159,7 +159,7 @@ her durumda (hata/iptal dâhil) siler.
 | `/opt/lyra/src/.env` | Bootstrap ayarları (`LYRA_HOME`, `LYRA_PORT`, `NODE_ENV`), `0600`. Varsa **üzerine yazılmaz.** |
 | `/var/lib/lyra` | SQLite DB + oturumlar, `0700`, Lyra kullanıcısına ait |
 | `/etc/systemd/system/lyra.service` | Servis tanımı |
-| `/etc/systemd/system/lyra.service.d/setup-mode.conf` | **Geçici** — kurulum modu drop-in'i (tunnel modunda sadece `LYRA_SETUP_MODE=1`; port geçişi ve `CAP_NET_BIND_SERVICE` yok) |
+| `/etc/systemd/system/lyra.service.d/setup-mode.conf` | **Geçici** — kurulum modu drop-in'i (`LYRA_SETUP_MODE=1` + `ProtectSystem=off`; port geçişi ve `CAP_NET_BIND_SERVICE` yalnızca tunnel **dışı** modda) |
 | `/etc/sudoers.d/lyra` | Kalıcı, dar kapsamlı sudo izinleri |
 | `/etc/sudoers.d/lyra-setup` | **Geçici** — kurulum fazının tam yetkisi |
 | `/usr/local/bin/lyra` | `src/bin/lyra.js`'e symlink (`lyra status/update/logs/uninstall`) |
@@ -314,6 +314,20 @@ tarayıcı ve reverse proxy yönetimi ölürdü. `ProtectSystem=full` duruyor;
 `/var/lib/lyra`, `/etc/caddy`, `/etc/cloudflared` ve projeler dizini
 `ReadWritePaths` ile yazılabilir tutulur.
 
+**Kurulum fazı istisnası:** `ProtectSystem=full`, `/usr` ve `/usr/local`'ı
+salt-okunur **mount** eder. Sihirbaz ise Caddy/cloudflared'i ve seçilen
+servisleri (`code-server` `.deb`, `filebrowser` binary'si, `mongod` paketi)
+Lyra'nın process ağacında kurar — bu ağaç aynı mount namespace'ini miras
+alır, dolayısıyla `sudo` bile yazamaz ve `dpkg` "Read-only file system" ile
+düşer. Bu yüzden geçici `setup-mode.conf` drop-in'i `ProtectSystem=off`
+taşır. `ReadWritePaths` ile yol yol açmak yerine bu seçildi: `dpkg`'nin yazma
+kümesi açık uçlu (`/usr/bin`, `/usr/lib`, `/usr/share`, `/etc`,
+`/var/lib/dpkg`, maintainer script'leri) ve üçüncü parti kurucular her sürümde
+yeni yol ekleyebilir. Gevşeme **yalnızca kurulum fazındadır**: drop-in
+sihirbaz bitince silinir, servis tekrar `ProtectSystem=full` altına girer.
+Kurulum sonrası servis eklemenin yolu için [§6](#6-servis-komutları)
+(`lyra install-service`).
+
 ---
 
 ## 6. Servis komutları
@@ -329,14 +343,53 @@ sudo lyra update             # kod + bağımlılık + migration + restart
 sudo lyra update --skip-pull # kodu sen kopyaladın, git'e dokunma
 lyra reset-admin             # şifre / 2FA / ban sıfırlama
 lyra connect <user@host>     # laptop tarafı SSH tunnel yardımcısı
+lyra install-service --list  # kurulum sonrası servis kurulumu (aşağıya bak)
 sudo lyra uninstall          # kaldırma (aşağıya bak)
 lyra --help
 ```
 
 `lyra` komutu yeni bir işlev eklemez; mevcut script'leri ve modülleri çağırır
-(`lib/health.js`, `scripts/reset-admin.js`, `uninstall.sh`, `lyra-connect`).
-Root gerektiren alt komutları (`update`, `uninstall`) root olmadan
-çalıştırırsan ne yapman gerektiğini söyleyip çıkar.
+(`lib/health.js`, `lib/service-installer.js`, `scripts/reset-admin.js`,
+`uninstall.sh`, `lyra-connect`). Root gerektiren alt komutları (`update`,
+`uninstall`, `install-service`) root olmadan çalıştırırsan ne yapman
+gerektiğini söyleyip çıkar.
+
+### Kurulum sonrası servis kurmak
+
+Sihirbazda bir servisi seçmeyi unuttun ya da kurulum o adımda patladı —
+panelden tekrar denemek **işe yaramaz**. Sebep: sihirbaz bittiğinde kurulum
+modu drop-in'i silinir ve `lyra.service` yeniden `ProtectSystem=full` altına
+girer; `/usr` ve `/usr/local` o servis için salt-okunur **mount** edilir.
+Panel içinden kurulum denersen `dpkg` şunu der:
+
+```
+unable to create '/usr/bin/code-server.dpkg-new': Read-only file system
+```
+
+Bu bir izin sorunu değil, mount namespace kısıtı — `sudo` da kurtarmaz.
+Çözüm, kurulumu Lyra'nın process ağacının **dışında**, ayrı bir root process
+olarak çalıştırmak:
+
+```bash
+lyra install-service --list              # ne kurulabilir, kurulamıyorsa neden
+sudo lyra install-service code-server
+sudo lyra install-service filebrowser
+```
+
+Komut sihirbazın kullandığı kurucunun **aynısını** çağırır
+(`lib/service-installer.js`): servis yine yalnızca `127.0.0.1`'e bind edilir,
+kurulum başarılıysa panele (**Ayarlar > Servisler**) kendisi kaydedilir.
+Kontrol:
+
+```bash
+lyra status                     # "Kayitli servisler" bölümünde görünür
+systemctl status code-server@<kullanici>
+ss -tlnp | grep 8080
+```
+
+Kurulabilir tipler: `code-server`, `filebrowser`, `dbgate` (Docker gerekir),
+`mongod`. Bir tip listede "kurulamaz" görünüyorsa sebebi yanında yazar
+(mimari, eksik Docker, o dağıtım için apt deposu yok).
 
 Doğrudan systemd ile:
 
@@ -564,6 +617,8 @@ sudo rm -rf /opt/lyra /var/lib/lyra
 | Servis ayağa kalkmıyor | `sudo journalctl -u lyra -n 100 --no-pager` |
 | Sihirbaz "Kurulum yarım kaldı" dedi | Ekrandaki komutları uygula; ayarların ve yönetici hesabın kaydedilmiştir. |
 | Kurulum modundan çıkmadı | `sudo rm -f /etc/systemd/system/lyra.service.d/setup-mode.conf && sudo systemctl daemon-reload && sudo systemctl restart lyra` |
+| Servis kurulumu "Read-only file system" dedi | systemd sandbox (`ProtectSystem=full`). Kurulum bittiyse beklenen: `sudo lyra install-service <tip>`. Kurulum **sırasında** olduysa drop-in eksik: `sudo grep ProtectSystem /etc/systemd/system/lyra.service.d/setup-mode.conf` |
+| Sihirbazda servis seçmeyi unuttum | `lyra install-service --list` sonra `sudo lyra install-service <tip>` — panele kendisi kaydeder |
 | Port tablosu boş | `sudo node /opt/lyra/src/scripts/generate-sudoers.js --user <kullanici>` |
 | Projeler dizinine yazılamıyor | Sihirbaz zaten uyarır. Sahiplik: `sudo chown -R <kullanici>: <dizin>` |
 | "IP banlandi" + giriş yok | `sudo -u <kullanici> sqlite3 /var/lib/lyra/lyra.db "DELETE FROM bans;" && sudo systemctl restart lyra` |

@@ -602,13 +602,33 @@ provision_cloudflare() {
 
 # Kurulum modu drop-in'i. Sihirbaz bitince Lyra bu dosyayi kendisi siler
 # (lib/setup-core.js -> setup-mode-off adimi).
+#
+# ─────────────────── ProtectSystem=off NEDEN HER IKI DALDA DA VAR ───────────────────
+# Sihirbaz Lyra'nin process agacinda paket kurar: Caddy/cloudflared (apt+dpkg)
+# ve secilen yonetilen servisler (lib/service-installer.js -> code-server .deb,
+# filebrowser binary'si /usr/local/bin'e, mongod apt paketi).
+#
+# Ana unit'te ProtectSystem=full var (scripts/generate-systemd.js): systemd
+# /usr, /boot ve /etc'yi bu servis icin SALT-OKUNUR mount eder. Bu bir izin
+# sorunu degil, mount namespace kisiti — sudo bile kurtarmaz, cunku kurulum
+# ayni namespace'i miras alir. Sonuc: dpkg "Read-only file system" ile duser.
+#
+# Erisim yontemi (tunnel / direct) bunu DEGISTIRMEZ: ikisinde de sihirbaz
+# ayni servis kurucularini cagirir. Iki dal farkli sandbox durusuna sahip
+# olursa bu hata sadece bir yolda geri gelir — o yuzden satir ortak.
+#
+# BU SATIRI KALDIRMADAN ONCE lib/service-installer.js'e BAK.
+# "ReadWritePaths=/usr ..." yerine ProtectSystem=off secildi: dpkg'nin yazma
+# kumesi acik uclu (/usr/bin, /usr/lib, /usr/share, /etc, /var/lib/dpkg,
+# maintainer script'leri) ve ucuncu parti kurucular her surumde yeni yol
+# ekleyebilir; liste tutmak kacinilmaz olarak eksik kalir.
+# Kapsam kurulum fazi ile sinirli: drop-in sihirbaz bitince silinir.
 write_setup_dropin() {
   mkdir -p "$DROPIN_DIR"
   if [[ "$1" == "tunnel" ]]; then
     # Tunnel modunda ayri bir kurulum portu YOK: cloudflared zaten
     # localhost:$LYRA_PORT'a bakiyor, sihirbaz dogrudan orada calisir.
-    # Bu yuzden LYRA_SETUP_PORT, CAP_NET_BIND_SERVICE ve ProtectSystem=off
-    # gerekmiyor — kurulum bitince degisen tek sey uygulama modu.
+    # Bu yuzden LYRA_SETUP_PORT ve CAP_NET_BIND_SERVICE gerekmiyor.
     cat > "$DROPIN_FILE" <<EOF
 # Lyra kurulum modu (tunnel) — install.sh tarafindan yazildi, GECICI.
 # Sihirbaz Lyra'nin kendi portunda ($LYRA_PORT) calisir; disari port acilmaz.
@@ -618,6 +638,11 @@ write_setup_dropin() {
 #   sudo systemctl daemon-reload && sudo systemctl restart $UNIT_NAME
 [Service]
 Environment=LYRA_SETUP_MODE=1
+# Servis kurulumlari (code-server, filebrowser, mongod) /usr ve /usr/local'a
+# yazar. ProtectSystem=full bunlari salt-okunur yapar ve dpkg
+# "Read-only file system" ile duser.
+# Bu satiri kaldirmadan once lib/service-installer.js'e bak.
+ProtectSystem=off
 EOF
   else
     cat > "$DROPIN_FILE" <<EOF
@@ -631,7 +656,10 @@ Environment=LYRA_SETUP_MODE=1
 Environment=LYRA_SETUP_PORT=$LYRA_SETUP_PORT
 # Ayricalikli olmayan kullanicinin 80'e bind edebilmesi icin
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-# Kurulum fazinda Caddy/cloudflared apt+dpkg ile kurulur; /etc ve /usr'a yazilir.
+# Servis kurulumlari (code-server, filebrowser, mongod) /usr ve /usr/local'a
+# yazar. ProtectSystem=full bunlari salt-okunur yapar ve dpkg
+# "Read-only file system" ile duser.
+# Bu satiri kaldirmadan once lib/service-installer.js'e bak.
 ProtectSystem=off
 EOF
   fi

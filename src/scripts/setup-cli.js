@@ -926,7 +926,11 @@ function makeProgressPrinter() {
       if (step.note) console.log(`      ${dim(step.note)}`);
     } else {
       console.log(red("✗"));
-      if (step.error) console.log(`      ${red(step.error)}`);
+      // Hata metni cok satirli olabilir (komut ciktisi ozeti, bkz.
+      // service-installer.summarizeOutput). Her satiri ayni girintiyle bas.
+      if (step.error) {
+        for (const line of String(step.error).split("\n")) console.log(`      ${red(line)}`);
+      }
     }
   };
 }

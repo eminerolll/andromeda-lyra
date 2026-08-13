@@ -324,6 +324,25 @@
         border: 1px solid rgba(255, 64, 112, 0.2);
         color: #ffb0c5;
       }
+      /* alert flex; metin sutununun kucultulebilmesi icin min-width:0 sart,
+         yoksa uzun tek kelime kutuyu yatayda tasirir. */
+      .alert > span:last-child {
+        flex: 1;
+        min-width: 0;
+      }
+      /* Basarisiz adimin komut ciktisi: sinirli yukseklik, kendi icinde kayar. */
+      .error-detail {
+        font-family: var(--mono);
+        font-size: 12px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 240px;
+        overflow: auto;
+        margin: 4px 0 10px;
+      }
+      .error-detail:last-child {
+        margin-bottom: 0;
+      }
       .alert-success {
         background: rgba(0, 214, 143, 0.08);
         border: 1px solid rgba(0, 214, 143, 0.2);
@@ -438,6 +457,9 @@
         color: var(--text-dim);
         white-space: pre-wrap;
         word-break: break-all;
+        /* Leftovers listesi uzun olabilir: kutu sinirli kalir, sayfa uzamaz. */
+        max-height: 240px;
+        overflow: auto;
       }
 
       /* Post-setup ilerleme listesi (step 6) */
@@ -491,11 +513,17 @@
         font-family: var(--mono);
         word-break: break-word;
       }
+      /* Hata metni komut ciktisi olabilir: cok satirli, cok uzun. Kutu
+         SINIRLI kalir ve kendi icinde kayar — sayfa uzamaz. */
       .progress-error {
         font-size: 12px;
         color: #ffb0c5;
         margin-top: 4px;
-        word-break: break-word;
+        font-family: var(--mono);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 240px;
+        overflow: auto;
       }
 
       /* DNS kayit listesi */
@@ -948,6 +976,10 @@
           else if (idx === n) d.classList.add("active");
         });
         window.scrollTo({ top: 0, behavior: "smooth" });
+        // Step 3'un 2FA bolumu acilista da dogru durumda olmali (kutu
+        // varsayilan isaretli); totp-init sadece token dogrulandiktan sonra
+        // erisilebildigi icin sayfa yuklenirken degil, adim acilirken calisir.
+        if (n === 3) syncTotpSection();
       }
 
       function showError(stepNum, msg) {
@@ -1682,25 +1714,32 @@
       }
 
       // ─── Step 3: Admin ───
+      // Kutu HTML'de varsayilan isaretli. QR akisi yalnizca "change"e bagli
+      // kalirsa adim acilirken hic tetiklenmez ve kullanici tiki kaldirip
+      // tekrar isaretlemeden QR'i goremez. Tek fonksiyon iki yerden cagrilir:
+      // adim acilisinda (goStep) ve kullanici tiki degistirdiginde.
       let totpInitialized = false;
-      $("adm-2fa").addEventListener("change", async (e) => {
-        if (e.target.checked) {
-          $("totp-section").style.display = "";
-          if (!totpInitialized) {
-            const username = $("adm-user").value.trim() || "admin";
-            try {
-              const t = await api("/api/setup/totp-init", { method: "POST", body: { username } });
-              $("totp-qr").src = t.qr;
-              $("totp-secret").textContent = t.secret;
-              totpInitialized = true;
-            } catch (err) {
-              showError(3, err.message);
-            }
-          }
-        } else {
+      async function syncTotpSection() {
+        if (!$("adm-2fa").checked) {
           $("totp-section").style.display = "none";
+          return;
         }
-      });
+        $("totp-section").style.display = "";
+        // Secret oturumda tutulur (totp-verify onu okur). Her tikte yeniden
+        // uretilirse kullanicinin authenticator'a ekledigi QR gecersizlesir —
+        // bu yuzden tek sefer init edilir.
+        if (totpInitialized) return;
+        const username = $("adm-user").value.trim() || "admin";
+        try {
+          const t = await api("/api/setup/totp-init", { method: "POST", body: { username } });
+          $("totp-qr").src = t.qr;
+          $("totp-secret").textContent = t.secret;
+          totpInitialized = true;
+        } catch (err) {
+          showError(3, err.message);
+        }
+      }
+      $("adm-2fa").addEventListener("change", syncTotpSection);
 
       async function nextFromAdmin() {
         hideError(3);
@@ -1869,9 +1908,9 @@
     <div class="progress-row ${s.status}">
       <span class="progress-mark">${s.status === "running" ? '<span class="spinner"></span>' : MARKS[s.status] || "·"}</span>
       <div class="progress-body">
-        <div class="progress-label">${s.label}</div>
-        ${s.note ? `<div class="progress-note">${s.note}</div>` : ""}
-        ${s.error ? `<div class="progress-error">${s.error}</div>` : ""}
+        <div class="progress-label">${esc(s.label)}</div>
+        ${s.note ? `<div class="progress-note">${esc(s.note)}</div>` : ""}
+        ${s.error ? `<div class="progress-error">${esc(s.error)}</div>` : ""}
       </div>
     </div>
   `
@@ -2031,9 +2070,15 @@
         $("step-6-title").textContent = "Kurulum yarım kaldı";
         $("step-6-msg").textContent =
           "Ayarların ve yönetici hesabın kaydedildi, ama aşağıdaki adım başarısız oldu.";
+        // Hata metni komut ciktisi olabilir: her biri kendi sinirli kutusunda
+        // durur (bkz. .error-detail), sayfayi uzatmaz.
         $("step-6-error-text").innerHTML = failed
-          .map((s) => `<strong>${s.label}</strong>: ${s.error}`)
-          .join("<br>");
+          .map(
+            (s) =>
+              `<strong>${esc(s.label)}</strong>` +
+              `<div class="error-detail">${esc(s.error || "Kurulum basarisiz")}</div>`
+          )
+          .join("");
         $("step-6-error").style.display = "";
 
         const hint = $("step-6-hint");

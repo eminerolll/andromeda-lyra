@@ -187,6 +187,40 @@ describe("setup-core adimlar ve ilerleme", () => {
     expect(p.payload().finished).toBe(true);
   });
 
+  // Ucuncu parti kurulum scriptleri (code-server'in resmi install.sh'i, Caddy,
+  // cloudflared) hata metnine curl'un ilerleme cubugunu tasiyabilir. Kullaniciya
+  // giden step.error KISA olmali; ham hali journal'a (console.error) gitmeli.
+  it("runStep hata metnini ozetler, hamini journal'a birakir", async () => {
+    const core = require("../lib/setup-core");
+    const installer = require("../lib/service-installer");
+
+    let noise = "";
+    for (let i = 0; i < 3000; i++) noise += `#=#=# ${(i / 40).toFixed(1)}% ${"#".repeat(20)}\r`;
+    const raw = `${noise}\nE: Sub-process /usr/bin/dpkg returned an error code (1)`;
+
+    const journal = [];
+    const originalError = console.error;
+    console.error = (m) => journal.push(String(m));
+
+    const p = core.createProgress();
+    p.start("lan", "http://127.0.0.1:3000");
+    try {
+      await p.runStep("firewall", async () => {
+        throw new Error(raw);
+      });
+    } finally {
+      console.error = originalError;
+    }
+
+    const shown = p.step("firewall").error;
+    expect(shown).toBe("E: Sub-process /usr/bin/dpkg returned an error code (1)");
+    expect(shown.length).toBeLessThanOrEqual(
+      installer.SUMMARY_MAX_CHARS + installer.SUMMARY_TRUNCATED_HINT.length + 1
+    );
+    // Ham cikti kaybolmadi: "lyra logs" ile okunabilecek yerde duruyor.
+    expect(journal.join("\n")).toContain("#=#=#");
+  });
+
   it("deriveFinalUrl moda gore adres uretir", () => {
     const core = require("../lib/setup-core");
     expect(core.deriveFinalUrl("public", "ornek.com")).toBe("https://ornek.com");

@@ -7,6 +7,8 @@ import {
   events,
   switchTab,
   serviceUrl,
+  hasService,
+  markServiceUnavailable,
   escapeHtml
 } from "./app.js";
 import { openNotes } from "./notes.js";
@@ -37,6 +39,9 @@ async function loadProjects() {
         '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><p>Henuz proje yok</p><span class="hint">Ctrl+N ile yeni proje olustur</span></div>';
       return;
     }
+    // code-server kayitli degilse "Ac" link olarak uretilmez; markup sonrasi
+    // markServiceUnavailable ile devre disi gorunume alinir.
+    const codeReady = hasService("code");
     // Kart icerigi klonlanmis repo'dan gelebilir (branch adi, dosya adlari);
     // metin de nitelik de escapeHtml'den gecer.
     grid.innerHTML = projects
@@ -56,7 +61,7 @@ async function loadProjects() {
           <span><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>${escapeHtml(p.size)}</span>
         </div>
         <div class="card-actions">
-          <a href="${escapeHtml(codeUrl(p.path))}" target="_blank" class="btn-open">
+          <a${codeReady ? ` href="${escapeHtml(codeUrl(p.path))}" target="_blank"` : ""} class="btn-open" data-code-link>
             <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;margin-right:4px;vertical-align:middle"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             Ac
           </a>
@@ -95,6 +100,9 @@ async function loadProjects() {
     grid.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", handleCardAction);
     });
+    if (!codeReady) {
+      grid.querySelectorAll("[data-code-link]").forEach((el) => markServiceUnavailable(el, "code"));
+    }
   } catch (e) {
     toast(e.message, "error");
   }
@@ -278,7 +286,8 @@ async function streamCloneUI(apiUrl, body, repoName) {
               barFill.style.width = "100%";
               pctText.textContent = "100%";
               // data.path her zaman backend'ten gelir; fallback yok
-              openBtn.href = codeUrl(data.path || "");
+              if (hasService("code")) openBtn.href = codeUrl(data.path || "");
+              else markServiceUnavailable(openBtn, "code");
               actions.style.display = "flex";
               loadProjects();
             } else {

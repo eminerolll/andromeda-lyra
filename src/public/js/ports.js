@@ -1,4 +1,12 @@
-import { api, toast, devPreviewUrl, serviceUrl, servicePort, escapeHtml } from "./app.js";
+import {
+  api,
+  toast,
+  devPreviewUrl,
+  serviceUrl,
+  servicePort,
+  hasService,
+  escapeHtml
+} from "./app.js";
 
 let ws = null;
 let portData = { user: [], system: [] };
@@ -86,7 +94,9 @@ function render() {
   html += '<div class="section-label" style="margin-top:24px; margin-bottom:12px;">Sistem</div>';
   html +=
     '<table class="ports-table"><thead><tr><th>Port</th><th>Proses</th><th>RAM</th><th></th></tr></thead><tbody>';
-  const codePort = servicePort("code");
+  // Servis kayitli/etkin degilse "Ac" hic cikmaz: link dashboard'a duserdi.
+  // Ayni kontrol proje kartlarinda ve hizli erisimde de var (bkz. app.js).
+  const codePort = hasService("code") ? servicePort("code") : null;
   for (const p of portData.system) {
     html += "<tr>";
     html += "<td>" + escapeHtml(p.port) + "</td>";
