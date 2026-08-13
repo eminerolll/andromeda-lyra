@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "child_process";
+import fs from "fs";
 import { require } from "./setup.js";
 
 function runScript(rel, args) {
@@ -88,5 +89,68 @@ describe("generate-sudoers", () => {
     expect(setup).toMatch(/NOPASSWD: ALL/);
     expect(setup).toMatch(/GECICI/);
     expect(setup).toMatch(/rm -f \/etc\/sudoers\.d\/lyra-setup/);
+  });
+});
+
+// install.sh metin regresyonlari. Scripti calistirmadan (root/systemd ister)
+// kurulum akisinin bozulmadigini dogruluyoruz; asil kabuk dogrulamasi
+// shellcheck + "bash -n" ile CI disinda yapiliyor.
+describe("install.sh erisim yontemi akisi", () => {
+  // require test/setup.js'te yaratildi: goreli yol o dosyaya gore cozulur.
+  const script = fs.readFileSync(require.resolve("../../install.sh"), "utf8");
+
+  it("uc erisim yontemini de tanir", () => {
+    expect(script).toMatch(/--access <cf-api\|direct\|cli>/);
+    expect(script).toMatch(/ACCESS_METHOD="cf-api"/);
+    expect(script).toMatch(/ACCESS_METHOD="direct"/);
+    expect(script).toMatch(/ACCESS_METHOD="cli"/);
+  });
+
+  it("bulut tespitini kendi modulunden yapar (bash tarafinda kopya yok)", () => {
+    expect(script).toMatch(/node "\$SRC_DIR\/lib\/cloud-detect\.js"/);
+    // Metadata adresi bash icinde elle sorgulanmiyor olmali (yorumda gecebilir).
+    expect(script).not.toMatch(/(curl|wget)[^\n]*169\.254\.169\.254/);
+  });
+
+  it("bulut tespit edilirse 'disaridan erisilebilir' varsayilan olmaz", () => {
+    expect(script).toMatch(/DEFAULT_CHOICE=2/);
+    expect(script).toMatch(/DEFAULT_CHOICE=1/);
+  });
+
+  it("tunnel drop-in'i kurulum portu ve ayricalikli bind icermez", () => {
+    const tunnelBlock = script.slice(
+      script.indexOf("# Lyra kurulum modu (tunnel)"),
+      script.indexOf("# Lyra kurulum modu — install.sh")
+    );
+    expect(tunnelBlock).toMatch(/Environment=LYRA_SETUP_MODE=1/);
+    expect(tunnelBlock).not.toMatch(/LYRA_SETUP_PORT/);
+    expect(tunnelBlock).not.toMatch(/AmbientCapabilities/);
+    expect(tunnelBlock).not.toMatch(/ProtectSystem=off/);
+  });
+
+  it("port 80 acma yalnizca 'direct' yontemine ait", () => {
+    const ufwLine = script.indexOf('ufw allow "${LYRA_SETUP_PORT}/tcp"');
+    const directCase = script.indexOf("  direct)");
+    const cliCase = script.indexOf("  cli)");
+    expect(ufwLine).toBeGreaterThan(directCase);
+    expect(ufwLine).toBeLessThan(cliCase);
+  });
+
+  it("Cloudflare token'i cocuk process'in argv'sine yazilmaz", () => {
+    // Token yalnizca 0600 gecici dosya uzerinden gecer.
+    expect(script).toMatch(/--cf-api-token-file "\$CF_TOKEN_FILE"/);
+    expect(script).not.toMatch(/cmd\+=\(--cf-api-token "/);
+    expect(script).toMatch(/chmod 600 "\$CF_TOKEN_FILE"/);
+    expect(script).toMatch(/trap cleanup_token_file EXIT/);
+  });
+
+  it("tunnel kurulumunu sihirbaz cekirdegine devreder", () => {
+    expect(script).toMatch(/scripts\/setup-cli\.js --provision-tunnel/);
+    // Cloudflare API cagrilari bash'te tekrar edilmiyor.
+    expect(script).not.toMatch(/api\.cloudflare\.com/);
+  });
+
+  it("cli yontemi sihirbazi dogrudan baslatir", () => {
+    expect(script).toMatch(/node scripts\/setup-cli\.js \)/);
   });
 });

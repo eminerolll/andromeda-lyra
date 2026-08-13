@@ -26,9 +26,45 @@ curl -fsSL https://raw.githubusercontent.com/eminerolll/andromeda-lyra/main/inst
 ```
 
 > **Neden root?** Script sistem paketlerini kurar, `/opt/lyra`'ya yazar,
-> systemd unit'i ve sudoers dosyasını oluşturur, kurulum sihirbazını port
-> 80'de yayına alır. Root olmadan çalıştırırsan hiçbir şey yapmadan doğru
-> komutu söyleyip çıkar.
+> systemd unit'i ve sudoers dosyasını oluşturur, servisi yönetir. Root
+> olmadan çalıştırırsan hiçbir şey yapmadan doğru komutu söyleyip çıkar.
+
+### Erişim yöntemi — kurulum bunu sana sorar
+
+Paketler kurulduktan sonra, sihirbaz başlamadan önce tek bir soru gelir:
+
+```
+  Bu panele nasil erisecegini sec:
+
+    1) Cloudflare domain'im var          (onerilen)
+       API token + domain -> tunnel SIMDI kurulur, sihirbaz
+       https://lyra.alanadin.com gibi bir adreste acilir.
+       Hicbir port acilmaz; NAT/bulut firewall'u arkasinda da calisir.
+
+    2) Bu makine disaridan erisilebilir
+       Sihirbaz http://<ip>:80 adresinde acilir.
+
+    3) Ne domain'im var ne de port acabiliyorum
+       Sihirbaz burada, terminalde calisir (CLI).
+```
+
+Bu soru **gerçek bir kurulum hatasından** doğdu: Oracle Cloud / AWS / GCP /
+Azure gibi sağlayıcılarda gelen portlar Security List / Security Group / NSG
+katmanında varsayılan olarak kapalıdır. Makine içinde firewall kapalı olsa
+bile `http://<ip>` dışarıdan açılmaz — kurulum sana erişemeyeceğin bir adres
+vermiş olur.
+
+`install.sh` bunu önceden anlamak için `169.254.169.254` metadata servisine
+kısa (~1.5 sn) bir sorgu atar. Bulut tespit edilirse uyarır ve **2. seçeneği
+varsayılan yapmaz**; ağ yoksa ya da cevap gelmezse sessizce eski davranışa
+döner (fiziksel/ev sunucusunda 80 genelde açıktır).
+
+**1. seçenekte** tunnel sihirbazdan **önce** kurulur: token ve domain doğrulanır,
+tunnel + ingress + DNS oluşturulur, `cloudflared` servis olur. Token geçersizse
+**hiçbir şey kurulmadan** hata verilir ve menüye dönülür — yarım kurulmuş sistem
+kalmaz. Sonra sihirbaz `https://<panel-host>` üzerinde açılır ve Cloudflare
+adımını atlar. Bu modda **port 80 hiç kullanılmaz**: sihirbaz Lyra'nın kendi
+portunda (`3000`, `127.0.0.1`) çalışır, çünkü `cloudflared` zaten oraya bağlıdır.
 
 Script bittiğinde ekrana şuna benzer bir kutu basar:
 
@@ -36,8 +72,8 @@ Script bittiğinde ekrana şuna benzer bir kutu basar:
 ────────────────────────────────────────────────────────────
   Tarayicidan kuruluma devam et:
 
-    http://5.75.222.111
-    http://192.168.1.50
+    https://lyra.alanadin.com          <- 1. secenek
+    http://5.75.222.111                <- 2. secenek
 
   Kurulum token'i (tarayiciya yapistir):
 
@@ -46,6 +82,7 @@ Script bittiğinde ekrana şuna benzer bir kutu basar:
 ```
 
 Bu adresi laptop'unun tarayıcısında aç, token'ı yapıştır, sihirbazı bitir.
+(3. seçenekte tarayıcı yok — sihirbaz aynı terminalde başlar.)
 
 ### Ortam değişkenleri
 
@@ -57,13 +94,42 @@ Bu adresi laptop'unun tarayıcısında aç, token'ı yapıştır, sihirbazı bit
 | `LYRA_USER` | `$SUDO_USER` | Lyra'nın çalışacağı Linux kullanıcısı |
 | `LYRA_HOME` | `/var/lib/lyra` | Veri dizini (SQLite DB, oturumlar) |
 | `LYRA_PORT` | `3000` | Panel portu |
-| `LYRA_SETUP_PORT` | `80` | Sihirbaz portu (80 doluysa değiştir) |
+| `LYRA_SETUP_PORT` | `80` | Sihirbaz portu — **yalnızca 2. seçenekte** (80 doluysa değiştir) |
+| `LYRA_CF_API_TOKEN` | — | 1. seçenekte Cloudflare API token'ı |
 
-Bayraklar: `-y` / `--yes` / `--non-interactive` (hiçbir şey sorma),
-`--help`.
+### Bayraklar
+
+| Bayrak | Açıklama |
+|--------|----------|
+| `-y`, `--yes`, `--non-interactive` | Hiçbir şey sorma |
+| `--access <cf-api\|direct\|cli>` | Erişim yöntemini sorma, doğrudan seç |
+| `--domain <alan.adi>` | `cf-api` için Cloudflare'da kayıtlı zone |
+| `--cf-api-token <token>` | API token (`LYRA_CF_API_TOKEN` env'i tercih edilir — bayrak `ps` çıktısında görünür) |
+| `--cf-account-id <id>` | Token birden fazla hesaba erişiyorsa |
+| `--cf-host-mode <apex\|subdomain>` | Panel apex'te mi alt alan adında mı |
+| `--cf-panel-subdomain <ad>` | `subdomain` modunda panel adı (varsayılan: `lyra`) |
+| `--cf-overwrite-dns` | Çakışan DNS kayıtlarının üzerine yaz |
+| `--help` | Yardım |
+
+Non-interactive kurulum örneği (bulut sunucu, tunnel ile):
+
+```bash
+sudo LYRA_CF_API_TOKEN="$CF_TOKEN" bash install.sh --yes \
+  --access cf-api --domain ornek.com
+```
+
+Eksik bir alan varsa kurulum **hiç başlamadan** hangi bayrağın gerektiğini
+söyleyip çıkar; varsayılana kaçmaz. `--access cli` interaktif terminal ister,
+`--yes` ile birlikte kullanılamaz.
 
 `curl | sudo bash` akışında stdin script'in kendisi olduğu için soru
-sorulmaz — otomatik olarak non-interactive çalışır.
+sorulmaz — otomatik olarak non-interactive çalışır ve erişim yöntemi
+`direct` olur (bugünkü davranış). Bulut tespit edilirse bu durumda da
+uyarı basılır.
+
+API token'ı `--cf-api-token` ile verirsen `install.sh` onu çocuk process'in
+argümanına **koymaz**: `0600` geçici bir dosyaya yazıp yolunu geçirir ve
+her durumda (hata/iptal dâhil) siler.
 
 ---
 
@@ -75,7 +141,7 @@ sorulmaz — otomatik olarak non-interactive çalışır.
 | `/opt/lyra/src/.env` | Bootstrap ayarları (`LYRA_HOME`, `LYRA_PORT`, `NODE_ENV`), `0600`. Varsa **üzerine yazılmaz.** |
 | `/var/lib/lyra` | SQLite DB + oturumlar, `0700`, Lyra kullanıcısına ait |
 | `/etc/systemd/system/lyra.service` | Servis tanımı |
-| `/etc/systemd/system/lyra.service.d/setup-mode.conf` | **Geçici** — kurulum modu drop-in'i |
+| `/etc/systemd/system/lyra.service.d/setup-mode.conf` | **Geçici** — kurulum modu drop-in'i (tunnel modunda sadece `LYRA_SETUP_MODE=1`; port geçişi ve `CAP_NET_BIND_SERVICE` yok) |
 | `/etc/sudoers.d/lyra` | Kalıcı, dar kapsamlı sudo izinleri |
 | `/etc/sudoers.d/lyra-setup` | **Geçici** — kurulum fazının tam yetkisi |
 | `/usr/local/bin/lyra` | `src/bin/lyra.js`'e symlink (`lyra status/update/logs/uninstall`) |
@@ -97,7 +163,7 @@ atlayıp sadece servisi yeniden başlatır.
 | # | Adım | Açıklama |
 |---|------|----------|
 | 1 | **Token** | Terminalde gösterilen 16 karakterli token |
-| 2 | **Erişim modu** | Public / LAN / Localhost / CF Tunnel / Manuel |
+| 2 | **Erişim modu** | Public / LAN / Localhost / CF Tunnel / Manuel — *tunnel kurulumda hazırlandıysa bu adım atlanır ve "Cloudflare: yapılandırıldı ✓" gösterilir* |
 | 3 | **Bağlantı + panel** | Mode'a göre domain+email veya CF token; ayrıca **uygulama adı** ve **projeler dizini** |
 | 4 | **Yönetici hesabı** | kullanıcı adı + şifre (≥12) + TOTP QR |
 | 5 | **Servisler** | Sunucuda tespit edilen servisler (code-server, dbgate, …) |
@@ -263,14 +329,20 @@ ve **aynı kodu** çalıştırır: doğrulama, Cloudflare ön-kontrolü, veritab
 seed'i ve kurulum sonrası adımlar `src/lib/setup-core.js` içinde ortaktır.
 İki ayrı kurulum gerçekliği yok.
 
-`install.sh` çalıştıysa Lyra kurulum modunda port 80'i tutuyordur; önce onu
-durdur:
+En kolay yolu kurulum sırasında **3. seçeneği** işaretlemektir: `install.sh`
+sihirbazı orada, o terminalde başlatır — kopyalayacağın komut yok.
+
+Sonradan çalıştırmak istersen: `install.sh` 1. ya da 2. seçenekle çalıştıysa
+Lyra kurulum modunda bir portu tutuyordur; önce onu durdur:
 
 ```bash
 sudo systemctl stop lyra
 cd /opt/lyra/src
 sudo -u <kullanici> LYRA_HOME=/var/lib/lyra node scripts/setup-cli.js
 ```
+
+Tunnel kurulumda hazırlandıysa terminal sihirbazı da erişim modu adımını
+atlar ve "Cloudflare: yapilandirildi" der.
 
 Yerel bir checkout'tan:
 
@@ -300,7 +372,7 @@ sudo -u <kullanici> LYRA_HOME=/var/lib/lyra \
 | `--mode` | `public` \| `lan` \| `localhost` \| `cf-tunnel` \| `cf-api` \| `manual` |
 | `--domain`, `--email` | `public` için zorunlu (`--domain` `cf-api` için de) |
 | `--cf-token` | `cf-tunnel` connector token'ı |
-| `--cf-api-token`, `--cf-account-id` | `cf-api` API token'ı / hesap seçimi |
+| `--cf-api-token`, `--cf-api-token-file`, `--cf-account-id` | `cf-api` API token'ı (`LYRA_CF_API_TOKEN` env'i ya da `0600` dosya tercih edilir) / hesap seçimi |
 | `--cf-host-mode`, `--cf-panel-subdomain`, `--cf-overwrite-dns` | Panel apex'te mi alt alan adında mı, DNS çakışması yönetimi |
 | `--app-name`, `--projects-dir` | Zorunlu |
 | `--user`, `--password` | Zorunlu (`LYRA_ADMIN_PASSWORD` env'i tercih edilir — komut satırı `ps` çıktısında görünür) |
@@ -319,7 +391,23 @@ tek yazılır. Sessizce varsayılana kaçılmaz. Tam liste:
 
 `npm run setup` (tarayıcı modu) hâlâ çalışır ama sihirbazı ön planda
 başlatır; port 80 için `sudo` ister ve sonundaki restart adımı ancak systemd
-unit'i kuruluysa iş görür. Önerilen yol `install.sh`.
+unit'i kuruluysa iş görür. Önerilen yol `install.sh`. (Tunnel önceden
+kurulduysa `npm run setup` de port 80 istemez: Lyra'nın kendi portunu kullanır.)
+
+### Sadece tunnel kurulumu
+
+`install.sh`'in 1. seçenekte çalıştırdığı adım tek başına da çağrılabilir —
+sihirbazın Cloudflare adımıyla **aynı kodu** kullanır:
+
+```bash
+sudo -u <kullanici> LYRA_HOME=/var/lib/lyra \
+  node /opt/lyra/src/scripts/setup-cli.js --provision-tunnel
+```
+
+Token/zone doğrulanır, tunnel + ingress + DNS kurulur, `cloudflared` servis
+olur ve `access_mode`, `base_domain`, `panel_host`, `public_access` ayarları
+yazılır. Doğrulama başarısız olursa **hiçbir kalıcı ayar yazılmaz**. Sonrasında
+her iki sihirbaz da bu adımı atlar.
 
 ---
 
@@ -419,7 +507,8 @@ sudo rm -rf /opt/lyra /var/lib/lyra
 | Sorun | Çözüm |
 |-------|-------|
 | `install.sh` "root olarak calismali" | `sudo ./install.sh` |
-| Tarayıcıya hiç erişemiyorum | `sudo systemctl stop lyra` sonra `cd /opt/lyra/src && sudo -u <kullanici> LYRA_HOME=/var/lib/lyra node scripts/setup-cli.js` (terminal sihirbazı) |
+| Tarayıcıya hiç erişemiyorum | Kurulumu tekrar çalıştırıp **3. seçeneği** (terminal sihirbazı) ya da **1. seçeneği** (Cloudflare tunnel) seç. Kurulum yarıdaysa: `sudo systemctl stop lyra` sonra `cd /opt/lyra/src && sudo -u <kullanici> LYRA_HOME=/var/lib/lyra node scripts/setup-cli.js` |
+| Bulut sunucuda `http://<ip>` açılmıyor | Beklenen: Oracle/AWS/GCP/Azure gelen portları **sağlayıcı tarafında** kapalı tutar. Ya Security List / Security Group / NSG'de 80'i aç, ya da kurulumu 1. (tunnel) ya da 3. (CLI) seçenekle tekrarla. `ufw` burada yeterli değildir. |
 | `lyra: command not found` | Symlink kurulmamış: `sudo ln -sfn /opt/lyra/src/bin/lyra.js /usr/local/bin/lyra && sudo chmod +x /opt/lyra/src/bin/lyra.js` |
 | `lyra update` "git deposu degil" dedi | Kurulum elle kopyalanmış. Yeni sürümü aynı dizine kopyala, sonra `sudo lyra update --skip-pull` |
 | "apt tabanli dagitimlar icindir" | Desteklenmeyen distro. Hiçbir değişiklik yapılmadı, elle kurulum gerekir. |

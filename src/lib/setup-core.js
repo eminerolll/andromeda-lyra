@@ -30,7 +30,15 @@ const SETUP_DROPIN = `/etc/systemd/system/${LYRA_UNIT_NAME}.service.d/setup-mode
 // Kurulum fazinin gecici tam-yetki sudoers dosyasi
 // (scripts/generate-sudoers.js --setup).
 const SETUP_SUDOERS = "/etc/sudoers.d/lyra-setup";
-const SETUP_PORT = parseInt(process.env.LYRA_SETUP_PORT || "80", 10);
+// Sihirbazin dinledigi port. Tunnel modunda AYRI bir kurulum portu YOKTUR:
+// ingress zaten localhost:LYRA_PORT'a bakar, sihirbaz dogrudan orada calisir.
+// O yuzden varsayilan 80 degil, Lyra'nin kendi portudur; 80'i yalnizca
+// install.sh "makine disaridan erisilebilir" modunda acikca verir
+// (bkz. server.js — ayni kural).
+const SETUP_PORT = parseInt(process.env.LYRA_SETUP_PORT || String(config.PORT), 10);
+// Kurulum sihirbazi Lyra'nin normal portunda calisiyorsa kapatilacak gecici
+// port de yoktur.
+const HAS_SEPARATE_SETUP_PORT = SETUP_PORT !== config.PORT;
 
 // Desteklenen erisim modlari. CLI ve tarayici ayni listeden beslenir.
 const ACCESS_MODES = ["public", "lan", "localhost", "cf-tunnel", "cf-api", "manual"];
@@ -273,11 +281,40 @@ function saveCfIntegration(patch) {
   });
 }
 
+// ─────────── Kurulum ONCESI hazirlanmis Cloudflare kurulumu ───────────
+//
+// install.sh "Cloudflare domain'im var" secenegini secen kullanicida tunnel'i
+// SIHIRBAZDAN ONCE kurar: boylece sihirbaz hicbir port acmadan
+// https://<panel_host> uzerinden acilir. Bu bayrak iki sihirbaza da
+// "Cloudflare adimi bitti, tekrar calistirma" der.
+const CF_PROVISIONED_KEY = "cf_provisioned";
+
+// Kurulum oncesi tunnel kurulmus mu? Kurulduysa domain/panel host bilgisi
+// ayarlardan gelir — sihirbaz bunlari kullaniciya tekrar sormaz.
+function cfProvisionedInfo() {
+  try {
+    if (!settings.get(CF_PROVISIONED_KEY)) return null;
+    const domain = settings.get("base_domain");
+    const panelHost = settings.get("panel_host");
+    if (!domain || !panelHost) return null;
+    return { domain, panelHost };
+  } catch (_) {
+    return null;
+  }
+}
+
+function isCfProvisioned() {
+  return !!cfProvisionedInfo();
+}
+
 // ─────────────────────────── Dogrulama + seed ───────────────────────────
 
 // Sihirbaz govdesini dogrula. Tarayici tarafinda 2FA dogrulamasi session'da,
 // CLI tarafinda terminalde yapilir; sonucu totpVerified ile geliyor.
-function validateFinalize(body, { totpVerified = false } = {}) {
+//
+// cfProvisioned: Cloudflare kurulumu sihirbazdan ONCE (install.sh) yapildiysa
+// cf-api modunda token/domain body'de gelmez — o alanlar burada da istenmez.
+function validateFinalize(body, { totpVerified = false, cfProvisioned = isCfProvisioned() } = {}) {
   const errors = [];
   const appName = String(body.appName || "").trim();
   const projectsDir = String(body.projectsDir || "").trim();
@@ -298,7 +335,7 @@ function validateFinalize(body, { totpVerified = false } = {}) {
   if (body.accessMode === "cf-tunnel" && !body.cfToken) {
     errors.push("CF Tunnel icin connector token gerekli");
   }
-  const cfPlan = body.accessMode === "cf-api" ? cfPlanFromBody(body) : null;
+  const cfPlan = body.accessMode === "cf-api" && !cfProvisioned ? cfPlanFromBody(body) : null;
   if (cfPlan) {
     if (!cfPlan.token) errors.push("Cloudflare API token gerekli");
     if (!cfPlan.domain) errors.push("Gecerli bir domain gerekli (ornek: example.com)");
@@ -323,9 +360,12 @@ function deriveFinalUrl(mode, host) {
 
 // Sihirbazin topladigi her seyi DB'ye yaz: ayarlar, admin, servisler,
 // entegrasyonlar. Cagirmadan once validateFinalize + ensureProjectsDir.
-function applyFinalize(body, { totpSecret = null } = {}) {
+function applyFinalize(body, { totpSecret = null, cfProvisioned = isCfProvisioned() } = {}) {
   const accessMode = body.accessMode;
-  const cfPlan = accessMode === "cf-api" ? cfPlanFromBody(body) : null;
+  // Tunnel kurulum oncesi yapildiysa domain/panel host'un dogru kaynagi
+  // ayarlardir; sihirbaz bunlari tekrar sormadigi icin body'de yoktur.
+  const cfDone = accessMode === "cf-api" && cfProvisioned ? cfProvisionedInfo() : null;
+  const cfPlan = accessMode === "cf-api" && !cfDone ? cfPlanFromBody(body) : null;
   const appName = String(body.appName || "").trim();
   const projectsDir = String(body.projectsDir || "").trim();
 
@@ -337,8 +377,8 @@ function applyFinalize(body, { totpSecret = null } = {}) {
 
   // cf-api'de domain normalize edilmis haliyle yazilir; panel_host apex ya da
   // secilen alt alan adidir (wildcard ingress ikisini de karsilar).
-  const baseDomain = cfPlan ? cfPlan.domain : body.domain;
-  const panelHost = cfPlan ? cfPlan.panelHost : body.domain || null;
+  const baseDomain = cfDone ? cfDone.domain : cfPlan ? cfPlan.domain : body.domain;
+  const panelHost = cfDone ? cfDone.panelHost : cfPlan ? cfPlan.panelHost : body.domain || null;
 
   // 1. Settings
   settings.setMany({
@@ -426,18 +466,33 @@ function applyFinalize(body, { totpSecret = null } = {}) {
 
 // ─────────────────────────── Post-setup ilerleme ───────────────────────────
 
-function buildSteps(mode) {
+// mode "cf-provision": install.sh'in sihirbazdan ONCE calistirdigi Cloudflare
+// kurulumu. Kurulum sonrasi adimlari (firewall/mod degisimi/restart) icermez —
+// onlar sihirbaz bitince calisir.
+//
+// cfProvisioned: cf-api modunda Cloudflare adimlari kurulum oncesinde
+// tamamlandiysa listeye hic girmez (tekrar calistirilmaz).
+function buildSteps(mode, { cfProvisioned = false } = {}) {
   const steps = [];
-  if (mode === "public") {
-    steps.push({ key: "caddy-install", label: "Caddy kuruluyor" });
-    steps.push({ key: "caddy-config", label: "Caddyfile yaziliyor, sertifika isteniyor" });
-  } else if (mode === "cf-api") {
+  const cfApiSteps = () => {
     steps.push({ key: "cf-verify", label: "Cloudflare token ve domain dogrulaniyor" });
     steps.push({ key: "cf-tunnel", label: "Tunnel olusturuluyor" });
     steps.push({ key: "cf-ingress", label: "Tunnel yonlendirmesi (ingress) yaziliyor" });
     steps.push({ key: "cf-dns", label: "DNS kayitlari olusturuluyor" });
     steps.push({ key: "cloudflared-install", label: "cloudflared kuruluyor" });
     steps.push({ key: "cloudflared-service", label: "Tunnel servisi baslatiliyor" });
+  };
+
+  if (mode === "cf-provision") {
+    cfApiSteps();
+    return steps.map((s) => ({ ...s, status: "pending", error: null, note: null }));
+  }
+
+  if (mode === "public") {
+    steps.push({ key: "caddy-install", label: "Caddy kuruluyor" });
+    steps.push({ key: "caddy-config", label: "Caddyfile yaziliyor, sertifika isteniyor" });
+  } else if (mode === "cf-api") {
+    if (!cfProvisioned) cfApiSteps();
   } else if (mode === "cf-tunnel") {
     steps.push({ key: "cloudflared-install", label: "cloudflared kuruluyor" });
     steps.push({ key: "cloudflared-service", label: "Tunnel servisi baslatiliyor" });
@@ -466,14 +521,14 @@ function createProgress({ onUpdate } = {}) {
     if (onUpdate) onUpdate(step, p);
   };
 
-  p.start = (mode, finalUrl) => {
+  p.start = (mode, finalUrl, opts = {}) => {
     p.active = true;
     p.finished = false;
     p.restarting = false;
     p.startedAt = Date.now();
     p.finishedAt = null;
     p.finalUrl = finalUrl || null;
-    p.steps = buildSteps(mode);
+    p.steps = buildSteps(mode, opts);
     return p;
   };
 
@@ -657,6 +712,41 @@ async function runCfApiSteps(body, progress, log) {
   return ok;
 }
 
+// Cloudflare kurulumunu SIHIRBAZDAN ONCE calistir (install.sh secenek 1).
+//
+// Sihirbazin cf-api adimlariyla ayni zincir kullanilir (runCfApiSteps) — burada
+// kopya yok. Fark: kurulum sonrasi adimlar (firewall, mod degisimi, restart)
+// calismaz, cunku sihirbaz daha baslamadi.
+//
+// Basarili olursa ayarlar seed edilir ve cf_provisioned bayragi yazilir;
+// sihirbaz bu bayragi gorup erisim modu adimini atlar.
+async function provisionCloudflare(body, { log, onUpdate } = {}) {
+  const emit = log || (() => {});
+  const plan = cfPlanFromBody(body);
+  if (!plan.token) throw new Error("Cloudflare API token gerekli");
+  if (!plan.domain) throw new Error("Gecerli bir domain gerekli (ornek: example.com)");
+  if (!plan.panelSub) throw new Error("Gecersiz alt alan adi (ornek: lyra)");
+
+  const progress = createProgress({ onUpdate });
+  progress.start("cf-provision", `https://${plan.panelHost}`);
+
+  const ok = await runCfApiSteps(body, progress, emit);
+  progress.finish();
+  if (!ok) return { ok: false, progress };
+
+  settings.setMany({
+    access_mode: "cf-api",
+    base_domain: plan.domain,
+    panel_host: plan.panelHost,
+    public_access: true,
+    // Baglanti cloudflared uzerinden localhost'a gelir; disari acilan port yok.
+    bind_address: "127.0.0.1",
+    [CF_PROVISIONED_KEY]: true
+  });
+
+  return { ok: true, progress, panelHost: plan.panelHost, finalUrl: `https://${plan.panelHost}` };
+}
+
 // Kurulum sonrasi zincir.
 //
 // transition:
@@ -665,7 +755,12 @@ async function runCfApiSteps(body, progress, log) {
 //              systemd-run ile bagimsiz bir transient unit'e devrediyoruz.
 //   "direct" — sihirbaz ayri bir process (CLI). Gecisi kendimiz yapabiliriz;
 //              restart'i bekler ve sonucu dogrulariz.
-async function runPostSetup(mode, body, progress, { log, transition = "self" } = {}) {
+async function runPostSetup(
+  mode,
+  body,
+  progress,
+  { log, transition = "self", cfProvisioned = isCfProvisioned() } = {}
+) {
   const emit = log || ((m) => console.log(`[setup-post] ${m}`));
   let ok = true;
 
@@ -705,7 +800,13 @@ async function runPostSetup(mode, body, progress, { log, transition = "self" } =
       });
     }
   } else if (mode === "cf-api") {
-    ok = await runCfApiSteps(body, progress, emit);
+    // Tunnel install.sh tarafindan kurulduysa adimlar listede yok; tekrar
+    // calistirmak ikinci bir tunnel acar ve DNS'i bozardi.
+    if (cfProvisioned) {
+      emit("Cloudflare kurulumu kurulum oncesinde tamamlanmis — adimlar atlandi.");
+    } else {
+      ok = await runCfApiSteps(body, progress, emit);
+    }
   } else if (mode === "cf-tunnel") {
     ok = await progress.runStep("cloudflared-install", async () => {
       const r = await cloudflared.install({ onLog: emit });
@@ -723,7 +824,11 @@ async function runPostSetup(mode, body, progress, { log, transition = "self" } =
 
   if (ok) {
     ok = await progress.runStep("firewall", async () => {
-      const closed = firewall.closeSetupPort(SETUP_PORT, { onLog: emit });
+      // Tunnel modunda ayri bir kurulum portu hic acilmadi (sihirbaz Lyra'nin
+      // kendi portunda calisti) — kapatilacak kural da yok.
+      const closed = HAS_SEPARATE_SETUP_PORT
+        ? firewall.closeSetupPort(SETUP_PORT, { onLog: emit })
+        : { applied: false, reason: "ayri-kurulum-portu-yok" };
       const applied = firewall.applyAccessMode(mode, { port: config.PORT, onLog: emit });
       const parts = [];
       if (closed.applied) parts.push(`${SETUP_PORT}/tcp kapatildi`);
@@ -861,8 +966,13 @@ module.exports = {
   SETUP_DROPIN,
   SETUP_SUDOERS,
   SETUP_PORT,
+  HAS_SEPARATE_SETUP_PORT,
   ACCESS_MODES,
   DEFAULT_PANEL_SUBDOMAIN,
+  CF_PROVISIONED_KEY,
+  cfProvisionedInfo,
+  isCfProvisioned,
+  provisionCloudflare,
   homeOfUser,
   systemUserInfo,
   ensureProjectsDir,

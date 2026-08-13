@@ -1,6 +1,14 @@
 // Lyra ana sunucu. Iki modda calisir:
-//   - SETUP MODE   (LYRA_SETUP_MODE=1): port 80'de minimal API (sadece setup endpoint'leri + setup.html)
+//   - SETUP MODE   (LYRA_SETUP_MODE=1): minimal API (sadece setup endpoint'leri + setup.html)
 //   - NORMAL MODE  (default): tam Lyra dashboard, auth, route'lar, proxy
+//
+// Kurulum modunun portu LYRA_SETUP_PORT ile verilir:
+//   - VERILDIYSE  (install.sh "makine disaridan erisilebilir" modu: 80)
+//     ayri bir kurulum portu vardir, 0.0.0.0'a bind edilir ki LAN'daki/
+//     internetteki tarayici erisebilsin.
+//   - VERILMEDIYSE tunnel modundayiz: sihirbaz Lyra'nin KENDI portunda calisir
+//     (cloudflared zaten localhost:LYRA_PORT'a baglaniyor). Disari acilan port
+//     yok, ayricalikli porta bind yok — 127.0.0.1'de kalir.
 
 require("dotenv").config();
 const path = require("path");
@@ -17,7 +25,8 @@ const pathProxy = require("./lib/path-proxy");
 const { bans, users } = require("./db/repos");
 
 const SETUP_MODE = process.env.LYRA_SETUP_MODE === "1";
-const SETUP_PORT = parseInt(process.env.LYRA_SETUP_PORT || "80", 10);
+const SETUP_PORT = parseInt(process.env.LYRA_SETUP_PORT || String(config.PORT), 10);
+const SETUP_BIND = SETUP_PORT === config.PORT ? "127.0.0.1" : "0.0.0.0";
 
 // Ban listesini yukle
 bans.load();
@@ -63,16 +72,12 @@ if (SETUP_MODE) {
     res
       .status(404)
       .type("text/plain")
-      .send(
-        "Lyra kurulum modunda. Sadece /setup ve /api/setup/* aktif.\n" +
-          "Tarayicidan: http://<sunucu-ip>"
-      );
+      .send("Lyra kurulum modunda. Sadece / ve /api/setup/* aktif.\n");
   });
 
   const server = http.createServer(app);
-  // Setup mode 0.0.0.0'a bind ki LAN'daki tarayicilar erisebilsin
-  server.listen(SETUP_PORT, "0.0.0.0", () => {
-    console.log(`Lyra setup-mode http://0.0.0.0:${SETUP_PORT} — kurulum bekliyor`);
+  server.listen(SETUP_PORT, SETUP_BIND, () => {
+    console.log(`Lyra setup-mode http://${SETUP_BIND}:${SETUP_PORT} — kurulum bekliyor`);
   });
   return; // server.js durur; normal mode kismi calismaz
 }

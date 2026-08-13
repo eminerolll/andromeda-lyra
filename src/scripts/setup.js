@@ -54,6 +54,13 @@ async function main() {
 
   // 3. Ayricalikli porta bind edebilecek miyiz? EACCES ile yarida olmek yerine
   //    kullaniciya ne yapacagini soyle.
+  //    Tunnel install.sh tarafindan kurulduysa ayri bir kurulum portu gerekmez:
+  //    cloudflared zaten Lyra'nin kendi portuna bagli, sihirbaz orada acilir.
+  const core = require("../lib/setup-core");
+  const cfDone = core.cfProvisionedInfo();
+  if (cfDone && !process.env.LYRA_SETUP_PORT) {
+    process.env.LYRA_SETUP_PORT = String(require("../lib/config").PORT);
+  }
   const wantedPort = parseInt(process.env.LYRA_SETUP_PORT || "80", 10);
   if (wantedPort < 1024 && process.getuid && process.getuid() !== 0) {
     console.error(`\n  ✗ Port ${wantedPort} icin root yetkisi gerekiyor.`);
@@ -84,8 +91,13 @@ async function main() {
   console.log(dim("\u2500".repeat(60)));
   console.log("  Tarayicidan kuruluma devam et:");
   console.log("");
-  if (publicIp) console.log(`    ${cyan(`http://${publicIp}${portSuffix}`)}`);
-  for (const ip of localIps) console.log(`    ${cyan(`http://${ip}${portSuffix}`)}`);
+  if (cfDone) {
+    // Tunnel hazir: IP adresleri yerine gercekten calisan adresi bas.
+    console.log(`    ${cyan(`https://${cfDone.panelHost}`)}`);
+  } else {
+    if (publicIp) console.log(`    ${cyan(`http://${publicIp}${portSuffix}`)}`);
+    for (const ip of localIps) console.log(`    ${cyan(`http://${ip}${portSuffix}`)}`);
+  }
   console.log("");
   console.log("  Kurulum token'i (browser'a yapistir):");
   console.log("");

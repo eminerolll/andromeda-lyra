@@ -1,8 +1,8 @@
 # Lyra Kurulumu (detaylı)
 
 Tek yol var: `install.sh`. Script sistemi hazırlar, systemd unit'i ve
-sudoers dosyalarını sihirbazdan **önce** kurar, kurulum sihirbazını
-kendisi bir systemd servisi olarak port 80'de yayına alır. Kısa özet
+sudoers dosyalarını sihirbazdan **önce** kurar, sonra panele nasıl
+erişileceğini sorar ve sihirbazı ona göre yayına alır. Kısa özet
 için [`../INSTALL.md`](../INSTALL.md)'ye bak; bu dosya aynı akışı daha
 ayrıntılı anlatır.
 
@@ -37,14 +37,50 @@ Script sırasıyla:
 6. DB migrasyonlarını çalıştırır.
 7. systemd unit'i ve **kalıcı** sudoers dosyasını (`/etc/sudoers.d/lyra`)
    yazar — bu adım kurulum sihirbazından önce gelir, bilinçli sıralama.
-8. Kurulum daha önce tamamlanmadıysa: kurulum modu systemd drop-in'i +
-   **geçici** sudoers dosyası (`/etc/sudoers.d/lyra-setup`) + gerekiyorsa
-   UFW'de sihirbaz portunu açar + `systemctl enable --now lyra`.
-9. Kurulum token'i üretir, tarayıcı adresini ve token'ı ekrana basar.
+8. **Erişim yöntemi.** Bulut metadata servisini (`169.254.169.254`) kısa
+   bir timeout'la yoklar, sonra üç seçenekli menüyü gösterir (aşağıda).
+9. Seçime göre: kurulum modu drop-in'i + **geçici** sudoers dosyası
+   (`/etc/sudoers.d/lyra-setup`) + gerekiyorsa UFW'de sihirbaz portu +
+   `systemctl enable --now lyra`, ya da doğrudan terminal sihirbazı.
+10. Kurulum token'i üretir, adresi ve token'ı ekrana basar.
 
 Kurulum daha önce tamamlanmışsa (yönetici hesabı zaten var), script
-sihirbazı atlar ve sadece repo'yu güncelleyip servisi yeniden başlatır —
-yani `sudo ./install.sh` **güncelleme komutu olarak da idempotenttir.**
+menüyü ve sihirbazı atlar; sadece repo'yu güncelleyip servisi yeniden
+başlatır — yani `sudo ./install.sh` **güncelleme komutu olarak da
+idempotenttir.**
+
+### Erişim yöntemi menüsü (adım 8)
+
+| # | Yöntem | Ne olur |
+|---|--------|---------|
+| 1 | `cf-api` | Cloudflare API token + domain istenir; **sihirbazdan önce** tunnel + ingress + DNS kurulur, `cloudflared` servis olur. Sihirbaz `https://<panel-host>` üzerinde açılır. Açılan port yok. |
+| 2 | `direct` | Bugünkü davranış: sihirbaz `LYRA_SETUP_PORT` (varsayılan 80) üzerinde `0.0.0.0`'a bind olur. |
+| 3 | `cli` | Sihirbaz o terminalde başlar (`scripts/setup-cli.js`). Port gerekmez. |
+
+Neden var: Oracle Cloud, AWS, GCP ve Azure'da gelen portlar sağlayıcının
+Security List / Security Group / NSG katmanında **varsayılan olarak
+kapalıdır**. Instance içinde `ufw` pasif olsa bile port 80 dışarıdan
+erişilemez; `lib/firewall.js` doğru davranıp hiçbir şeye dokunmaz ama
+kullanıcı yine de açılmayan bir URL alır. Menü bu kararı en başa taşır.
+
+Bulut tespiti `src/lib/cloud-detect.js` içinde, dört sağlayıcıyı ayırt
+eder:
+
+| Sağlayıcı | Prob | Doğrulama |
+|-----------|------|-----------|
+| Oracle | `GET /opc/v2/instance/`, `Authorization: Bearer Oracle` | gövdede `compartmentId` / `regionInfo` |
+| AWS | `PUT /latest/api/token` (IMDSv2) → `GET /latest/meta-data/` | listede `instance-id` / `ami-id` |
+| GCP | `GET /computeMetadata/v1/`, `Metadata-Flavor: Google` | cevapta `Metadata-Flavor: Google` başlığı |
+| Azure | `GET /metadata/instance?api-version=2021-02-01`, `Metadata: true` | gövdede `compute` |
+
+Prob'lar paralel çalışır ve `timeout` **toplam** bütçedir (varsayılan 1.5
+sn): ağ yoksa veya adres yönlendirilmiyorsa modül sessizce `null` döner ve
+kurulum gecikmez. Bulut tespit edilirse 2. seçenek varsayılan olmaz;
+edilmezse bugünkü davranış korunur.
+
+`--access` bayrağıyla menü atlanabilir; `cf-api` için `--domain` ve token
+(`LYRA_CF_API_TOKEN` env'i, `--cf-api-token`) zorunludur, eksikse kurulum
+**hiç başlamadan** hata verir.
 
 ### Ortam değişkenleri
 
@@ -56,10 +92,17 @@ yani `sudo ./install.sh` **güncelleme komutu olarak da idempotenttir.**
 | `LYRA_USER` | `$SUDO_USER` | Lyra'nın çalışacağı Linux kullanıcısı |
 | `LYRA_HOME` | `/var/lib/lyra` | veri dizini (SQLite DB, oturumlar) |
 | `LYRA_PORT` | `3000` | panel portu |
-| `LYRA_SETUP_PORT` | `80` | kurulum sihirbazı portu (doluysa değiştir) |
+| `LYRA_SETUP_PORT` | `80` | kurulum sihirbazı portu — yalnızca `direct` yönteminde |
+| `LYRA_CF_API_TOKEN` | — | `cf-api` yönteminde Cloudflare API token'ı |
 
 Bayraklar: `-y` / `--yes` / `--non-interactive` (hiçbir şey sorma),
-`-h` / `--help`.
+`--access <cf-api\|direct\|cli>`, `--domain`, `--cf-api-token`,
+`--cf-account-id`, `--cf-host-mode`, `--cf-panel-subdomain`,
+`--cf-overwrite-dns`, `-h` / `--help`.
+
+Token `--cf-api-token` ile verilirse `install.sh` onu çocuk process'in
+argümanına koymaz: `0600` geçici bir dosyaya yazıp yolunu geçirir
+(`--cf-api-token-file`) ve `trap ... EXIT` ile her durumda siler.
 
 ## 2. Tarayıcıdaki sihirbaz
 
@@ -68,7 +111,10 @@ token'ı basar. Laptop tarayıcısında bu adresi aç, token'ı yapıştır.
 Sihirbaz adımları:
 
 1. **Token** doğrulama
-2. **Erişim modu** — Public / LAN / Localhost / CF Tunnel / Manuel
+2. **Erişim modu** — Public / LAN / Localhost / CF Tunnel / Manuel.
+   Tunnel kurulum sırasında (yöntem 1) hazırlandıysa bu adım **atlanır**;
+   sihirbaz `/api/setup/status` cevabındaki `cfProvisioned` bayrağını görür,
+   "Cloudflare: yapılandırıldı ✓" gösterir ve panel adresini yazar.
 3. **Bağlantı + panel** — moda göre domain+email ya da CF connector
    token'ı; ayrıca uygulama adı ve projeler dizini
 4. **Yönetici hesabı** — kullanıcı adı, şifre (≥12 karakter), TOTP QR
@@ -137,10 +183,24 @@ sınırsız olabileceğinden); dev server önizlemesi her zaman
 | `cfPlanFromBody` / `cfPreflight` | Cloudflare token/zone/hesap doğrulaması, mevcut DNS kayıtlarını okuma, apex-mi-subdomain önerisi |
 | `applyFinalize` | Settings + admin + servisler + entegrasyonlar + `system_ports` / `lyra_service_name` seed'i |
 | `buildSteps` / `createProgress` / `runPostSetup` | Caddy / cloudflared / firewall / kurulum modundan çıkış adımları |
+| `provisionCloudflare` | Tunnel'ı **sihirbazdan önce** kurar (`install.sh` yöntem 1). `runCfApiSteps` ile aynı zinciri çalıştırır, sonra `access_mode` / `base_domain` / `panel_host` / `public_access` ve `cf_provisioned` ayarlarını yazar |
+| `isCfProvisioned` / `cfProvisionedInfo` | "Cloudflare zaten kuruldu mu?" — üç yer de (HTTP, CLI, `buildSteps`) buna bakar |
 
 `routes/setup.js` bu fonksiyonların HTTP sarmalayıcısıdır; CLI ise
 terminal sarmalayıcısı. Doğrulama veya seed kuralı değişirse ikisi
 birden değişir — kopya yok (`test/setup-core.test.js` bunu doğrular).
+
+`install.sh` de kendi Cloudflare mantığını yazmaz: yöntem 1'de
+`scripts/setup-cli.js --provision-tunnel` çağırır, o da `askCfApi` +
+`cfPreflight` + `provisionCloudflare` ile aynı çekirdeği kullanır. Bash
+tarafında ne Cloudflare API çağrısı ne de DNS çakışma mantığı vardır.
+
+`cf_provisioned` bayrağı ayarlandıktan sonra:
+
+- `validateFinalize` cf-api modunda token/domain **istemez** (sihirbaz sormadı),
+- `applyFinalize` domain ve panel host'u **ayarlardan** okur,
+- `buildSteps` cf-* adımlarını listeye **koymaz**,
+- `runPostSetup` Cloudflare zincirini **atlar** — ikinci bir tunnel açılmaz.
 
 Tek gerçek fark, kurulum modundan çıkışın kim tarafından tetiklendiğidir
 (`runPostSetup`'ın `transition` seçeneği):

@@ -713,7 +713,7 @@
         </div>
 
         <div class="btn-row">
-          <button class="btn btn-secondary" onclick="goStep(1)">← Geri</button>
+          <button class="btn btn-secondary" id="conn-back-btn" onclick="goStep(1)">← Geri</button>
           <button class="btn" id="step-2-next" onclick="nextFromConn()">Devam Et →</button>
         </div>
       </div>
@@ -900,6 +900,11 @@
       // Panel kullanici adiyla ("admin") ilgisi yok.
       let sysUser = null;
 
+      // install.sh Cloudflare tunnel'i sihirbazdan ONCE kurduysa
+      // { panelHost, baseDomain } gelir: erisim modu adimi atlanir, bu sayfa
+      // zaten o tunnel uzerinden acilmistir.
+      let cfDone = null;
+
       function goStep(n) {
         for (let i = 0; i <= 6; i++) {
           const el = $(`step-${i}`);
@@ -949,10 +954,22 @@
             method: "POST",
             body: { token }
           });
-          goStep(1);
+          startAfterToken();
         } catch (err) {
           showError(0, err.message);
         }
+      }
+
+      // Cloudflare kurulum oncesinde bittiyse erisim modu adimi (step 1) yok.
+      function startAfterToken() {
+        if (cfDone) {
+          wizard.mode = "cf-api";
+          buildConnStep();
+          loadSystemUser();
+          goStep(2);
+          return;
+        }
+        goStep(1);
       }
 
       // ─── Step 1: Mode ───
@@ -995,6 +1012,23 @@
         const title = $("step-2-title");
         const sub = $("step-2-subtitle");
         const content = $("step-2-content");
+
+        // Tunnel kurulum oncesinde kuruldu: sorulacak bir sey yok, durumu goster.
+        if (cfDone) {
+          title.textContent = "☁️ Cloudflare Tunnel";
+          sub.textContent = "Bu adım kurulum sırasında tamamlandı.";
+          content.innerHTML = `
+      <div class="alert alert-success">
+        <span class="alert-icon">✓</span>
+        <span>
+          <strong>Cloudflare: yapılandırıldı</strong><br>
+          Panel adresi: <code>https://${esc(cfDone.panelHost)}</code><br>
+          Tunnel, DNS kayıtları ve cloudflared servisi kuruldu; sunucuda hiçbir port açılmadı.
+        </span>
+      </div>
+    `;
+          return;
+        }
 
         if (m === "public") {
           title.textContent = "🌍 Domain Ayarları";
@@ -1377,6 +1411,14 @@
         hideError(2);
         const m = wizard.mode;
         if (!collectPanel()) return;
+
+        // Tunnel zaten kurulu: token/domain gonderilmez, sunucu bunlari
+        // ayarlardan okur (bkz. lib/setup-core.js -> cfProvisionedInfo).
+        if (cfDone) {
+          wizard.conn = {};
+          goStep(3);
+          return;
+        }
 
         if (m === "public") {
           const domain = $("conn-domain").value.trim();
@@ -1763,6 +1805,22 @@ sudo journalctl -u lyra -n 100 --no-pager</div>
   `;
       }
 
+      // Erisim modu adimi yoksa stepper'dan ve "Geri" akisindan da cikar:
+      // olmayan bir adima donen dugme birakmiyoruz.
+      function applyCfProvisionedUi() {
+        const dot = document.querySelector('.step-dot[data-step="1"]');
+        if (dot) dot.style.display = "none";
+        // Kalan noktalari yeniden numarala: "1 3 4 5 6" hata gibi gorunur.
+        let n = 0;
+        document.querySelectorAll(".step-dot").forEach((d) => {
+          if (d.style.display === "none") return;
+          n += 1;
+          d.textContent = String(n);
+        });
+        const back = $("conn-back-btn");
+        if (back) back.style.display = "none";
+      }
+
       // ─── Init ───
       async function init() {
         try {
@@ -1777,9 +1835,13 @@ sudo journalctl -u lyra -n 100 --no-pager</div>
             setTimeout(() => (location.href = "/login"), 2000);
             return;
           }
+          if (status.cfProvisioned && status.panelHost) {
+            cfDone = { panelHost: status.panelHost, baseDomain: status.baseDomain };
+            applyCfProvisionedUi();
+          }
           if (status.authorized) {
-            // Token zaten doğrulanmış (örn. yenilendi), step 1'den başla
-            goStep(1);
+            // Token zaten doğrulanmış (örn. yenilendi), sıradaki adımdan başla
+            startAfterToken();
           }
           // Sunucu IP'yi göstermek için (opsiyonel)
           const ipR = await api("/api/setup/public-ip").catch(() => ({}));

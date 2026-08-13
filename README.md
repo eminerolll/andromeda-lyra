@@ -33,13 +33,24 @@ sudo ./install.sh
 ```
 
 Script sistem paketlerini ve Node 20'yi kurar, kodu `/opt/lyra`'ya yerleştirir,
-`/var/lib/lyra`'yı hazırlar, systemd unit'ini ve sudoers dosyasını yazar, sonra
-Lyra'yı **kurulum modunda** ayağa kaldırıp ekrana bir URL + token basar. Gerisi
-tarayıcıda: erişim modu, yönetici hesabı, servisler. Sihirbaz bitince Lyra
-kurulum modundan kendi çıkar ve normal moda geçer.
+`/var/lib/lyra`'yı hazırlar, systemd unit'ini ve sudoers dosyasını yazar. Sonra
+**panele nasıl erişeceğini sorar** — bu soru sihirbaz başlamadan önce gelir,
+çünkü yanlış cevap seni erişemeyeceğin bir URL'e gönderir:
 
-Tarayıcıya erişemiyorsan (kapalı ağ, SSH-only, Ansible) aynı sihirbaz
-terminalde de var — aynı soruları sorar, aynı kodu çalıştırır:
+1. **Cloudflare domain'im var** — API token + domain verirsin; tunnel, DNS ve
+   `cloudflared` hemen kurulur, sihirbaz `https://lyra.alanadin.com` üzerinde
+   açılır. **Hiçbir port açılmaz**, NAT/CGNAT ve bulut firewall'u arkasında da
+   çalışır.
+2. **Bu makine dışarıdan erişilebilir** — sihirbaz `http://<ip>` üzerinde açılır.
+3. **Ne domain ne açık port** — sihirbaz o terminalde çalışır (CLI).
+
+`install.sh` bulut sunucu (Oracle/AWS/GCP/Azure) tespit ederse uyarır ve
+2. seçeneği varsayılan yapmaz: bu sağlayıcılarda gelen portlar Security List /
+NSG katmanında varsayılan olarak kapalıdır, `ufw` kapalı olsa bile.
+
+Sihirbaz bitince Lyra kurulum modundan kendi çıkar ve normal moda geçer.
+Terminal sihirbazı sonradan da çağrılabilir — aynı soruları sorar, aynı kodu
+çalıştırır:
 
 ```bash
 sudo systemctl stop lyra

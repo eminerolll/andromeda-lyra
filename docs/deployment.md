@@ -10,6 +10,31 @@ modu**. Ayrıntılı kurulum akışı için [`install.md`](./install.md).
 > bittikten sonra tarayıcıdaki sihirbazda hangi seçimleri yapman
 > gerektiğini anlatır.
 
+## Önce: sihirbaza nasıl ulaşacaksın?
+
+`install.sh` paketleri kurduktan sonra, sihirbazı başlatmadan önce
+**erişim yöntemini** sorar (bkz. [`install.md`](./install.md) bölüm 1):
+
+| # | Yöntem | Ne zaman |
+|---|--------|----------|
+| 1 | Cloudflare tunnel'ı şimdi kur | Bir Cloudflare domain'in var. **Bulut sunucuda önerilen.** Hiçbir port açılmaz. |
+| 2 | Makine dışarıdan erişilebilir | Ev/ofis sunucusu ya da 80'i gerçekten açtığın VPS |
+| 3 | Terminal sihirbazı | Ne domain var ne açık port |
+
+**Bulut sunucu uyarısı:** Oracle Cloud, AWS, GCP ve Azure gelen portları
+kendi Security List / Security Group / NSG katmanında varsayılan olarak
+kapatır. Instance içinde `ufw` pasif olsa bile `http://<ip>` dışarıdan
+açılmaz. `install.sh` bunu metadata servisinden tespit eder, uyarır ve
+2. seçeneği varsayılan yapmaz. 2. seçeneği kullanacaksan portu
+**sağlayıcının panelinden** açmayı unutma:
+
+- Oracle: VCN → Security Lists → Ingress Rules
+- AWS: EC2 → Security Groups → Inbound rules
+- GCP: VPC network → Firewall → Allow ingress
+- Azure: Network security group → Inbound security rules
+
+Aşağıdaki senaryolar sihirbaza ulaştıktan sonrasını anlatır.
+
 ---
 
 ## Senaryo 1: VPS + kendi domain'in (en yaygın)
@@ -137,12 +162,33 @@ git clone https://github.com/eminerolll/andromeda-lyra.git lyra && cd lyra
 sudo ./install.sh
 ```
 
-#### Setup wizard
+#### İki yol: kurulumda ya da sihirbazda
+
+**(a) Kurulum sırasında (önerilen, hiç port gerekmez).** `install.sh`'in
+erişim yöntemi menüsünde **1. seçeneği** işaretle. Token ve domain terminalde
+sorulur, aşağıdaki 1-5 adımları **sihirbazdan önce** çalışır ve sihirbaz
+doğrudan `https://lyra.sendomain.com` üzerinde açılır. Sunucuda hiçbir port
+açılmaz, sihirbaz `127.0.0.1:3000`'de kalır. Non-interactive karşılığı:
+
+```bash
+sudo LYRA_CF_API_TOKEN="$CF_TOKEN" bash install.sh --yes \
+  --access cf-api --domain sendomain.com
+```
+
+Token geçersizse ya da zone bulunamazsa **hiçbir şey kurulmadan** hata verilir
+ve menüye dönülür.
+
+**(b) Sihirbazda.** Sihirbaza zaten erişebiliyorsan (2. yöntem) aynı akış
+tarayıcıda da var:
 
 - Erişim modu: ☁️ **Cloudflare Tunnel — otomatik (API token ile)**
 - API token + domain (zone apex, örn. `sendomain.com`)
 - **Cloudflare'i Kontrol Et** → token/hesap/zone doğrulanır ve **mevcut DNS
   kayıtları okunur**
+
+İki yol da `lib/setup-core.js` içindeki aynı fonksiyonları çalıştırır.
+(a) yolunda sihirbaz Cloudflare adımını atlar ve "Cloudflare: yapılandırıldı ✓"
+gösterir; tunnel ikinci kez kurulmaz.
 
 Lyra sırayla:
 
@@ -355,7 +401,18 @@ Caddy yine de cert almayı dener; başarısız olursa log'larda görürsün.
 ### "80 portu kullanımda"
 Başka bir web server (nginx/Apache) çalışıyor. Ya onu durdur ya
 `sudo LYRA_SETUP_PORT=8080 ./install.sh` ile kurulum sihirbazı portunu
-değiştir ya da **Manuel mod** seç.
+değiştir ya da **Manuel mod** seç. (Erişim yöntemi 1 ve 3'te bu port hiç
+kullanılmaz.)
+
+### Kurulumun verdiği `http://<ip>` adresi açılmıyor
+Bulut sunucudaysan büyük ihtimalle sağlayıcının firewall'u: Oracle Security
+List, AWS Security Group, GCP VPC firewall, Azure NSG. Instance içindeki
+`ufw status` "inactive" dese bile paket dışarıda düşer. İki çözüm:
+
+1. Portu sağlayıcının panelinden aç, adresi tekrar dene.
+2. `sudo ./install.sh` komutunu tekrar çalıştır ve **1. (Cloudflare tunnel)**
+   ya da **3. (terminal sihirbazı)** seçeneğini işaretle. Kurulum idempotenttir;
+   kod ve veritabanı korunur.
 
 ### Caddy cert alamıyor
 - DNS gerçekten doğru mu? `dig +short lyra.sendomain.com`

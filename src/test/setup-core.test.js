@@ -138,6 +138,26 @@ describe("setup-core adimlar ve ilerleme", () => {
     expect(keys("cf-tunnel")).not.toContain("cf-dns");
   });
 
+  it("cf-provision modu SADECE Cloudflare adimlarini uretir", () => {
+    const core = require("../lib/setup-core");
+    // install.sh bunu sihirbazdan once calistirir: kurulum sonrasi adimlar
+    // (firewall / mod degisimi / restart) o sirada calismamali.
+    expect(core.buildSteps("cf-provision").map((s) => s.key)).toEqual([
+      "cf-verify",
+      "cf-tunnel",
+      "cf-ingress",
+      "cf-dns",
+      "cloudflared-install",
+      "cloudflared-service"
+    ]);
+  });
+
+  it("cf-api tunnel onceden kurulduysa CF adimlari listeye girmez", () => {
+    const core = require("../lib/setup-core");
+    const keys = core.buildSteps("cf-api", { cfProvisioned: true }).map((s) => s.key);
+    expect(keys).toEqual(["firewall", "setup-mode-off", "lyra-restart"]);
+  });
+
   it("runStep basari/hata durumunu ve not'u kaydeder", async () => {
     const core = require("../lib/setup-core");
     const seen = [];
@@ -250,6 +270,79 @@ describe("setup-core applyFinalize", () => {
   });
 });
 
+describe("setup-core kurulum oncesi Cloudflare (cf_provisioned)", () => {
+  let home;
+  beforeEach(() => {
+    home = freshHome();
+    require("../db/migrate").migrate();
+  });
+  afterEach(() => cleanup(home));
+
+  // install.sh tunnel'i kurdugunda yazdigi ayarlarin taklidi
+  // (bkz. setup-core provisionCloudflare).
+  function seedProvisioned(panelHost = "lyra.ornek.com", domain = "ornek.com") {
+    const { settings } = require("../db/repos");
+    settings.setMany({
+      access_mode: "cf-api",
+      base_domain: domain,
+      panel_host: panelHost,
+      public_access: true,
+      bind_address: "127.0.0.1",
+      cf_provisioned: true
+    });
+  }
+
+  it("bayrak yokken isCfProvisioned false", () => {
+    const core = require("../lib/setup-core");
+    expect(core.isCfProvisioned()).toBe(false);
+    expect(core.cfProvisionedInfo()).toBeNull();
+  });
+
+  it("bayrak varsa domain ve panel host'u doner", () => {
+    const core = require("../lib/setup-core");
+    seedProvisioned();
+    expect(core.cfProvisionedInfo()).toEqual({
+      domain: "ornek.com",
+      panelHost: "lyra.ornek.com"
+    });
+  });
+
+  it("panel_host eksikse yarim kurulumu 'kurulmus' saymaz", () => {
+    const core = require("../lib/setup-core");
+    const { settings } = require("../db/repos");
+    settings.setMany({ cf_provisioned: true, base_domain: "ornek.com" });
+    expect(core.isCfProvisioned()).toBe(false);
+  });
+
+  it("token/domain sorulmadigi icin finalize dogrulamasi bunlari istemez", () => {
+    const core = require("../lib/setup-core");
+    seedProvisioned();
+    // Tarayici sihirbazi cf-api modunda ARTIK token gondermez.
+    const { errors } = core.validateFinalize(baseBody({ accessMode: "cf-api" }));
+    expect(errors).toEqual([]);
+    // Bayrak yokken ayni govde reddedilmeli — kural gevsemis olmamali.
+    const { settings } = require("../db/repos");
+    settings.remove("cf_provisioned");
+    expect(core.validateFinalize(baseBody({ accessMode: "cf-api" })).errors.join(" ")).toMatch(
+      /Cloudflare API token/
+    );
+  });
+
+  it("applyFinalize domain/panel host'u ayarlardan okur", () => {
+    const core = require("../lib/setup-core");
+    const { settings } = require("../db/repos");
+    seedProvisioned("panel.ornek.com");
+
+    const applied = core.applyFinalize(baseBody({ accessMode: "cf-api" }));
+    expect(applied.panelHost).toBe("panel.ornek.com");
+    expect(applied.finalUrl).toBe("https://panel.ornek.com");
+    expect(settings.get("base_domain")).toBe("ornek.com");
+    expect(settings.get("panel_host")).toBe("panel.ornek.com");
+    expect(settings.get("bind_address")).toBe("127.0.0.1");
+    expect(settings.get("public_access")).toBe(true);
+  });
+});
+
 describe("setup-core ensureProjectsDir", () => {
   let home;
   beforeEach(() => {
@@ -294,5 +387,7 @@ describe("routes/setup re-export'lari", () => {
     expect(routes.buildSteps).toBe(core.buildSteps);
     expect(routes.cleanupSetupPrivileges).toBe(core.cleanupSetupPrivileges);
     expect(routes.SETUP_SUDOERS).toBe(core.SETUP_SUDOERS);
+    expect(routes.isCfProvisioned).toBe(core.isCfProvisioned);
+    expect(routes.cfProvisionedInfo).toBe(core.cfProvisionedInfo);
   });
 });

@@ -12,6 +12,14 @@
 //
 // Non-interactive modda eksik zorunlu alan varsa kurulum BASLAMAZ; hangi
 // bayragin eksik oldugu tek tek yazilir. Sessizce varsayilana kacilmaz.
+//
+// Ucuncu bir giris noktasi daha var:
+//   node scripts/setup-cli.js --provision-tunnel
+// install.sh bunu "Cloudflare domain'im var" secildiginde SIHIRBAZDAN ONCE
+// calistirir: token/zone dogrulanir, tunnel + ingress + DNS kurulur,
+// cloudflared servis olur. Sonrasinda sihirbaz (tarayici ya da terminal)
+// https://<panel-host> uzerinden acilir ve Cloudflare adimini tekrar sormaz.
+// Kullanilan zincir sihirbazinkiyle AYNI (lib/setup-core.js).
 
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 
@@ -46,6 +54,8 @@ const VALUE_OPTS = {
   "--email": "email",
   "--cf-token": "cfToken",
   "--cf-api-token": "cfApiToken",
+  // Token'i argv'de tasimamak icin tercih edilen yol: 0600 bir dosyanin YOLU.
+  "--cf-api-token-file": "cfApiTokenFile",
   "--cf-account-id": "cfAccountId",
   "--cf-host-mode": "cfHostMode",
   "--cf-panel-subdomain": "cfPanelSubdomain",
@@ -60,6 +70,7 @@ const VALUE_OPTS = {
 };
 
 const BOOL_OPTS = {
+  "--provision-tunnel": "provisionTunnel",
   "--cf-overwrite-dns": "cfOverwriteDns",
   "--2fa": "want2fa",
   "--no-2fa": "no2fa",
@@ -109,6 +120,9 @@ Kullanim:
   node scripts/setup-cli.js                 interaktif sihirbaz
   npm run setup -- --cli                    ayni sey
   node scripts/setup-cli.js --yes [...]     tam non-interactive (otomasyon)
+  node scripts/setup-cli.js --provision-tunnel
+                                            SADECE Cloudflare tunnel'i kur
+                                            (install.sh sihirbazdan once cagirir)
 
 Erisim modu (zorunlu, non-interactive):
   --mode <public|lan|localhost|cf-tunnel|cf-api|manual>
@@ -118,6 +132,10 @@ Moda ozel:
   --email <adres>                public (Let's Encrypt bildirimi)
   --cf-token <token>             cf-tunnel connector token'i
   --cf-api-token <token>         cf-api API token'i
+                                 (LYRA_CF_API_TOKEN env'i ya da
+                                  --cf-api-token-file tercih edilir — komut
+                                  satiri "ps" ciktisinda gorunur)
+  --cf-api-token-file <yol>      token'i 0600 bir dosyadan oku
   --cf-account-id <id>           cf-api (token birden fazla hesaba erisiyorsa)
   --cf-host-mode <apex|subdomain>  panel apex'te mi alt alan adinda mi (varsayilan: apex)
   --cf-panel-subdomain <ad>      subdomain modunda panel adi (varsayilan: lyra)
@@ -196,6 +214,30 @@ function password(fromArgs) {
   return null;
 }
 
+// Cloudflare API token'i: dosya > env > bayrak. Bayrak "ps" ciktisinda
+// gorunur, o yuzden uyariyla kabul edilir (bkz. password()).
+function cfApiToken() {
+  if (args.cfApiTokenFile) {
+    try {
+      const t = require("fs").readFileSync(args.cfApiTokenFile, "utf8").trim();
+      if (t) return t;
+      die(`Cloudflare API token dosyasi bos: ${args.cfApiTokenFile}`);
+    } catch (err) {
+      die(`Cloudflare API token dosyasi okunamadi (${args.cfApiTokenFile}): ${err.message}`);
+    }
+  }
+  const env = process.env.LYRA_CF_API_TOKEN;
+  if (env && env.trim()) return env.trim();
+  if (args.cfApiToken) {
+    warn(
+      '--cf-api-token komut satirindan verildi; "ps" ciktisinda gorunur. ' +
+        "LYRA_CF_API_TOKEN env'i ya da --cf-api-token-file daha guvenli."
+    );
+    return args.cfApiToken.trim();
+  }
+  return null;
+}
+
 function parseServiceList(value) {
   return String(value || "")
     .split(",")
@@ -224,8 +266,9 @@ function buildBodyNonInteractive() {
   if (mode === "cf-tunnel") {
     need(args.cfToken, "--cf-token <connector-token>   (cf-tunnel modu icin)");
   }
+  const cfToken = mode === "cf-api" ? cfApiToken() : null;
   if (mode === "cf-api") {
-    need(args.cfApiToken, "--cf-api-token <token>         (cf-api modu icin)");
+    need(cfToken, "--cf-api-token <token>  ya da LYRA_CF_API_TOKEN env'i");
     need(args.domain, "--domain <alan.adi>            (cf-api modu icin)");
   }
 
@@ -269,7 +312,7 @@ function buildBodyNonInteractive() {
     domain: args.domain || null,
     email: args.email || null,
     cfToken: args.cfToken || null,
-    cfApiToken: args.cfApiToken || null,
+    cfApiToken: cfToken,
     cfAccountId: args.cfAccountId || null,
     cfHostMode: args.cfHostMode === "subdomain" ? "subdomain" : "apex",
     cfPanelSubdomain: args.cfPanelSubdomain || null,
@@ -383,23 +426,31 @@ async function askCfTunnel(body) {
   body.cfToken = a.cfToken.trim();
 }
 
-async function askCfApi(body) {
-  const a = await ask([
-    {
+// preset: install.sh token/domain'i onceden vermis olabilir (dosya/env/bayrak).
+// Verilmeyen alan sorulur; geri kalan akis (preflight, hesap secimi, apex
+// cakismasi, uzerine yazma onayi) her iki yolda da AYNIDIR.
+async function askCfApi(body, preset = {}) {
+  const questions = [];
+  if (!preset.token) {
+    questions.push({
       type: "password",
       name: "cfApiToken",
       message: "Cloudflare API token'i (Zone:DNS:Edit + Account:Tunnel:Edit)",
       validate: (v) => (String(v).trim() ? true : "Token gerekli")
-    },
-    {
+    });
+  }
+  if (!preset.domain) {
+    questions.push({
       type: "text",
       name: "domain",
       message: "Domain (Cloudflare'da kayitli zone)",
       validate: (v) => (String(v).trim() ? true : "Domain gerekli")
-    }
-  ]);
-  body.cfApiToken = a.cfApiToken.trim();
-  body.domain = a.domain.trim();
+    });
+  }
+  const a = questions.length ? await ask(questions) : {};
+  body.cfApiToken = preset.token || a.cfApiToken.trim();
+  body.domain = preset.domain || a.domain.trim();
+  if (preset.accountId) body.cfAccountId = preset.accountId;
   body.cfHostMode = "apex";
   body.cfPanelSubdomain = core.DEFAULT_PANEL_SUBDOMAIN;
 
@@ -635,12 +686,22 @@ async function buildBodyInteractive() {
     integrations: {}
   };
 
-  body.accessMode = await askAccessMode();
-  if (!body.accessMode) die("Erisim modu secilmedi.");
+  // Tunnel kurulum oncesinde (install.sh) kurulduysa erisim modu zaten belli:
+  // tekrar sormak yeni bir tunnel acmaya davet olurdu.
+  const cf = core.cfProvisionedInfo();
+  if (cf) {
+    head("Erisim modu");
+    ok(`Cloudflare: yapilandirildi — panel https://${cf.panelHost}`);
+    info("Tunnel kurulumdan once kuruldu; bu adim atlandi.");
+    body.accessMode = "cf-api";
+  } else {
+    body.accessMode = await askAccessMode();
+    if (!body.accessMode) die("Erisim modu secilmedi.");
 
-  if (body.accessMode === "public") await askPublic(body);
-  else if (body.accessMode === "cf-tunnel") await askCfTunnel(body);
-  else if (body.accessMode === "cf-api") await askCfApi(body);
+    if (body.accessMode === "public") await askPublic(body);
+    else if (body.accessMode === "cf-tunnel") await askCfTunnel(body);
+    else if (body.accessMode === "cf-api") await askCfApi(body);
+  }
 
   await askPanel(body);
   const totpSecret = await askAdmin(body);
@@ -689,25 +750,32 @@ function makeProgressPrinter() {
 }
 
 async function run(body, totpSecret) {
-  const { errors } = core.validateFinalize(body, { totpVerified: !!totpSecret });
+  // install.sh tunnel'i sihirbazdan once kurduysa cf-api modunda token
+  // sorulmaz, dogrulanmaz ve kurulum sonrasi adimlarda tekrarlanmaz.
+  const cfProvisioned = core.isCfProvisioned();
+  const { errors } = core.validateFinalize(body, {
+    totpVerified: !!totpSecret,
+    cfProvisioned
+  });
   if (errors.length) die("Kurulum bilgileri eksik/gecersiz:", errors);
 
   const dirCheck = core.ensureProjectsDir(body.projectsDir);
   if (!dirCheck.ok) die(dirCheck.error);
 
   head("Kurulum");
-  const applied = core.applyFinalize(body, { totpSecret });
+  const applied = core.applyFinalize(body, { totpSecret, cfProvisioned });
   ok("Ayarlar, yonetici hesabi ve servis kayitlari yazildi.");
 
   const progress = core.createProgress({ onUpdate: makeProgressPrinter() });
-  progress.start(applied.accessMode, applied.finalUrl);
+  progress.start(applied.accessMode, applied.finalUrl, { cfProvisioned });
 
   console.log("");
   // transition "direct": bu process servisin kendisi degil, gecisi kendimiz
   // yapip sonucunu dogrulayabiliriz (tarayici modunda systemd-run gerekiyordu).
   const success = await core.runPostSetup(body.accessMode, body, progress, {
     log: (m) => console.log(`      ${dim(m)}`),
-    transition: "direct"
+    transition: "direct",
+    cfProvisioned
   });
 
   console.log("");
@@ -725,9 +793,137 @@ async function run(body, totpSecret) {
   return 1;
 }
 
+// ──────────────── Sadece tunnel kurulumu (--provision-tunnel) ────────────────
+//
+// install.sh sihirbazdan ONCE cagirir. Basarisiz olursa hicbir sey kurulmamis
+// olur ve install.sh secenek menusune geri doner (cikis kodu 1); kullanici
+// vazgecerse 130 doner ve install.sh kurulumu iptal eder.
+
+function provisionFlagBody() {
+  const token = cfApiToken();
+  const missing = [];
+  if (!token) missing.push("--cf-api-token <token>  ya da LYRA_CF_API_TOKEN env'i");
+  if (!args.domain) missing.push("--domain <alan.adi>");
+  if (missing.length) {
+    die(
+      "Cloudflare tunnel kurulumu icin eksik zorunlu alanlar var:",
+      missing.concat(["", "Tam liste: node scripts/setup-cli.js --help"])
+    );
+  }
+  return {
+    accessMode: "cf-api",
+    cfApiToken: token,
+    domain: args.domain,
+    cfAccountId: args.cfAccountId || null,
+    cfHostMode: args.cfHostMode === "subdomain" ? "subdomain" : "apex",
+    cfPanelSubdomain: args.cfPanelSubdomain || core.DEFAULT_PANEL_SUBDOMAIN,
+    cfOverwriteDns: !!args.cfOverwriteDns
+  };
+}
+
+// Non-interactive on-kontrol: soracak kimse yok, karar bayraklarda olmali.
+async function provisionPreflightNonInteractive(body) {
+  let pre;
+  try {
+    pre = await core.cfPreflight(core.cfPlanFromBody(body));
+  } catch (err) {
+    die(`Cloudflare on-kontrolu basarisiz: ${err.message}`, ["Hicbir sey kurulmadi."]);
+  }
+  if (pre.needsAccountChoice) {
+    die(
+      "Token birden fazla Cloudflare hesabina erisiyor; hangisi kullanilacak belirsiz.",
+      ["--cf-account-id <id> ile sec:"].concat(
+        pre.accounts.map((a) => `  ${a.id}  ${a.name || ""}`)
+      )
+    );
+  }
+  const plan = core.cfPlanFromBody(body);
+  const blocking = pre.conflicts.filter(
+    (c) => c.host === plan.panelHost || c.host === `*.${plan.domain}`
+  );
+  if (blocking.length && !body.cfOverwriteDns) {
+    const rows = [];
+    for (const c of blocking) {
+      for (const r of c.records) rows.push(`  ${c.host}  ${r.type}  ${r.content}`);
+    }
+    die(
+      "Kullanilacak host(lar)da zaten DNS kaydi var — onayin olmadan uzerine yazmiyoruz:",
+      rows.concat([
+        "",
+        "Secenekler:",
+        "  --cf-host-mode subdomain --cf-panel-subdomain <ad>   (apex kaydina dokunmaz)",
+        "  --cf-overwrite-dns                                   (mevcut kaydin uzerine yaz)"
+      ])
+    );
+  }
+  return pre;
+}
+
+async function provisionTunnel() {
+  console.log("\n" + cyan("Lyra — Cloudflare tunnel kurulumu"));
+
+  const interactive = !args.yes && !!process.stdin.isTTY;
+  // Bayraklari agir islerden once dogrula.
+  const flagBody = interactive ? null : provisionFlagBody();
+
+  migrate();
+  if (users.exists()) {
+    die("Kurulum daha once tamamlanmis (yonetici hesabi mevcut).", [
+      "Tunnel ayarlari icin panel > Tunnel sekmesini kullan."
+    ]);
+  }
+  if (core.isCfProvisioned()) {
+    const cf = core.cfProvisionedInfo();
+    ok(`Cloudflare zaten kurulmus — panel https://${cf.panelHost}`);
+    info("Tekrar kurulmadi. Sihirbaza bu adresten devam et.");
+    return 0;
+  }
+
+  let body;
+  if (interactive) {
+    body = { accessMode: "cf-api" };
+    // Sihirbazin cf-api adimiyla AYNI fonksiyon: preflight, hesap secimi,
+    // apex cakismasi ve uzerine yazma onayi burada da ayni sekilde isler.
+    await askCfApi(body, {
+      token: cfApiToken(),
+      domain: args.domain || null,
+      accountId: args.cfAccountId || null
+    });
+  } else {
+    body = flagBody;
+    await provisionPreflightNonInteractive(body);
+  }
+
+  const plan = core.cfPlanFromBody(body);
+  head("Cloudflare kurulumu");
+  info(`Panel adresi: https://${plan.panelHost}`);
+  console.log("");
+
+  let result;
+  try {
+    result = await core.provisionCloudflare(body, {
+      log: (m) => console.log(`      ${dim(m)}`),
+      onUpdate: makeProgressPrinter()
+    });
+  } catch (err) {
+    die(`Cloudflare kurulumu basarisiz: ${err && err.message ? err.message : err}`);
+  }
+
+  console.log("");
+  if (!result.ok) {
+    warn("Cloudflare kurulumu tamamlanamadi — yukaridaki ✗ satirina bak.");
+    console.log("  Hicbir kalici ayar yazilmadi; duzeltip tekrar deneyebilirsin.\n");
+    return 1;
+  }
+  ok(`Tunnel hazir: ${cyan(result.finalUrl)}`);
+  return 0;
+}
+
 // ─────────────────────────── Main ───────────────────────────
 
 async function main() {
+  if (args.provisionTunnel) return provisionTunnel();
+
   console.log("\n" + cyan("Lyra — terminal kurulum sihirbazi"));
 
   const nonInteractive = !!args.yes || !process.stdin.isTTY;

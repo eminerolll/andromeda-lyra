@@ -15,19 +15,31 @@
 #   6. DB migrate
 #   7. systemd unit + kalici sudoers  <-- kurulum sihirbazindan ONCE
 #  7b. /usr/local/bin/lyra symlink'i (status/update/logs/uninstall komutu)
-#   8. Kurulum modu drop-in'i + gecici sudoers + UFW 80 + systemctl enable --now
-#   9. Setup token uret, tarayici adresini ekrana bas
+#   8. ERISIM YONTEMI: bulut tespiti + kullaniciya secim (asagida)
+#   9. Secilen yonteme gore sihirbazi baslat
 #
-# Tarayici sihirbazi yerine terminalde kurmak istersen (headless):
-#   sudo -u <kullanici> LYRA_HOME=/var/lib/lyra node /opt/lyra/src/scripts/setup-cli.js
+# 8. adim neden var: bulut saglayicilarda (Oracle/AWS/GCP/Azure) gelen portlar
+# Security List / Security Group / NSG katmaninda VARSAYILAN OLARAK KAPALIDIR.
+# Instance icinde ufw pasif olsa bile port 80 disaridan erisilemez. Kullaniciya
+# "tarayicidan http://<ip> adresine git" demek, erisemeyecegi bir adres
+# vermektir. O yuzden sihirbaz baslamadan ONCE nasil erisilecegi soruluyor:
 #
-# Sihirbaz artik ayri bir "npm run setup" process'i degil: Lyra systemd altinda
-# kurulum modunda baslar. Sihirbaz bitince Lyra drop-in'i silip kendini
-# yeniden baslatir — restart edecek birinin var olmasi artik varsayim degil.
+#   cf-api : Cloudflare API token + domain -> tunnel SIMDI kurulur, sihirbaz
+#            https://<panel-host> uzerinde acilir. HICBIR PORT ACILMAZ.
+#   direct : sihirbaz http://<ip>:80 uzerinde acilir (klasik davranis).
+#   cli    : sihirbaz burada, terminalde calisir (port gerekmez).
+#
+# Sihirbaz ayri bir "npm run setup" process'i degil: Lyra systemd altinda
+# kurulum modunda baslar (cli yontemi haric). Sihirbaz bitince Lyra drop-in'i
+# silip kendini yeniden baslatir — restart edecek birinin var olmasi varsayim
+# degil.
 #
 # Env override'lari: LYRA_REPO, LYRA_DIR, LYRA_BRANCH, LYRA_USER,
-#                    LYRA_HOME, LYRA_PORT, LYRA_SETUP_PORT
-# Bayraklar: --yes / -y / --non-interactive, --help
+#                    LYRA_HOME, LYRA_PORT, LYRA_SETUP_PORT,
+#                    LYRA_CF_API_TOKEN (cf-api yonteminde API token'i)
+# Bayraklar: --yes / -y / --non-interactive, --access, --domain,
+#            --cf-api-token, --cf-account-id, --cf-host-mode,
+#            --cf-panel-subdomain, --cf-overwrite-dns, --help
 
 set -euo pipefail
 
@@ -53,6 +65,22 @@ Secenekler:
   -y, --yes, --non-interactive   Hicbir sey sorma, varsayilanlarla devam et
   -h, --help                     Bu yardimi goster
 
+Erisim yontemi (sorulmasin istiyorsan):
+  --access <cf-api|direct|cli>
+      cf-api : Cloudflare tunnel'i SIMDI kur, sihirbazi https://<panel> ac.
+               Hicbir port acilmaz — NAT / bulut firewall'u arkasinda calisir.
+      direct : sihirbazi http://<ip>:80 uzerinde ac (klasik davranis).
+      cli    : sihirbazi bu terminalde calistir (TTY gerekir).
+
+cf-api icin:
+  --domain <alan.adi>            Cloudflare'da kayitli zone (zorunlu)
+  --cf-api-token <token>         API token (LYRA_CF_API_TOKEN env'i daha
+                                 guvenli — bayrak "ps" ciktisinda gorunur)
+  --cf-account-id <id>           token birden fazla hesaba erisiyorsa
+  --cf-host-mode <apex|subdomain>  panel apex'te mi alt alan adinda mi
+  --cf-panel-subdomain <ad>      subdomain modunda panel adi (varsayilan: lyra)
+  --cf-overwrite-dns             cakisan DNS kayitlarinin uzerine yaz
+
 Ortam degiskenleri:
   LYRA_REPO        git repo URL'i (yerel kaynak yoksa zorunlu)
   LYRA_DIR         kurulum dizini            (varsayilan: /opt/lyra)
@@ -60,20 +88,84 @@ Ortam degiskenleri:
   LYRA_USER        Lyra'nin calisacagi kullanici (varsayilan: $SUDO_USER)
   LYRA_HOME        veri dizini               (varsayilan: /var/lib/lyra)
   LYRA_PORT        panel portu               (varsayilan: 3000)
-  LYRA_SETUP_PORT  kurulum sihirbazi portu   (varsayilan: 80)
+  LYRA_SETUP_PORT  sihirbaz portu, sadece "direct" yonteminde (varsayilan: 80)
+  LYRA_CF_API_TOKEN  cf-api yonteminde Cloudflare API token'i
 USAGE
 }
 
+# Kok/kullanici hatalarinda kullaniciya komutu aynen tekrarlatabilmek icin.
+ORIG_ARGS="$*"
+
 ASSUME_YES=0
-for a in "$@"; do
-  case "$a" in
+ACCESS_METHOD=""
+CF_API_TOKEN="${LYRA_CF_API_TOKEN:-}"
+CF_DOMAIN=""
+CF_ACCOUNT_ID=""
+CF_HOST_MODE=""
+CF_PANEL_SUB=""
+CF_OVERWRITE_DNS=0
+SETUP_PORT_GIVEN=0
+[[ -n "${LYRA_SETUP_PORT:-}" ]] && SETUP_PORT_GIVEN=1
+
+need_value() {
+  [[ -n "${2:-}" && "${2:-}" != -* ]] || fail "$1 bir deger bekliyor (yardim: --help)"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     -y|--yes|--non-interactive) ASSUME_YES=1 ;;
     -h|--help) usage; exit 0 ;;
-    *) fail "Bilinmeyen secenek: $a (yardim: --help)" ;;
+    --access) need_value "$1" "${2:-}"; ACCESS_METHOD="$2"; shift ;;
+    --access=*) ACCESS_METHOD="${1#*=}" ;;
+    --domain) need_value "$1" "${2:-}"; CF_DOMAIN="$2"; shift ;;
+    --domain=*) CF_DOMAIN="${1#*=}" ;;
+    --cf-api-token) need_value "$1" "${2:-}"; CF_API_TOKEN="$2"; shift ;;
+    --cf-api-token=*) CF_API_TOKEN="${1#*=}" ;;
+    --cf-account-id) need_value "$1" "${2:-}"; CF_ACCOUNT_ID="$2"; shift ;;
+    --cf-account-id=*) CF_ACCOUNT_ID="${1#*=}" ;;
+    --cf-host-mode) need_value "$1" "${2:-}"; CF_HOST_MODE="$2"; shift ;;
+    --cf-host-mode=*) CF_HOST_MODE="${1#*=}" ;;
+    --cf-panel-subdomain) need_value "$1" "${2:-}"; CF_PANEL_SUB="$2"; shift ;;
+    --cf-panel-subdomain=*) CF_PANEL_SUB="${1#*=}" ;;
+    --cf-overwrite-dns) CF_OVERWRITE_DNS=1 ;;
+    *) fail "Bilinmeyen secenek: $1 (yardim: --help)" ;;
   esac
+  shift
 done
+
+# Kisa adlari da kabul et; gecersiz degeri sessizce yutma.
+case "$ACCESS_METHOD" in
+  "") : ;;
+  cf-api|cloudflare|tunnel) ACCESS_METHOD="cf-api" ;;
+  direct|browser|ip) ACCESS_METHOD="direct" ;;
+  cli|terminal) ACCESS_METHOD="cli" ;;
+  *) fail "Bilinmeyen erisim yontemi: $ACCESS_METHOD
+    Gecerli degerler: cf-api, direct, cli (yardim: --help)" ;;
+esac
+case "$CF_HOST_MODE" in
+  ""|apex|subdomain) : ;;
+  *) fail "--cf-host-mode yalnizca 'apex' ya da 'subdomain' olabilir (verilen: $CF_HOST_MODE)" ;;
+esac
+
 # curl | bash akisinda stdin script'in kendisi — soru soramayiz.
 [[ -t 0 ]] || ASSUME_YES=1
+
+# Soru sorulamayacak modda eksik bilgiyi tahmin etmiyoruz. Kontrol BURADA:
+# yarim kurulum yapip 10 dakika sonra "domain lazimmis" demek kabul edilemez.
+if [[ "$ASSUME_YES" -eq 1 ]]; then
+  if [[ "$ACCESS_METHOD" == "cf-api" ]]; then
+    [[ -n "$CF_DOMAIN" ]] || fail "--access cf-api icin --domain <alan.adi> gerekli.
+    Ornek: sudo LYRA_CF_API_TOKEN=<token> bash $0 --yes --access cf-api --domain ornek.com"
+    [[ -n "$CF_API_TOKEN" ]] || fail "--access cf-api icin Cloudflare API token'i gerekli:
+    sudo LYRA_CF_API_TOKEN=<token> bash $0 --yes --access cf-api --domain $CF_DOMAIN
+    (--cf-api-token <token> de kabul edilir ama 'ps' ciktisinda gorunur)"
+  fi
+  if [[ "$ACCESS_METHOD" == "cli" ]]; then
+    fail "--access cli interaktif bir terminal ister; --yes / curl|bash ile kullanilamaz.
+    Tam otomatik terminal kurulumu icin sihirbazi dogrudan cagir:
+      node <kurulum-dizini>/src/scripts/setup-cli.js --yes ...  (bkz. --help)"
+  fi
+fi
 
 confirm() {
   local prompt="$1"
@@ -115,7 +207,7 @@ BANNER
 step "Ortam kontrol ediliyor"
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || fail "Bu script root olarak calismali:
-    sudo bash $0 $*"
+    sudo bash $0 $ORIG_ARGS"
 
 [[ -r /etc/os-release ]] || fail "/etc/os-release okunamadi — desteklenmeyen sistem."
 # shellcheck disable=SC1091
@@ -171,7 +263,7 @@ info "  kod       : $LYRA_DIR   ($([[ -n "$LOCAL_SRC" ]] && echo "yerel kopya: $
 info "  veri      : $LYRA_HOME"
 info "  kullanici : $TARGET_USER"
 info "  servis    : ${UNIT_NAME}.service (port $LYRA_PORT)"
-info "  sihirbaz  : http://<sunucu-ip>:$LYRA_SETUP_PORT"
+info "  sihirbaz  : erisim yontemi paketler kurulduktan sonra sorulacak"
 echo
 confirm "Devam edilsin mi?" || fail "Iptal edildi."
 
@@ -346,12 +438,166 @@ if setup_complete; then
   exit 0
 fi
 
+# ─────────────────────── 8. Erisim yontemi ───────────────────────
+#
+# Bu bolum kurulumun geri kalanini belirler. Amaci tek bir gercek dunya
+# hatasini kapatmak: kullaniciya erisemeyecegi bir adres vermek.
+
+step "Erisim yontemi"
+
+# Bulut tespiti — 169.254.169.254 metadata servisi, kisa timeout.
+# Ag yoksa/adres yonlendirilmiyorsa sessizce bos doner, kurulum gecikmez.
+CLOUD_ID=""
+CLOUD_NAME=""
+if [[ -f "$SRC_DIR/lib/cloud-detect.js" ]]; then
+  CLOUD_RAW="$(node "$SRC_DIR/lib/cloud-detect.js" --timeout 1500 2>/dev/null || true)"
+  CLOUD_RAW="${CLOUD_RAW//[$'\r\n']/}"
+  if [[ -n "$CLOUD_RAW" ]]; then
+    CLOUD_ID="${CLOUD_RAW%%|*}"
+    CLOUD_NAME="${CLOUD_RAW#*|}"
+  fi
+fi
+
+# Bulut tespit edildiyse "makine disaridan erisilebilir" VARSAYILAN OLMAZ.
+DEFAULT_CHOICE=2
+if [[ -n "$CLOUD_ID" ]]; then
+  DEFAULT_CHOICE=1
+  warn "Bulut sunucusu tespit edildi ($CLOUD_NAME)."
+  warn "Bulut saglayicilarda gelen portlar (Security List / Security Group / NSG)"
+  warn "varsayilan olarak kapali olabilir: makine icinde firewall kapali olsa bile"
+  warn "http://<ip> adresi disaridan calismayabilir."
+else
+  info "Bulut metadata servisi cevap vermedi — fiziksel/ev sunucusu varsayiliyor."
+fi
+
+print_access_menu() {
+  local rec1="" rec2=""
+  if [[ "$DEFAULT_CHOICE" -eq 1 ]]; then
+    rec1=" ${C_GREEN}(onerilen)${C_RESET}"
+  else
+    rec2=" ${C_GREEN}(onerilen)${C_RESET}"
+  fi
+  echo
+  echo "  Bu panele nasil erisecegini sec:"
+  echo
+  echo -e "    ${C_CYAN}1)${C_RESET} Cloudflare domain'im var${rec1}"
+  echo -e "       ${C_DIM}API token + domain -> tunnel SIMDI kurulur, sihirbaz${C_RESET}"
+  echo -e "       ${C_DIM}https://lyra.alanadin.com gibi bir adreste acilir.${C_RESET}"
+  echo -e "       ${C_DIM}Hicbir port acilmaz; NAT/bulut firewall'u arkasinda da calisir.${C_RESET}"
+  echo
+  echo -e "    ${C_CYAN}2)${C_RESET} Bu makine disaridan erisilebilir${rec2}"
+  echo -e "       ${C_DIM}Sihirbaz http://<ip>:${LYRA_SETUP_PORT} adresinde acilir.${C_RESET}"
+  echo -e "       ${C_DIM}Port ${LYRA_SETUP_PORT} gercekten disariya acik olmali.${C_RESET}"
+  echo
+  echo -e "    ${C_CYAN}3)${C_RESET} Ne domain'im var ne de port acabiliyorum"
+  echo -e "       ${C_DIM}Sihirbaz burada, terminalde calisir (CLI).${C_RESET}"
+  echo
+}
+
+choose_access() {
+  local reply=""
+  while true; do
+    print_access_menu
+    read -rp "  Secim [1-3] (varsayilan: $DEFAULT_CHOICE): " reply || reply=""
+    reply="${reply// /}"
+    reply="${reply:-$DEFAULT_CHOICE}"
+    case "$reply" in
+      1) ACCESS_METHOD="cf-api"; return 0 ;;
+      2) ACCESS_METHOD="direct"; return 0 ;;
+      3) ACCESS_METHOD="cli"; return 0 ;;
+      *) warn "Gecersiz secim: $reply (1, 2 ya da 3)" ;;
+    esac
+  done
+}
+
+if [[ -z "$ACCESS_METHOD" ]]; then
+  if [[ "$ASSUME_YES" -eq 1 ]]; then
+    # Non-interactive: bugunku davranisi koru, ama bulutta sessiz kalma.
+    ACCESS_METHOD="direct"
+    if [[ -n "$CLOUD_ID" ]]; then
+      warn "Non-interactive mod: 'direct' yontemi secildi (sihirbaz port $LYRA_SETUP_PORT)."
+      warn "Bulut firewall'unda bu port kapaliysa sihirbaza ERISEMEZSIN. Tunnel icin:"
+      warn "  sudo LYRA_CF_API_TOKEN=<token> bash $0 --yes --access cf-api --domain <alan.adi>"
+    fi
+  else
+    choose_access
+  fi
+fi
+
+# (Bayrak dogrulamasi arguman ayristirmasinda yapildi — buraya gelen
+#  ACCESS_METHOD calistirilabilir durumda.)
+
+if [[ "$ACCESS_METHOD" == "cf-api" && "$SETUP_PORT_GIVEN" -eq 1 ]]; then
+  warn "LYRA_SETUP_PORT verilmis ama tunnel yonteminde kullanilmiyor:"
+  warn "sihirbaz Lyra'nin kendi portunda ($LYRA_PORT) calisir, disari port acilmaz."
+fi
+
+# ─────────────────────── 9. Kurulum sihirbazi ───────────────────────
 step "Kurulum sihirbazi"
 
+# Kurulum fazinin gecici tam-yetki sudoers dosyasi (cloudflared/Caddy kurulumu,
+# firewall, systemd gecisi). Uc yontemin de ihtiyaci var; sihirbaz bitince
+# Lyra siler (bkz. lib/setup-core.js -> runPostSetup).
+node "$SRC_DIR/scripts/generate-sudoers.js" \
+  --user "$TARGET_USER" --name "$UNIT_NAME" --setup >/dev/null
+ok "$SETUP_SUDOERS yazildi (gecici — sihirbaz bitince silinir)"
+
+# Token'i ne argv'ye ne de cocuk process'in env'ine koyuyoruz: ikisi de "ps"
+# ciktisinda gorunebilir. 0600 gecici dosya, yol olarak gecirilir ve her
+# durumda (hata/iptal dahil) silinir.
+CF_TOKEN_FILE=""
+cleanup_token_file() {
+  if [[ -n "$CF_TOKEN_FILE" ]]; then
+    rm -f "$CF_TOKEN_FILE"
+    CF_TOKEN_FILE=""
+  fi
+}
+trap cleanup_token_file EXIT
+
+write_token_file() {
+  CF_TOKEN_FILE="$(mktemp)"
+  chmod 600 "$CF_TOKEN_FILE"
+  chown "$TARGET_USER:$TARGET_GROUP" "$CF_TOKEN_FILE"
+  printf '%s' "$1" > "$CF_TOKEN_FILE"
+}
+
+# Tunnel kurulumu. Dogrulama, DNS cakismasi ve kurulum adimlari sihirbazla
+# AYNI cekirdekten gelir (lib/setup-core.js); burada kopya mantik yok.
+provision_cloudflare() {
+  local rc=0
+  local -a cmd=(node scripts/setup-cli.js --provision-tunnel)
+  [[ -n "$CF_TOKEN_FILE" ]] && cmd+=(--cf-api-token-file "$CF_TOKEN_FILE")
+  [[ -n "$CF_DOMAIN" ]] && cmd+=(--domain "$CF_DOMAIN")
+  [[ -n "$CF_ACCOUNT_ID" ]] && cmd+=(--cf-account-id "$CF_ACCOUNT_ID")
+  [[ -n "$CF_HOST_MODE" ]] && cmd+=(--cf-host-mode "$CF_HOST_MODE")
+  [[ -n "$CF_PANEL_SUB" ]] && cmd+=(--cf-panel-subdomain "$CF_PANEL_SUB")
+  [[ "$CF_OVERWRITE_DNS" -eq 1 ]] && cmd+=(--cf-overwrite-dns)
+  [[ "$ASSUME_YES" -eq 1 ]] && cmd+=(--yes)
+  ( cd "$SRC_DIR" && as_target env LYRA_HOME="$LYRA_HOME" "${cmd[@]}" ) || rc=$?
+  return "$rc"
+}
+
 # Kurulum modu drop-in'i. Sihirbaz bitince Lyra bu dosyayi kendisi siler
-# (src/routes/setup.js -> setup-mode-off adimi).
-mkdir -p "$DROPIN_DIR"
-cat > "$DROPIN_FILE" <<EOF
+# (lib/setup-core.js -> setup-mode-off adimi).
+write_setup_dropin() {
+  mkdir -p "$DROPIN_DIR"
+  if [[ "$1" == "tunnel" ]]; then
+    # Tunnel modunda ayri bir kurulum portu YOK: cloudflared zaten
+    # localhost:$LYRA_PORT'a bakiyor, sihirbaz dogrudan orada calisir.
+    # Bu yuzden LYRA_SETUP_PORT, CAP_NET_BIND_SERVICE ve ProtectSystem=off
+    # gerekmiyor — kurulum bitince degisen tek sey uygulama modu.
+    cat > "$DROPIN_FILE" <<EOF
+# Lyra kurulum modu (tunnel) — install.sh tarafindan yazildi, GECICI.
+# Sihirbaz Lyra'nin kendi portunda ($LYRA_PORT) calisir; disari port acilmaz.
+# Sihirbaz bitince Lyra bu dosyayi silip kendini yeniden baslatir.
+# Elle cikmak icin:
+#   sudo rm -f $DROPIN_FILE
+#   sudo systemctl daemon-reload && sudo systemctl restart $UNIT_NAME
+[Service]
+Environment=LYRA_SETUP_MODE=1
+EOF
+  else
+    cat > "$DROPIN_FILE" <<EOF
 # Lyra kurulum modu — install.sh tarafindan yazildi, GECICI.
 # Sihirbaz bitince Lyra bu dosyayi silip kendini yeniden baslatir.
 # Elle cikmak icin:
@@ -365,80 +611,182 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE
 # Kurulum fazinda Caddy/cloudflared apt+dpkg ile kurulur; /etc ve /usr'a yazilir.
 ProtectSystem=off
 EOF
-chmod 644 "$DROPIN_FILE"
-ok "Kurulum modu drop-in'i yazildi"
-
-# Kurulum fazinin gecici tam-yetki sudoers dosyasi (Caddy/cloudflared kurulumu,
-# firewall, systemd gecisi). Sihirbaz bitince Lyra siler.
-node "$SRC_DIR/scripts/generate-sudoers.js" \
-  --user "$TARGET_USER" --name "$UNIT_NAME" --setup >/dev/null
-ok "$SETUP_SUDOERS yazildi (gecici — sihirbaz bitince silinir)"
-
-# UFW acikken sihirbazin portu disaridan erisilemez olurdu.
-if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi '^Status: active'; then
-  if ufw status | grep -qE "^${LYRA_SETUP_PORT}(/tcp)?[[:space:]]"; then
-    info "UFW: ${LYRA_SETUP_PORT}/tcp zaten acik, dokunulmadi"
-  else
-    ufw allow "${LYRA_SETUP_PORT}/tcp" comment "lyra-setup" >/dev/null
-    ok "UFW: ${LYRA_SETUP_PORT}/tcp acildi (sihirbaz bitince kapatilir)"
   fi
-else
-  info "UFW aktif degil — firewall'a dokunulmadi"
-fi
+  chmod 644 "$DROPIN_FILE"
+  ok "Kurulum modu drop-in'i yazildi"
+}
 
-# Setup token
-SETUP_TOKEN="$( cd "$SRC_DIR" && as_target env LYRA_HOME="$LYRA_HOME" node -e \
-  'const t=require("./lib/setup-token");const tok=t.generate();t.save(tok);console.log(tok);' )"
-[[ -n "$SETUP_TOKEN" ]] || fail "Kurulum token'i uretilemedi."
+start_setup_service() {
+  systemctl daemon-reload
+  systemctl enable --quiet "$UNIT_NAME"
+  systemctl restart "$UNIT_NAME" || true
+  sleep 2
+  if ! systemctl is-active --quiet "$UNIT_NAME"; then
+    echo
+    journalctl -u "$UNIT_NAME" -n 30 --no-pager || true
+    fail "${UNIT_NAME}.service baslatilamadi (yukaridaki loga bak)."
+  fi
+  ok "${UNIT_NAME}.service kurulum modunda calisiyor"
+}
 
-systemctl daemon-reload
-systemctl enable --quiet "$UNIT_NAME"
-systemctl restart "$UNIT_NAME" || true
-sleep 2
-if ! systemctl is-active --quiet "$UNIT_NAME"; then
+make_setup_token() {
+  local tok=""
+  tok="$( cd "$SRC_DIR" && as_target env LYRA_HOME="$LYRA_HOME" node -e \
+    'const t=require("./lib/setup-token");const tok=t.generate();t.save(tok);console.log(tok);' )"
+  [[ -n "$tok" ]] || fail "Kurulum token'i uretilemedi."
+  printf '%s' "$tok"
+}
+
+print_token_block() {
   echo
-  journalctl -u "$UNIT_NAME" -n 30 --no-pager || true
-  fail "${UNIT_NAME}.service baslatilamadi (yukaridaki loga bak)."
-fi
-ok "${UNIT_NAME}.service kurulum modunda calisiyor"
+  echo "  Kurulum token'i (tarayiciya yapistir):"
+  echo
+  echo -e "    ${C_CYAN}${1}${C_RESET}"
+  echo
+  echo -e "${C_DIM}  Token 1 saat gecerlidir. Yenisi icin:${C_RESET}"
+  echo -e "${C_DIM}    cd $SRC_DIR && sudo -u $TARGET_USER node -e 'const t=require(\"./lib/setup-token\");const k=t.generate();t.save(k);console.log(k)'${C_RESET}"
+  echo -e "${C_DIM}────────────────────────────────────────────────────────────${C_RESET}"
+}
 
-# ─────────────────────── 9. Kullaniciya adres + token ───────────────────────
-PUBLIC_IP="$(curl -fsS --max-time 4 https://api.ipify.org 2>/dev/null || true)"
-LOCAL_IPS="$(hostname -I 2>/dev/null || true)"
-PORT_SUFFIX=""
-if [[ "$LYRA_SETUP_PORT" != "80" ]]; then PORT_SUFFIX=":$LYRA_SETUP_PORT"; fi
+print_footer() {
+  echo
+  warn "Kurulumu yarida birakirsan gecici tam-yetki sudoers dosyasi geride kalir:"
+  warn "  sudo rm -f $SETUP_SUDOERS"
+  echo
+  echo "  Log    : lyra logs"
+  echo "  Durum  : lyra status"
+  echo "  Kaldir : sudo lyra uninstall"
+  echo
+}
 
-echo
-echo -e "${C_DIM}────────────────────────────────────────────────────────────${C_RESET}"
-echo "  Tarayicidan kuruluma devam et:"
-echo
-if [[ -n "$PUBLIC_IP" ]]; then
-  echo -e "    ${C_CYAN}http://${PUBLIC_IP}${PORT_SUFFIX}${C_RESET}"
+# ---- Yontem 1: Cloudflare tunnel'i simdi kur ----
+if [[ "$ACCESS_METHOD" == "cf-api" ]]; then
+  [[ -n "$CF_API_TOKEN" ]] && write_token_file "$CF_API_TOKEN"
+  while true; do
+    PROVISION_RC=0
+    provision_cloudflare || PROVISION_RC=$?
+    cleanup_token_file
+    [[ "$PROVISION_RC" -eq 0 ]] && break
+    [[ "$PROVISION_RC" -eq 130 ]] && fail "Iptal edildi. Tunnel kurulmadi."
+    if [[ "$ASSUME_YES" -eq 1 ]]; then
+      rm -f "$SETUP_SUDOERS"
+      fail "Cloudflare kurulumu basarisiz — hicbir sey kurulmadi."
+    fi
+    echo
+    warn "Cloudflare kurulumu tamamlanmadi. Baska bir yontem de secebilirsin."
+    choose_access
+    [[ "$ACCESS_METHOD" != "cf-api" ]] && break
+    # Yeniden denemede token/domain bastan sorulsun.
+    CF_DOMAIN=""
+    CF_ACCOUNT_ID=""
+  done
 fi
-# Kelime bolunmesi kasitli: hostname -I bosluklu liste doner.
-# shellcheck disable=SC2086
-for ip in $LOCAL_IPS; do
-  echo -e "    ${C_CYAN}http://${ip}${PORT_SUFFIX}${C_RESET}"
-done
-echo
-echo "  Kurulum token'i (tarayiciya yapistir):"
-echo
-echo -e "    ${C_CYAN}${SETUP_TOKEN}${C_RESET}"
-echo
-echo -e "${C_DIM}  Token 1 saat gecerlidir. Yenisi icin:${C_RESET}"
-echo -e "${C_DIM}    cd $SRC_DIR && sudo -u $TARGET_USER node -e 'const t=require(\"./lib/setup-token\");const k=t.generate();t.save(k);console.log(k)'${C_RESET}"
-echo -e "${C_DIM}────────────────────────────────────────────────────────────${C_RESET}"
-echo
-info "Sihirbaz bitince Lyra kurulum modundan cikip port $LYRA_PORT'a gecer."
-echo
-info "Tarayiciya hic erisemiyorsan sihirbazi terminalde de calistirabilirsin:"
-info "  sudo systemctl stop $UNIT_NAME"
-info "  cd $SRC_DIR && sudo -u $TARGET_USER LYRA_HOME=$LYRA_HOME node scripts/setup-cli.js"
-echo
-warn "Kurulumu yarida birakirsan gecici tam-yetki sudoers dosyasi geride kalir:"
-warn "  sudo rm -f $SETUP_SUDOERS"
-echo
-echo "  Log    : lyra logs"
-echo "  Durum  : lyra status"
-echo "  Kaldir : sudo lyra uninstall"
-echo
+
+case "$ACCESS_METHOD" in
+  # ---- Yontem 1 (devami): sihirbaz tunnel uzerinden ----
+  cf-api)
+    write_setup_dropin tunnel
+    SETUP_TOKEN="$(make_setup_token)"
+    start_setup_service
+
+    PANEL_HOST="$( cd "$SRC_DIR" && as_target env LYRA_HOME="$LYRA_HOME" node -e \
+      'process.stdout.write(String(require("./db/repos").settings.get("panel_host")||""))' )"
+    [[ -n "$PANEL_HOST" ]] || fail "Panel adresi ayarlardan okunamadi (beklenmedik durum)."
+
+    echo
+    echo -e "${C_DIM}────────────────────────────────────────────────────────────${C_RESET}"
+    echo "  Tarayicidan kuruluma devam et:"
+    echo
+    echo -e "    ${C_CYAN}https://${PANEL_HOST}${C_RESET}"
+    print_token_block "$SETUP_TOKEN"
+    echo
+    info "Tunnel uzerinden yayindasin — sunucuda hicbir port acilmadi."
+    info "Adres hemen acilmazsa DNS/tunnel yayilmasi icin 1-2 dakika bekle."
+    info "Sihirbaz bitince Lyra ayni portta ($LYRA_PORT) normal moda gecer."
+    print_footer
+    ;;
+
+  # ---- Yontem 2: klasik davranis, sihirbaz port 80'de ----
+  direct)
+    write_setup_dropin port
+
+    # UFW acikken sihirbazin portu disaridan erisilemez olurdu.
+    if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi '^Status: active'; then
+      if ufw status | grep -qE "^${LYRA_SETUP_PORT}(/tcp)?[[:space:]]"; then
+        info "UFW: ${LYRA_SETUP_PORT}/tcp zaten acik, dokunulmadi"
+      else
+        ufw allow "${LYRA_SETUP_PORT}/tcp" comment "lyra-setup" >/dev/null
+        ok "UFW: ${LYRA_SETUP_PORT}/tcp acildi (sihirbaz bitince kapatilir)"
+      fi
+    else
+      info "UFW aktif degil — firewall'a dokunulmadi"
+    fi
+
+    SETUP_TOKEN="$(make_setup_token)"
+    start_setup_service
+
+    PUBLIC_IP="$(curl -fsS --max-time 4 https://api.ipify.org 2>/dev/null || true)"
+    LOCAL_IPS="$(hostname -I 2>/dev/null || true)"
+    PORT_SUFFIX=""
+    if [[ "$LYRA_SETUP_PORT" != "80" ]]; then PORT_SUFFIX=":$LYRA_SETUP_PORT"; fi
+
+    echo
+    echo -e "${C_DIM}────────────────────────────────────────────────────────────${C_RESET}"
+    echo "  Tarayicidan kuruluma devam et:"
+    echo
+    if [[ -n "$PUBLIC_IP" ]]; then
+      echo -e "    ${C_CYAN}http://${PUBLIC_IP}${PORT_SUFFIX}${C_RESET}"
+    fi
+    # Kelime bolunmesi kasitli: hostname -I bosluklu liste doner.
+    # shellcheck disable=SC2086
+    for ip in $LOCAL_IPS; do
+      echo -e "    ${C_CYAN}http://${ip}${PORT_SUFFIX}${C_RESET}"
+    done
+    print_token_block "$SETUP_TOKEN"
+    echo
+    info "Sihirbaz bitince Lyra kurulum modundan cikip port $LYRA_PORT'a gecer."
+    echo
+    info "Bu adres acilmiyorsa port ${LYRA_SETUP_PORT} disariya kapali demektir."
+    info "Sihirbazi terminalde de calistirabilirsin:"
+    info "  sudo systemctl stop $UNIT_NAME"
+    info "  cd $SRC_DIR && sudo -u $TARGET_USER LYRA_HOME=$LYRA_HOME node scripts/setup-cli.js"
+    print_footer
+    ;;
+
+  # ---- Yontem 3: sihirbaz burada, terminalde ----
+  cli)
+    # Kurulum modu drop-in'i YOK: sihirbaz ayri bir process olarak calisir,
+    # servisi kurulum bitince kendisi baslatir (transition "direct").
+    rm -f "$DROPIN_FILE"
+    systemctl daemon-reload
+    systemctl enable --quiet "$UNIT_NAME"
+    systemctl stop "$UNIT_NAME" 2>/dev/null || true
+
+    echo
+    info "Terminal sihirbazi baslatiliyor (iptal: Ctrl-C)."
+    CLI_RC=0
+    ( cd "$SRC_DIR" && as_target env LYRA_HOME="$LYRA_HOME" node scripts/setup-cli.js ) || CLI_RC=$?
+
+    if [[ "$CLI_RC" -eq 0 ]]; then
+      echo
+      ok "Kurulum tamamlandi."
+      echo "  Durum     : lyra status"
+      echo "  Log       : lyra logs"
+      echo "  Guncelle  : sudo lyra update"
+      echo "  Kaldir    : sudo lyra uninstall"
+      echo
+      exit 0
+    fi
+
+    echo
+    if [[ "$CLI_RC" -eq 130 ]]; then
+      warn "Sihirbaz iptal edildi. Hicbir ayar yazilmadi."
+    else
+      warn "Sihirbaz hatayla bitti (cikis kodu $CLI_RC)."
+    fi
+    info "Tekrar calistirmak icin:"
+    info "  cd $SRC_DIR && sudo -u $TARGET_USER LYRA_HOME=$LYRA_HOME node scripts/setup-cli.js"
+    print_footer
+    exit "$CLI_RC"
+    ;;
+esac

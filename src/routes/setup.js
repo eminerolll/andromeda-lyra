@@ -47,12 +47,18 @@ function requireSetupAuth(req, res, next) {
 
 // ─────────────────────────── Endpoint'ler ───────────────────────────
 
-// Sunucu durumu (token'siz erisilebilir, sadece "kurulum acik mi" bilgisi)
+// Sunucu durumu (token'siz erisilebilir, sadece "kurulum acik mi" bilgisi).
+// cfProvisioned: install.sh tunnel'i sihirbazdan once kurduysa true — sihirbaz
+// erisim modu adimini atlar (bkz. public/setup.html init()).
 router.get("/api/setup/status", (req, res) => {
+  const cf = core.cfProvisionedInfo();
   res.json({
     open: setupOpen(),
     authorized: !!(req.session && req.session.setupAuthorized),
-    tokenExists: setupToken.exists()
+    tokenExists: setupToken.exists(),
+    cfProvisioned: !!cf,
+    panelHost: cf ? cf.panelHost : null,
+    baseDomain: cf ? cf.domain : null
   });
 });
 
@@ -169,8 +175,11 @@ router.post("/api/setup/finalize", requireSetupAuth, async (req, res) => {
 
   const body = req.body || {};
   const totpVerified = !!(req.session.pendingSetup && req.session.pendingSetup.totpVerified);
+  // Cloudflare kurulumu install.sh'ta bittiyse: token sorulmaz, dogrulanmaz,
+  // kurulum sonrasi adimlarda tekrar calistirilmaz.
+  const cfProvisioned = core.isCfProvisioned();
 
-  const { errors } = core.validateFinalize(body, { totpVerified });
+  const { errors } = core.validateFinalize(body, { totpVerified, cfProvisioned });
   if (errors.length) return res.status(400).json({ errors });
 
   // Projeler dizini yazilabilir mi? Sessizce kabul etmiyoruz — yanlis yol
@@ -180,7 +189,7 @@ router.post("/api/setup/finalize", requireSetupAuth, async (req, res) => {
 
   try {
     const totpSecret = req.session.pendingSetup ? req.session.pendingSetup.totpSecret : null;
-    const applied = core.applyFinalize(body, { totpSecret });
+    const applied = core.applyFinalize(body, { totpSecret, cfProvisioned });
 
     setupToken.invalidate();
     delete req.session.pendingSetup;
@@ -189,7 +198,7 @@ router.post("/api/setup/finalize", requireSetupAuth, async (req, res) => {
     // icin ayri bir izin bayragi.
     req.session.setupProgress = true;
 
-    postSetup.start(applied.accessMode, applied.finalUrl);
+    postSetup.start(applied.accessMode, applied.finalUrl, { cfProvisioned });
 
     res.json({
       success: true,
@@ -200,7 +209,7 @@ router.post("/api/setup/finalize", requireSetupAuth, async (req, res) => {
     // Async: Caddy / cloudflared kurulumu + firewall + restart.
     // Istemci /api/setup/progress ile canli izler.
     setImmediate(() =>
-      core.runPostSetup(applied.accessMode, body, postSetup, { transition: "self" })
+      core.runPostSetup(applied.accessMode, body, postSetup, { transition: "self", cfProvisioned })
     );
   } catch (err) {
     console.error("[setup/finalize] hata:", err);
@@ -214,6 +223,8 @@ module.exports.requireSetupAuth = requireSetupAuth;
 module.exports.systemUserInfo = core.systemUserInfo;
 module.exports.ensureProjectsDir = core.ensureProjectsDir;
 module.exports.buildSteps = core.buildSteps;
+module.exports.isCfProvisioned = core.isCfProvisioned;
+module.exports.cfProvisionedInfo = core.cfProvisionedInfo;
 module.exports.cleanupSetupPrivileges = core.cleanupSetupPrivileges;
 module.exports.SETUP_DROPIN = core.SETUP_DROPIN;
 module.exports.SETUP_SUDOERS = core.SETUP_SUDOERS;
