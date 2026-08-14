@@ -6,6 +6,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temel alınarak
 hazırlanmıştır ve proje [Semantic Versioning](https://semver.org/lang/tr/)
 kurallarına uyar.
 
+## [0.1.1] - 2026-08-14
+
+### Düzeltildi
+
+- `uninstall.sh` stdin bir terminal değilken onay sormadan siliyordu. `[[ -t 0 ]] || ASSUME_YES=1` satırı TTY yokluğunu otomatik onay sayıyordu; "önce silinecekler listesini bir göreyim" niyetiyle `bash uninstall.sh < /dev/null` çalıştıran kullanıcı listeyi görüp arkasından gerçek silmeyi de alıyordu. Artık TTY yoksa script hata verip açık onay istiyor: otomasyon zaten `--yes` ile çalıştığı için hiçbir kullanım kapanmıyor, kazara silme kapanıyor. Regresyon `test/scripts.test.js` → "uninstall.sh onay kapisi" ile kilitlendi (hem metin hem gerçek çalıştırma).
+
 ## [0.1.0] - 2026-08-14
 
 İlk yayınlanan sürüm. Ubuntu 20.04 ve 22.04 üzerinde, Docker konteynerinde,
@@ -123,4 +129,5 @@ WSL2'de ve gerçek bir Oracle Cloud VM'inde uçtan uca doğrulandı.
 - Kabuk ayrıştırmasını devre dışı bırakmak için `lib/caddy.js`, `lib/health.js` ve `routes/logs.js` `execFile`'a çevrildi.
 - Entegrasyon token'ları bilinçli olarak şifrelenmiyor; anahtarı saklayacak ikinci bir güven alanı olmadığı için yanıltıcı vaatler kaldırılıp gerekçe `SECURITY.md` ve `docs/security.md`'ye yazıldı.
 
+[0.1.1]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.1.1
 [0.1.0]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.1.0
