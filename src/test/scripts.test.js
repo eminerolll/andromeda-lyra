@@ -2,7 +2,7 @@
 // Scriptler --print ile hicbir sey yazmadan icerigi stdout'a basar.
 
 import { describe, it, expect } from "vitest";
-import { execFileSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
 import fs from "fs";
 import { require } from "./setup.js";
 
@@ -238,5 +238,65 @@ describe("install.sh kurulum modu drop-in'i servis kurulumuna izin verir", () =>
     for (const [name, block] of branches) {
       expect(block, name).toContain("GECICI");
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGRESYON KILIDI — uninstall.sh TTY yoklugunu otomatik onay saymaz.
+//
+// Gercek olay (2026-08-14): canli sunucuda "once silinecekler listesini bir
+// goreyim" niyetiyle `bash uninstall.sh < /dev/null` calistirildi. Scriptteki
+//   [[ -t 0 ]] || ASSUME_YES=1
+// satiri TTY yoklugunu onay sayiyordu: liste basildi ve arkasindan kurulum
+// GERCEKTEN silindi. Otomasyonun zaten --yes bayragi oldugu icin bu kisayol
+// hicbir sey kazandirmiyor, kazara silmeye kapi aciyordu.
+describe("uninstall.sh onay kapisi", () => {
+  const scriptPath = require.resolve("../../uninstall.sh");
+  const script = fs.readFileSync(scriptPath, "utf8");
+
+  // Eski satir aciklama yorumunda ornek olarak geciyor; sayim yalnizca
+  // calisan koda bakmali.
+  const code = script
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("#"))
+    .join("\n");
+
+  it("ASSUME_YES yalnizca --yes bayragiyla acilir", () => {
+    // Tek bir yerde 1 yapilir, o da bayrak dali. TTY dali geri gelirse patlar.
+    expect(code.match(/ASSUME_YES=1/g) || []).toHaveLength(1);
+    expect(code).toMatch(/-y\|--yes\|--non-interactive\)\s*ASSUME_YES=1/);
+    expect(code).not.toMatch(/-t\s+0\s*\]\]\s*\|\|\s*ASSUME_YES=1/);
+  });
+
+  it("TTY yoksa onay isteyip durur", () => {
+    expect(script).toMatch(/ASSUME_YES"\s*-ne\s*1\s*&&\s*!\s*-t\s*0/);
+    expect(script).toMatch(/fail "Girdi bir terminal degil/);
+  });
+
+  it("satirin NEDEN orada oldugunu yazar", () => {
+    expect(script).toMatch(/\[\[ -t 0 \]\] \|\| ASSUME_YES=1/); // yorumdaki eski hali
+    expect(script).toMatch(/--yes bayragi var/);
+  });
+
+  // Metin denetimi yetmez: davranisi da dogruluyoruz. TTY kapisi root
+  // kontrolunden ve tum dizin hesaplarindan ONCE geldigi icin bu cagri
+  // root'suz calisir ve dosya sistemine hic dokunmaz.
+  it.skipIf(process.platform === "win32")("stdin boru iken silmeden cikar", () => {
+    const r = spawnSync("bash", [scriptPath], { input: "", encoding: "utf8" });
+    expect(r.status).not.toBe(0);
+    const out = `${r.stdout || ""}${r.stderr || ""}`;
+    expect(out).toMatch(/terminal degil/);
+    expect(out).toMatch(/--yes/);
+    expect(out).toMatch(/Hicbir sey silinmedi/);
+  });
+
+  it.skipIf(process.platform === "win32")("--yes ile TTY kapisina takilmaz", () => {
+    // --yes verilince onay kapisi gecilir; bir sonraki kapi root kontrolu.
+    // (Testi root olarak kosarsan bu senaryo atlanir — silme yapmayalim.)
+    const r = spawnSync("bash", [scriptPath, "--yes"], { input: "", encoding: "utf8" });
+    const out = `${r.stdout || ""}${r.stderr || ""}`;
+    if (typeof process.getuid === "function" && process.getuid() === 0) return;
+    expect(out).not.toMatch(/terminal degil/);
+    expect(out).toMatch(/root olarak calismali/);
   });
 });

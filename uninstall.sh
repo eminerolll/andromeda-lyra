@@ -62,7 +62,15 @@ for a in "$@"; do
     *) fail "Bilinmeyen secenek: $a (yardim: --help)" ;;
   esac
 done
-[[ -t 0 ]] || ASSUME_YES=1
+# TTY yoksa onay SORULAMAZ — ama bunu "evet" saymak yanlis. Onceden burada
+# `[[ -t 0 ]] || ASSUME_YES=1` vardi: `bash uninstall.sh < /dev/null` diyen
+# kullanici "once neler silinecek bir goreyim" niyetindeyken script listeyi
+# basip gercekten siliyordu. Otomasyonun zaten --yes bayragi var; TTY
+# yoklugunu sessiz onaya cevirmek gereksiz ve kazara silmeye aciktir.
+if [[ "$ASSUME_YES" -ne 1 && ! -t 0 ]]; then
+  fail "Girdi bir terminal degil, onay sorulamiyor. Hicbir sey silinmedi.
+    Otomasyonda silmeyi acikca onayla: sudo bash $0 --yes"
+fi
 
 UNIT_NAME="lyra"
 UNIT_FILE="/etc/systemd/system/${UNIT_NAME}.service"
