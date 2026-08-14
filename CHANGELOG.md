@@ -6,6 +6,20 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temel alınarak
 hazırlanmıştır ve proje [Semantic Versioning](https://semver.org/lang/tr/)
 kurallarına uyar.
 
+## [0.2.1] - 2026-08-14
+
+v0.2.0 arayüzü üzerinde dört rötuş: üçü görsel, biri erişilebilirlik.
+
+### Düzeltildi
+
+- **Erişilebilirlik:** `--text-muted` kart üzerinde 4.19:1 veriyordu, WCAG AA'nın 4.5 eşiğinin hemen altında. Bu ton her yerde kullanılıyor — kart meta bilgileri, etiketler, ipuçları. `#948d83`'e açıldı (kart 4.59:1, zemin 5.36:1). Devralınan bir eksikti; eski indigo palette 3.22:1 ile çok daha kötüydü.
+- Giriş ekranındaki logo halkası `mask-composite` ile oyulmuş, 8 saniyede bir dönen bir gradyan çerçeveydi. Gradyan yalnızca bir köşede yoğun olduğu için dönerken halka yamuk bir çıkıntı gibi okunuyordu; cyan paletinde silik kaldığı için fark edilmiyordu, terracotta ile belirginleşti. Yerine sabit, tam çepeçevre ince bir hale kondu.
+
+### Değiştirildi
+
+- Wordmark marka kilidiyle aynı dile geçti: mono + 5px harf aralığıyla büyük harf "LYRA" yerine Newsreader 500, küçük harf "Lyra". Giriş ekranı, kurulum sihirbazı ve panel başlığı üçü birden. Gövde metni Inter kalıyor — serif yalnızca marka adına ait.
+- Kart–zemin ayrımı biraz güçlendirildi. Ölçüldüğünde kart/zemin 1.12:1 çıktı, ama eski palette de 1.14:1'di: yani yeni paletin getirdiği bir sorun değil, mevcut tasarım dili. Kartı daha fazla açmak ters tepiyor — üzerindeki soluk metnin kontrastını AA eşiğinin altına düşürüyor. Bu yüzden kart bir tık açıldı (1.17) ve görünür ayrım kenarlıktan alındı: zemine karşı 1.33 → 1.57.
+
 ## [0.2.0] - 2026-08-14
 
 Arayüz sürümü: marka kimliği uygulandı, palet tek kaynağa indi, yükleme
@@ -154,6 +168,7 @@ WSL2'de ve gerçek bir Oracle Cloud VM'inde uçtan uca doğrulandı.
 - Kabuk ayrıştırmasını devre dışı bırakmak için `lib/caddy.js`, `lib/health.js` ve `routes/logs.js` `execFile`'a çevrildi.
 - Entegrasyon token'ları bilinçli olarak şifrelenmiyor; anahtarı saklayacak ikinci bir güven alanı olmadığı için yanıltıcı vaatler kaldırılıp gerekçe `SECURITY.md` ve `docs/security.md`'ye yazıldı.
 
+[0.2.1]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.1
 [0.2.0]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.0
 [0.1.1]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.1.1
 [0.1.0]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.1.0
