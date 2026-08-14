@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync, execFile, spawn } = require("child_process");
 const config = require("../lib/config");
+const gitStatus = require("../lib/git-status");
 
 const router = express.Router();
 
@@ -21,12 +22,15 @@ function projectPath(name) {
   return path.join(config.get("projects_dir"), name);
 }
 
-function gitCmd(projPath, args) {
-  return execFileSync("git", ["-C", projPath, ...args], {
+// trim varsayilan olarak acik (log/rev-list gibi ciktilarda istenen davranis),
+// ama `status --porcelain` icin KAPATILMALI: o formatta satir basindaki bosluk
+// "staged degil" bilgisini tasir, silinirse tum sutunlar kayar.
+// Bkz. lib/git-status.js
+function gitCmd(projPath, args, { trim = true } = {}) {
+  const out = execFileSync("git", ["-C", projPath, ...args], {
     stdio: ["pipe", "pipe", "ignore"]
-  })
-    .toString()
-    .trim();
+  }).toString();
+  return trim ? out.trim() : out;
 }
 
 function validateProject(req, res) {
@@ -66,9 +70,9 @@ router.get("/api/projects/:name/git", (req, res) => {
       status.behind = 0;
     }
     try {
-      status.changes = gitCmd(projPath, ["status", "--porcelain"])
-        .split("\n")
-        .filter((l) => l).length;
+      status.changes = gitStatus.counts(
+        gitCmd(projPath, ["status", "--porcelain"], { trim: false })
+      ).total;
     } catch (_) {
       status.changes = 0;
     }
@@ -124,16 +128,10 @@ router.get("/api/git/:project/status", (req, res) => {
       unstaged = 0,
       untracked = 0;
     try {
-      const porcelain = gitCmd(projPath, ["status", "--porcelain"]);
-      for (const line of porcelain.split("\n").filter((l) => l)) {
-        const x = line[0];
-        const y = line[1];
-        if (x === "?") untracked++;
-        else {
-          if (x !== " ") staged++;
-          if (y !== " ") unstaged++;
-        }
-      }
+      const c = gitStatus.counts(gitCmd(projPath, ["status", "--porcelain"], { trim: false }));
+      staged = c.staged;
+      unstaged = c.unstaged;
+      untracked = c.untracked;
     } catch (_) {}
 
     let lastCommit = null;
@@ -209,14 +207,7 @@ router.get("/api/git/:project/diff", (req, res) => {
     } catch (_) {}
     let files = [];
     try {
-      const porcelain = gitCmd(projPath, ["status", "--porcelain"]);
-      files = porcelain
-        .split("\n")
-        .filter((l) => l)
-        .map((line) => ({
-          status: line.substring(0, 2).trim(),
-          file: line.substring(3)
-        }));
+      files = gitStatus.toFiles(gitCmd(projPath, ["status", "--porcelain"], { trim: false }));
     } catch (_) {}
     res.json({ unstaged, staged, files });
   } catch (err) {
@@ -284,13 +275,8 @@ function getAffectedFiles(projPath) {
     const out = execFileSync("git", ["-C", projPath, "status", "--porcelain"], {
       stdio: ["pipe", "pipe", "pipe"]
     }).toString();
-    return out
-      .split("\n")
-      .filter((l) => l)
-      .map((line) => ({
-        status: line.substring(0, 2).trim(),
-        file: line.substring(3)
-      }));
+    // Burada trim yok — porcelain satirinin basindaki bosluk anlamli.
+    return gitStatus.toFiles(out);
   } catch (_) {
     return [];
   }
