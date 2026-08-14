@@ -104,25 +104,17 @@
         position: relative;
       }
 
+      /* Onceden burada donen bir gradyan cerceve vardi: mask-composite ile
+         oyulmus bir border, 8 saniyede bir tur. Gradyan yalnizca bir kosede
+         yogun oldugu icin donerken halka yamuk bir cikinti gibi okunuyordu —
+         cyan'dayken silik kaliyordu, terracotta ile belirginlesti. Yerine
+         isaretin etrafina sabit, tam cepeceevre bir hale kondu. */
       .brand-icon .ring {
         position: absolute;
         inset: -4px;
         border-radius: 18px;
-        border: 1px solid transparent;
-        background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.3), transparent 60%)
-          border-box;
-        mask:
-          linear-gradient(#fff 0 0) padding-box,
-          linear-gradient(#fff 0 0);
-        mask-composite: exclude;
-        -webkit-mask-composite: xor;
-        animation: spin 8s linear infinite;
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+        border: 1px solid rgba(var(--accent-rgb), 0.22);
+        box-shadow: 0 0 24px rgba(var(--accent-rgb), 0.08);
       }
 
       .brand-icon .inner {
@@ -145,13 +137,16 @@
         color: var(--accent);
       }
 
+      /* Wordmark marka paketindeki kilitle ayni dili konusuyor: Newsreader 500,
+         kucuk harf. Onceki hali mono + 5px harf araligiyla buyuk harfti; isaret
+         terracotta olunca yazi ondan kopuk duruyordu. Govde metni Inter kalir,
+         serif yalnizca marka adina ait. */
       .brand-name {
-        font-family: var(--mono);
-        font-size: 12px;
+        font-family: var(--serif);
+        font-size: 22px;
         font-weight: 500;
-        letter-spacing: 5px;
-        text-transform: uppercase;
-        color: var(--text-dim);
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
       }
 
       /* card */
@@ -454,7 +449,7 @@
             </svg>
           </div>
         </div>
-        <div class="brand-name" id="brandName">LYRA</div>
+        <div class="brand-name" id="brandName">Lyra</div>
       </div>
 
       <div class="card">
@@ -543,7 +538,7 @@
         .then((r) => (r.ok ? r.json() : null))
         .then((b) => {
           if (b && b.appName) {
-            $("brandName").textContent = b.appName.toUpperCase();
+            $("brandName").textContent = b.appName;
             document.title = "Giriş — " + b.appName;
           }
         })

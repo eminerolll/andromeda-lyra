@@ -23,16 +23,23 @@
   --bg: #191919;
   --bg-rgb: 25, 25, 25; /* yari saydam header/overlay zeminleri icin */
   --bg-raised: #1f1e1d;
-  --bg-card: #242322;
-  --bg-card-hover: #2b2a28;
+  /* Kart zeminden yalnizca 1.17:1 ile ayriliyor — ayrimin asil isini kenarlik
+     yapar. Karti daha fazla acmak cazip ama ters teper: uzerindeki soluk metnin
+     kontrastini AA esiginin altina dusuruyor. Bu yuzden kart bir tik acildi,
+     gorunur ayrim kenarliktan alindi (zemine karsi 1.33 -> 1.57). */
+  --bg-card: #282625;
+  --bg-card-hover: #2f2c2a;
   --bg-input: #141313;
-  --border: #332f2c;
-  --border-light: #423d38;
+  --border: #403a36;
+  --border-light: #4d4741;
 
   /* ── Metin ────────────────────────────────────────────────── */
   --text: #f0eee6;
   --text-secondary: #bdb7ab;
-  --text-muted: #8a837a;
+  /* Kart meta bilgileri, etiketler ve ipuclari bu tonda. Onceki #8a837a kart
+     uzerinde 4.19:1 veriyordu — WCAG AA'nin 4.5 esiginin hemen altinda. Bir
+     tik acildi: kart 4.59, zemin 5.36. */
+  --text-muted: #948d83;
   --text-faint: #5a544d;
 
   /* ── Marka ────────────────────────────────────────────────── */
