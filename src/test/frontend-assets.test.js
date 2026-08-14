@@ -110,3 +110,85 @@ describe("notes markdown preview is hardened", () => {
     expect(render("[a](./docs/x.md)")).toContain('href="./docs/x.md"');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGRESYON KILIDI — islevsiz (olu) butonlar.
+//
+// Gercek olay: "Yeni Proje" modalinda Iptal'e basmak hicbir sey yapmiyordu.
+// Sebep, markup'ta id'si olan bir butona JS tarafinda listener baglanmamis
+// olmasiydi. Ayni bosluk bes butonda birden vardi: newCancelBtn,
+// cloneCancelBtn, renameCancelBtn, githubCloseBtn, progressCloseBtn. Modallar
+// yalnizca Escape ya da disariya tiklama ile kapaniyordu; kullanicinin dogal
+// olarak bastigi dugme olu duruyordu.
+//
+// Kilit iki katmanli: (1) her butonun bir davranisi olmali, (2) her modalin
+// tiklanabilir bir kapatma yolu olmali.
+describe("index.html — butonlarin davranisi var", () => {
+  const html = read("index.html");
+  const jsDir = path.join(publicDir, "js");
+  // Yorumlar soyuluyor: app.js'in aciklamasi bu bug'i anlatirken olu butonlarin
+  // id'lerini tek tek sayiyor. Ham metinde arasaydik, yalnizca yorumda gecen bir
+  // id "isleyicisi var" sayilir ve test kendi anlattigi hatayi kacirirdi.
+  const jsSource = fs
+    .readdirSync(jsDir)
+    .filter((f) => f.endsWith(".js"))
+    .map((f) => fs.readFileSync(path.join(jsDir, f), "utf8"))
+    .join("\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  // <button ... id="x" ...> — id ve varsa data-modal-close isareti birlikte.
+  const buttons = [...html.matchAll(/<button\b([^>]*)>/g)].map((m) => m[1]);
+  const withId = buttons
+    .map((attrs) => ({
+      id: (attrs.match(/\bid="([^"]+)"/) || [])[1],
+      selfClosing: /\bdata-modal-close\b/.test(attrs)
+    }))
+    .filter((b) => b.id);
+
+  it("markup'ta id tasiyan buton var (test bosa dusmesin)", () => {
+    expect(withId.length).toBeGreaterThan(10);
+  });
+
+  it("her butonun ya JS'te bir isleyicisi ya data-modal-close isareti var", () => {
+    const olu = withId.filter((b) => !b.selfClosing && !jsSource.includes(b.id)).map((b) => b.id);
+    expect(olu, `Bu butonlara hicbir davranis bagli degil: ${olu.join(", ")}`).toEqual([]);
+  });
+
+  it("her modal tiklanabilir bir kapatma yolu sunuyor", () => {
+    // Escape ve overlay tiklamasi her modalda var, ama kullanicinin gordugu
+    // dugme de calismali. modalBranch'in "Geri" dugmesi kendi akisina donuyor,
+    // modalNotes kapanirken not kaydediyor: ikisi de JS tarafinda baglaniyor.
+    const ozelAkis = ["modalBranch", "modalNotes"];
+    // Modal govdesini kapanis etiketiyle degil, bir sonraki modalin baslangici
+    // ile siniriyoruz: girintiye bagli bir regex prettier bicimini degistirince
+    // sessizce hicbir modal bulamaz hale gelirdi.
+    const modals = html
+      .split('<div class="modal-overlay" id="')
+      .slice(1)
+      .map((parca) => [parca.slice(0, parca.indexOf('"')), parca]);
+    expect(modals.length).toBeGreaterThan(4);
+    for (const [id, body] of modals) {
+      if (ozelAkis.includes(id)) continue;
+      expect(body, `${id} icinde data-modal-close tasiyan buton yok`).toMatch(/data-modal-close/);
+    }
+  });
+});
+
+// Kapatma delegasyonu app.js'te tek noktadan yapiliyor. Butona tek tek
+// listener baglama donemine geri donulurse bu test uyarir.
+describe("app.js — modal kapatma delegasyonu", () => {
+  const appJs = fs.readFileSync(path.join(publicDir, "js", "app.js"), "utf8");
+
+  it("data-modal-close icin delegated dinleyici var", () => {
+    expect(appJs).toMatch(/closest\(["']\[data-modal-close\]["']\)/);
+  });
+
+  it("overlay disina tiklama hala kapatiyor", () => {
+    expect(appJs).toMatch(/classList\.contains\(["']modal-overlay["']\)/);
+  });
+
+  it("Escape hala kapatiyor", () => {
+    expect(appJs).toMatch(/e\.key === ["']Escape["'][\s\S]{0,40}closeModals\(\)/);
+  });
+});

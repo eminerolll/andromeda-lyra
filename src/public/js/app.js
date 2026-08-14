@@ -338,11 +338,26 @@ export async function initApp() {
   applyBranding();
   applyTabVisibility();
 
-  // Close modals on overlay click
-  document.querySelectorAll(".modal-overlay").forEach((m) => {
-    m.addEventListener("click", (e) => {
-      if (e.target === m) closeModals();
-    });
+  // Modal kapatma — TEK bir delegated dinleyici.
+  //
+  // Onceden her kapatma butonuna ayri ayri listener baglaniyordu ve bes tanesi
+  // unutulmustu: newCancelBtn, cloneCancelBtn, renameCancelBtn, githubCloseBtn,
+  // progressCloseBtn. "Yeni Proje" modalinda Iptal'e basmak hicbir sey
+  // yapmiyordu; modal yalnizca Escape ya da disariya tiklama ile kapaniyordu.
+  //
+  // Delegasyon iki sorunu birden cozer: butonun kendi listener'i olmasi
+  // gerekmez (isaret yeter) ve sonradan DOM'a eklenen modallar da kapsanir —
+  // asagidaki querySelectorAll yalnizca sayfa acilisindaki modallari goruyordu.
+  document.addEventListener("click", (e) => {
+    const closer = e.target.closest("[data-modal-close]");
+    if (closer) {
+      closeModals();
+      return;
+    }
+    // Overlay'in kendisine, yani modal govdesinin disina tiklama.
+    if (e.target.classList && e.target.classList.contains("modal-overlay")) {
+      closeModals();
+    }
   });
 
   // Tab bar click handlers
