@@ -6,6 +6,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temel alınarak
 hazırlanmıştır ve proje [Semantic Versioning](https://semver.org/lang/tr/)
 kurallarına uyar.
 
+## [0.2.2] - 2026-08-14
+
+### Güvenlik
+
+- **HTML sayfaları oturum açmadan servis ediliyordu.** `express.static` kimlik doğrulama kapılarından **önce** çalıştığı için aynı sayfanın iki kapısı vardı ve yalnızca biri kilitliydi: `GET /` → 302 (`auth.requireAuth`), `GET /index.html` → 200. Aynı durum `/setup.html` ve `/login.html` için de geçerliydi. Veri sızmıyordu — API'lerin hepsi 401 döner ve depo zaten public — ama kapının bir tarafının açık kalması kendi başına bir hataydı. Doğrudan erişimin meşru bir kullanımı yok: üç HTML'in de kendi route'u var (`/` → index.html, `/login` → login.html, kurulum modunda `/` → setup.html). `lib/static-guard.js` statik middleware'den önce devreye girip `.html` biten istekleri 404'e düşürüyor.
+- Varlıklar (css, js, font, ikon, `brand/`) bilerek dışarıda bırakıldı: giriş ekranı oturum açılmadan önce onları yüklüyor, engel onları da kapsasaydı sayfa çıplak kalırdı. Uzantı karşılaştırması küçük harfe çevrilerek yapılıyor — büyük-küçük harf ayırmayan dosya sistemlerinde `/INDEX.HTML` aksi halde kapıyı atlatırdı.
+- Regresyon `test/static-guard.test.js` ile kilitlendi (18 test): engellenen yollar, büyük harfli uzantılar, açık kalması gereken varlık listesi ve korumanın `express.static`'ten önce kayıtlı olduğu.
+
 ## [0.2.1] - 2026-08-14
 
 v0.2.0 arayüzü üzerinde dört rötuş: üçü görsel, biri erişilebilirlik.
@@ -168,6 +176,7 @@ WSL2'de ve gerçek bir Oracle Cloud VM'inde uçtan uca doğrulandı.
 - Kabuk ayrıştırmasını devre dışı bırakmak için `lib/caddy.js`, `lib/health.js` ve `routes/logs.js` `execFile`'a çevrildi.
 - Entegrasyon token'ları bilinçli olarak şifrelenmiyor; anahtarı saklayacak ikinci bir güven alanı olmadığı için yanıltıcı vaatler kaldırılıp gerekçe `SECURITY.md` ve `docs/security.md`'ye yazıldı.
 
+[0.2.2]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.2
 [0.2.1]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.1
 [0.2.0]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.0
 [0.1.1]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.1.1
