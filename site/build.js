@@ -35,17 +35,38 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-// Repo ici .md linklerini uretilen .html yollarina cevirir; aksi halde site
+// Repo ici .md linkleri uretilen .html yollarina cevrilir; aksi halde site
 // icindeki her link ziyaretciyi GitHub'a atardi.
+//
+// Esleme ACIK tutuluyor, yol desenine gore tahmin edilmiyor: dokumanlar
+// birbirine "./docs/x.md", "../INSTALL.md", "x.md" gibi farkli oneklerle
+// baglaniyor ve onek bazli regex'ler bunlarin bir kismini sessizce kaciriyordu.
+// Burada yalnizca DOSYA ADI'na bakiliyor, onek ne olursa olsun.
+const LINK_MAP = {
+  "README.md": "../index.html",
+  "INSTALL.md": "./install-guide.html",
+  "SECURITY.md": "./security-policy.html",
+  "CONTRIBUTING.md": "./contributing.html",
+  "CHANGELOG.md": "./changelog.html",
+  "install.md": "./install.html",
+  "architecture.md": "./architecture.html",
+  "configuration.md": "./configuration.html",
+  "deployment.md": "./deployment.html",
+  "security.md": "./security.html",
+};
+
+const eslenmeyen = new Set();
+
 function rewriteLinks(html) {
-  return html
-    .replace(/href="\.\/docs\/([a-z0-9-]+)\.md"/gi, 'href="./$1.html"')
-    .replace(/href="docs\/([a-z0-9-]+)\.md"/gi, 'href="./$1.html"')
-    .replace(
-      /href="\.\/([A-Z]+)\.md"/g,
-      (m, f) => `href="./${f.toLowerCase()}.html"`,
-    )
-    .replace(/href="([a-z0-9-]+)\.md"/gi, 'href="./$1.html"');
+  return html.replace(/href="([^"]+?\.md)(#[^"]*)?"/gi, (tam, yol, kesit) => {
+    const hedef = LINK_MAP[yol.split("/").pop()];
+    if (!hedef) {
+      // Sessizce birakmak kirik link uretir; build sonunda uyariyoruz.
+      eslenmeyen.add(yol);
+      return tam;
+    }
+    return `href="${hedef}${kesit || ""}"`;
+  });
 }
 
 const NAV = [
@@ -160,3 +181,11 @@ fs.writeFileSync(
 fs.writeFileSync(path.join(OUT, ".nojekyll"), "");
 
 console.log(`_site hazir: ${uretilen} dokuman + tanitim sayfasi`);
+
+if (eslenmeyen.size) {
+  // Kirik link uretmektense build'i durduruyoruz: yeni bir dokuman eklendiginde
+  // LINK_MAP'e yazilmasi gerektigi burada anlasilsin.
+  console.error("\nEslenmemis .md linkleri (LINK_MAP'e ekle):");
+  for (const y of eslenmeyen) console.error("  " + y);
+  process.exit(1);
+}
