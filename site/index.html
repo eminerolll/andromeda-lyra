@@ -1,0 +1,182 @@
+<section class="hero">
+  <h1>Sunucun, senin panelin</h1>
+  <p class="lead">
+    Lyra kendi sunucunda çalışan bir geliştirici ortamı paneli. Projelerini
+    klonla, tarayıcıdaki IDE'de aç, dev server portlarını izle, git işlerini
+    yürüt, ortam değişkenlerini düzenle, logları canlı takip et — hepsi tek
+    yerden.
+  </p>
+  <div class="cta">
+    <a class="btn primary" href="./docs/install-guide.html">Kurulum rehberi</a>
+    <a class="btn" href="https://github.com/eminerolll/andromeda-lyra"
+      >Kaynak kodu</a
+    >
+  </div>
+  <!-- prettier-ignore -->
+  <pre class="install-cmd"><span class="p">$</span> git clone https://github.com/eminerolll/andromeda-lyra.git lyra &amp;&amp; cd lyra
+<span class="p">$</span> sudo ./install.sh</pre>
+</section>
+
+<figure class="shot">
+  <img src="./assets/projects.jpg" alt="Lyra paneli — Projeler sekmesi" />
+  <figcaption>
+    Projeler sekmesi — tip tespiti, branch, boyut ve tek tıkla IDE
+  </figcaption>
+</figure>
+
+<section class="section">
+  <h2>Ne yapıyor</h2>
+  <p class="sub">Yedi sekme, tek panel. Docker ve Tunnel opsiyonel.</p>
+  <div class="grid">
+    <div class="card">
+      <span class="tag">Projeler</span>
+      <h3>Klonla, oluştur, aç</h3>
+      <p>
+        GitHub deposu klonla ya da şablondan başla (Node, Python, React, Next).
+        Sabitle, yeniden adlandır, code-server'da aç.
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">Portlar</span>
+      <h3>Çalışan dev server'lar</h3>
+      <p>
+        Hangi port hangi projeye ait, ne kadar RAM yiyor, ne zamandır ayakta —
+        canlı liste. Takılan süreci panelden durdur.
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">Git</span>
+      <h3>Tarayıcıdan git</h3>
+      <p>
+        Status, commit geçmişi, diff. Pull, push, commit, checkout, stash —
+        çakışma tespiti Türkçe ve İngilizce git çıktısını birlikte anlıyor.
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">Ortam</span>
+      <h3>.env yönetimi</h3>
+      <p>
+        Proje <code>.env</code> dosyalarını düzenle (monorepo destekli), global
+        değişkenleri tek yerde tut. Hassas değerler maskeli gelir.
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">Loglar</span>
+      <h3>Canlı journalctl</h3>
+      <p>
+        Kayıtlı her systemd servisi için canlı log akışı; filtrele, ara,
+        duraklat.
+      </p>
+    </div>
+    <div class="card">
+      <span class="tag">Docker · Tunnel</span>
+      <h3>Opsiyonel eklentiler</h3>
+      <p>
+        Container'lar, stats, compose up/down. Cloudflare Tunnel ingress ve DNS
+        kayıtlarını panelden yönet.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Hiçbir port açmadan yayında</h2>
+  <div class="two-col">
+    <div>
+      <ul class="checks">
+        <li>
+          Kurulumda Cloudflare API token'ı verirsen tunnel, DNS ve TLS otomatik
+          kurulur
+        </li>
+        <li>
+          NAT, CGNAT ve bulut firewall'ı arkasında çalışır — gelen port gerekmez
+        </li>
+        <li>
+          Alternatif: doğrudan IP ya da tamamen terminal üzerinden kurulum
+        </li>
+        <li>
+          Bulut sunucu tespit edilirse kurulum seni kapalı port tuzağına karşı
+          uyarır
+        </li>
+      </ul>
+    </div>
+    <img src="./assets/ports.jpg" alt="Portlar sekmesi" />
+  </div>
+</section>
+
+<section class="section">
+  <h2>Güvenlik varsayılanı</h2>
+  <div class="two-col">
+    <img src="./assets/login.jpg" alt="Giriş ekranı" />
+    <div>
+      <ul class="checks">
+        <li>
+          Yalnızca <code>127.0.0.1</code>'e bind; dışarı açılmak açık tercih
+        </li>
+        <li>
+          Şifre (≥12 karakter) + opsiyonel TOTP 2FA, varsayılan kimlik bilgisi
+          yok
+        </li>
+        <li>Başarısız girişlerde otomatik IP ban, denetim kaydı</li>
+        <li>
+          Kurulan servisler kendi auth'unu kapatır ve loopback'e bind edilir —
+          dışarıya tek kapı Lyra
+        </li>
+        <li>
+          sudoers girdisi yalnızca gereken komutları whitelist'ler,
+          <code>NOPASSWD: ALL</code> yok
+        </li>
+        <li>Dış CDN yok: fontlar ve kütüphaneler pakete gömülü</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Dokümantasyon</h2>
+  <p class="sub">Kurulumdan sertleştirmeye kadar hepsi burada.</p>
+  <div class="grid">
+    <div class="card">
+      <h3><a href="./docs/install-guide.html">Kurulum rehberi</a></h3>
+      <p>
+        Adım adım kurulum, ortam değişkenleri, etkileşimsiz bayraklar, sorun
+        giderme.
+      </p>
+    </div>
+    <div class="card">
+      <h3><a href="./docs/architecture.html">Mimari</a></h3>
+      <p>Sistem tasarımı, iki katmanlı yapılandırma, veritabanı şeması.</p>
+    </div>
+    <div class="card">
+      <h3><a href="./docs/deployment.html">Dağıtım</a></h3>
+      <p>Erişim modelleri: Cloudflare Tunnel, doğrudan IP, salt LAN.</p>
+    </div>
+    <div class="card">
+      <h3><a href="./docs/security.html">Güvenlik</a></h3>
+      <p>Tehdit modeli, operatör sertleştirme notları, kabul edilen riskler.</p>
+    </div>
+    <div class="card">
+      <h3><a href="./docs/configuration.html">Yapılandırma</a></h3>
+      <p>Ayar referansı: domain, portlar, servisler, entegrasyonlar.</p>
+    </div>
+    <div class="card">
+      <h3><a href="./docs/changelog.html">Değişiklikler</a></h3>
+      <p>Sürüm geçmişi ve her sürümde neyin neden değiştiği.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Gereksinimler</h2>
+  <p class="sub">
+    Ubuntu 20.04+ / Debian 12+ (apt + systemd), x86_64 ya da aarch64, root
+    erişimi. Node 20 ve derleme araçları eksikse <code>install.sh</code> kendisi
+    kurar.
+  </p>
+  <p class="sub">
+    Lisans
+    <a href="https://github.com/eminerolll/andromeda-lyra/blob/main/LICENSE"
+      >AGPL-3.0</a
+    >. Kendi sunucunda çalıştırıp dağıtmıyorsan sana bir yükümlülük getirmez.
+  </p>
+</section>

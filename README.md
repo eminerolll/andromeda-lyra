@@ -1,27 +1,55 @@
-# Lyra
+<p align="center">
+  <img src="docs/images/logo-lockup.svg" alt="Lyra" width="240">
+</p>
 
-Self-hosted geliştirici ortamı yönetim paneli. Projelerini, code-server
-IDE'ni, dev server portlarını, git iş akışlarını, ortam değişkenlerini,
-sistem loglarını, Docker container'larını ve Cloudflare Tunnel ingress
-ayarlarını tek bir paneliden yönet — kendi sunucunda.
+<p align="center">
+  Self-hosted geliştirici ortamı yönetim paneli — projeler, code-server,
+  dev-port önizlemeleri, git, ortam değişkenleri, loglar, Docker ve
+  Cloudflare Tunnel tek panelde. Kendi sunucunda.
+</p>
 
-> **Durum: erken alfa.** Şema ve API'ler değişebilir. Henüz birden fazla
-> ortamda production-test edilmedi.
+<p align="center">
+  <a href="https://github.com/eminerolll/andromeda-lyra/actions/workflows/ci.yml"><img src="https://github.com/eminerolll/andromeda-lyra/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/eminerolll/andromeda-lyra/releases/latest"><img src="https://img.shields.io/github/v/release/eminerolll/andromeda-lyra?color=D97757" alt="Sürüm"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/lisans-AGPL--3.0-D97757" alt="Lisans"></a>
+  <img src="https://img.shields.io/badge/node-20%20%7C%2022-5da271" alt="Node">
+</p>
+
+<p align="center">
+  <img src="docs/images/projects.jpg" alt="Lyra paneli — Projeler sekmesi" width="880">
+</p>
+
+> **Durum: kullanılabilir, API'ler oturmadı.** Ubuntu 20.04 ve 22.04'te,
+> Docker konteynerinde, WSL2'de ve gerçek bir bulut sunucusunda (Oracle
+> Cloud) uçtan uca doğrulandı. Şema ve API'ler 1.0'a kadar değişebilir;
+> yükseltmeler migration ile taşınır.
 
 ## Ne yapıyor
 
-| Sekme | Yetenekler |
-|-------|------------|
-| **Projeler** | GitHub repo klonla, şablondan oluştur (Node, Python, React, Next), favoriye ekle, code-server'da aç, yeniden adlandır, sil |
-| **Portlar** | Çalışan dev portlarının canlı listesi (proje / RAM / uptime), tek tıkla aç, takılan process'leri durdur |
-| **Git** | Status, log, diff, pull/push/commit/checkout — conflict tespiti İngilizce + Türkçe git çıktısı için |
-| **Ortam** | Proje `.env` dosyalarını düzenle (monorepo destekli), global ortam değişkenleri |
-| **Loglar** | Kayıtlı her systemd unit için canlı `journalctl` akışı |
-| **Docker** _(opsiyonel)_ | Container'lar, stats, compose up/down, proje logları |
-| **Tunnel** _(opsiyonel)_ | Cloudflared ingress + DNS rotaları UI'dan |
+| Sekme                    | Yetenekler                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| **Projeler**             | GitHub repo klonla, şablondan oluştur (Node, Python, React, Next), favoriye ekle, code-server'da aç, yeniden adlandır, sil |
+| **Portlar**              | Çalışan dev portlarının canlı listesi (proje / RAM / uptime), tek tıkla aç, takılan process'leri durdur                    |
+| **Git**                  | Status, log, diff, pull/push/commit/checkout — conflict tespiti İngilizce + Türkçe git çıktısı için                        |
+| **Ortam**                | Proje `.env` dosyalarını düzenle (monorepo destekli), global ortam değişkenleri                                            |
+| **Loglar**               | Kayıtlı her systemd unit için canlı `journalctl` akışı                                                                     |
+| **Docker** _(opsiyonel)_ | Container'lar, stats, compose up/down, proje logları                                                                       |
+| **Tunnel** _(opsiyonel)_ | Cloudflared ingress + DNS rotaları UI'dan                                                                                  |
 
 Varsayılan **sadece LAN**. Public erişim opt-in — kendi reverse proxy'n
 ile (Cloudflare Tunnel, Tailscale Funnel, Caddy, …).
+
+## Ekranlar
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/ports.jpg" alt="Portlar sekmesi"><br><sub><b>Portlar</b> — çalışan dev server'lar, hangi projeye ait, RAM ve uptime; tek tıkla aç ya da durdur</sub></td>
+    <td width="50%"><img src="docs/images/git.jpg" alt="Git sekmesi"><br><sub><b>Git</b> — status, commit geçmişi, diff; pull/push/commit/checkout tarayıcıdan</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/images/login.jpg" alt="Giriş ekranı" width="60%"><br><sub><b>Giriş</b> — şifre + opsiyonel TOTP 2FA, otomatik IP ban</sub></td>
+  </tr>
+</table>
 
 ## Hızlı başlangıç
 
@@ -44,8 +72,7 @@ Script sistem paketlerini ve Node 20'yi kurar, kodu `/opt/lyra`'ya yerleştirir,
 2. **Bu makine dışarıdan erişilebilir** — sihirbaz `http://<ip>` üzerinde açılır.
 3. **Ne domain ne açık port** — sihirbaz o terminalde çalışır (CLI).
 
-`install.sh` bulut sunucu (Oracle/AWS/GCP/Azure) tespit ederse uyarır ve
-2. seçeneği varsayılan yapmaz: bu sağlayıcılarda gelen portlar Security List /
+`install.sh` bulut sunucu (Oracle/AWS/GCP/Azure) tespit ederse uyarır ve 2. seçeneği varsayılan yapmaz: bu sağlayıcılarda gelen portlar Security List /
 NSG katmanında varsayılan olarak kapalıdır, `ufw` kapalı olsa bile.
 
 Sihirbaz bitince Lyra kurulum modundan kendi çıkar ve normal moda geçer.
@@ -71,7 +98,7 @@ giderme için: **[INSTALL.md](./INSTALL.md)**.
 
 ## Gereksinimler
 
-- **Ubuntu 22.04+ / Debian 12+** (apt + systemd), x86_64 veya aarch64
+- **Ubuntu 20.04+ / Debian 12+** (apt + systemd), x86_64 veya aarch64
 - **root erişimi** (`sudo`)
 - Node.js 20, `git`, `ss` (iproute2), `build-essential` — `install.sh` eksikse
   kendisi kurar
@@ -152,7 +179,9 @@ Tehdit modeli ve güvenlik açığı raporlama için [SECURITY.md](./SECURITY.md
 - [INSTALL.md](./INSTALL.md) — GitHub'dan kurulum, adım adım
 - [docs/architecture.md](./docs/architecture.md) — sistem tasarımı
 - [docs/configuration.md](./docs/configuration.md) — ayar referansı
+- [docs/deployment.md](./docs/deployment.md) — erişim modelleri ve dağıtım
 - [docs/security.md](./docs/security.md) — operatör sertleştirme notları
+- [CHANGELOG.md](./CHANGELOG.md) — sürüm geçmişi
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — kod stili, branching, PR'lar
 - [SECURITY.md](./SECURITY.md) — güvenlik açığı raporlama
 
@@ -161,10 +190,12 @@ Tehdit modeli ve güvenlik açığı raporlama için [SECURITY.md](./SECURITY.md
 ```bash
 cd src
 npm install
-npm test           # vitest smoke test'ler
+npm test           # vitest — 377 test
 npm run lint
 npm run format:check
 ```
+
+CI her push'ta Node 20 ve 22 üzerinde lint + format + testleri koşar.
 
 ## Lisans
 

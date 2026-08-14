@@ -1,0 +1,63 @@
+name: Pages
+
+# Tanitim sitesi + dokumantasyon yayini. site/build.js, docs/*.md ve kokteki
+# INSTALL/CHANGELOG/CONTRIBUTING/SECURITY dosyalarini HTML'e cevirir; markdown
+# donusturucu olarak repoda zaten vendor'lanmis marked kullanilir, npm install
+# gerekmez.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "docs/**"
+      - "*.md"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ayni anda tek yayin; kuyruktakiler iptal edilmez ki son commit kaybolmasin.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Siteyi uret
+        run: node site/build.js
+
+      - name: Ciktiyi dogrula
+        run: |
+          test -f _site/index.html
+          test -f _site/docs/architecture.html
+          test -f _site/assets/style.css
+          test -f _site/.nojekyll
+          echo "uretilen sayfa sayisi: $(find _site -name '*.html' | wc -l)"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

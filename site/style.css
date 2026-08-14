@@ -1,0 +1,394 @@
+/*
+ * Lyra tanitim sitesi. Palet panelin css/tokens.css'inden gelir — site ile
+ * urun ayni dili konusmali.
+ */
+
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./Newsreader-Medium.woff2") format("woff2");
+}
+
+:root {
+  --bg: #191919;
+  --bg-raised: #1f1e1d;
+  --bg-card: #282625;
+  --border: #403a36;
+  --border-light: #4d4741;
+  --text: #f0eee6;
+  --text-secondary: #bdb7ab;
+  --text-muted: #948d83;
+  --accent: #d97757;
+  --accent-soft: rgba(217, 119, 87, 0.12);
+  --kraft: #d4a27f;
+  --green: #5da271;
+  --serif: "Newsreader", Georgia, serif;
+  --sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--kraft);
+}
+
+/* ── Ust bar ─────────────────────────────────────────────────────────── */
+.site-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 24px;
+  background: rgba(25, 25, 25, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.site-head .brand {
+  display: flex;
+  align-items: center;
+}
+.site-head nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.site-head nav a {
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.site-head nav a:hover {
+  background: var(--bg-card);
+  color: var(--text);
+}
+.site-head nav a.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.site-head nav a.gh {
+  border: 1px solid var(--border-light);
+  margin-left: 6px;
+}
+
+/* ── Tanitim ─────────────────────────────────────────────────────────── */
+.hero {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 72px 24px 40px;
+  text-align: center;
+}
+.hero h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(34px, 6vw, 54px);
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+.hero p.lead {
+  max-width: 640px;
+  margin: 18px auto 0;
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+.hero .cta {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+.btn {
+  display: inline-block;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--border-light);
+  color: var(--text);
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.btn:hover {
+  opacity: 0.9;
+  color: var(--text);
+}
+.btn.primary:hover {
+  color: var(--bg);
+}
+
+.install-cmd {
+  max-width: 720px;
+  margin: 30px auto 0;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  text-align: left;
+  overflow-x: auto;
+  white-space: pre;
+}
+.install-cmd .p {
+  color: var(--accent);
+}
+
+.shot {
+  max-width: 1100px;
+  margin: 46px auto 0;
+  padding: 0 24px;
+}
+.shot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.shot figcaption {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.section {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 24px 0;
+}
+.section h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 30px;
+  margin-bottom: 8px;
+}
+.section > p.sub {
+  color: var(--text-muted);
+  margin-bottom: 26px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.card h3 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.card p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.card .tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+.two-col img {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+ul.checks {
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+ul.checks li {
+  padding-left: 26px;
+  position: relative;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+ul.checks li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* ── Dokuman sayfalari ───────────────────────────────────────────────── */
+.doc {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 44px 24px 0;
+}
+.doc article > *:first-child {
+  margin-top: 0;
+}
+.doc h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 38px;
+  margin: 0 0 18px;
+}
+.doc h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 26px;
+  margin: 40px 0 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.doc h3 {
+  font-size: 18px;
+  margin: 26px 0 8px;
+}
+.doc h4 {
+  font-size: 15px;
+  margin: 20px 0 6px;
+  color: var(--text-secondary);
+}
+.doc p,
+.doc li {
+  color: var(--text-secondary);
+}
+.doc ul,
+.doc ol {
+  margin: 12px 0 12px 22px;
+}
+.doc li {
+  margin: 5px 0;
+}
+.doc blockquote {
+  margin: 16px 0;
+  padding: 12px 18px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+}
+.doc blockquote p {
+  color: var(--text);
+}
+.doc code {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: var(--kraft);
+}
+.doc pre {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 14px 0;
+}
+.doc pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  display: block;
+  overflow-x: auto;
+}
+.doc th,
+.doc td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+.doc th {
+  background: var(--bg-card);
+  color: var(--text);
+}
+.doc td {
+  color: var(--text-secondary);
+}
+.doc img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.doc hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 32px 0;
+}
+
+/* ── Alt bilgi ───────────────────────────────────────────────────────── */
+.site-foot {
+  max-width: 1000px;
+  margin: 72px auto 0;
+  padding: 22px 24px 44px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

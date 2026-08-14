@@ -21,3 +21,6 @@ src/.env
 # Test ve kapsam ciktilari
 coverage/
 .vitest/
+
+# Pages build ciktisi (site/build.js uretir)
+_site/
