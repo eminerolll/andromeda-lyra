@@ -6,6 +6,31 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temel alınarak
 hazırlanmıştır ve proje [Semantic Versioning](https://semver.org/lang/tr/)
 kurallarına uyar.
 
+## [0.2.0] - 2026-08-14
+
+Arayüz sürümü: marka kimliği uygulandı, palet tek kaynağa indi, yükleme
+durumları görünür oldu ve çalışmayan modal düğmeleri düzeltildi.
+
+### Eklendi
+
+- **Marka kimliği.** E.E işareti (inline SVG, `currentColor`), Newsreader wordmark, tam ikon seti (`favicon.ico`, `favicon.svg`, apple-touch, PWA 192/512 + maskable), `site.webmanifest`, `theme-color` ve sosyal önizleme görselleri. Newsreader `public/fonts/` altında self-host ediliyor, OFL lisansı pakete dahil — dışarıya hiçbir istek gitmiyor.
+- **`css/tokens.css` — tasarım token'ları için tek kaynak.** Önce üç ayrı palet vardı: `login.html` ve `setup.html` kendi inline `:root`'larında (`#050508` zemin, `#00e5ff` cyan), `base.css` ise dashboard için ayrı bir sette (`#111119` zemin, `#6c8cff` indigo). Kullanıcı giriş ekranından panele geçerken zemin ve vurgu rengi değişiyordu. Üçü de kaldırıldı; eski ad setleri alias olarak köprülendi, mevcut seçiciler bozulmadı.
+- **İskelet yükleyiciler.** Projeler, Git, Ortam, Docker, Tunnel, Loglar, Portlar ve ayarlar modalının bölümleri veri beklerken içerikle aynı ölçüde bir iskelet gösteriyor; veri gelince sayfa zıplamıyor. İskelet istekten **önce** basılıyor, böylece "Henüz proje yok" boş durumu istek dönmeden bir an görünüp kaybolmuyor. Tekrar tekrar çağrılan yüklemeler için (sistem kartı 30 sn, docker 10 sn) `showSkeletonIfEmpty` kullanılıyor, aksi halde bu kutular düzenli aralıklarla parıldardı. `aria-busy` + görünmez `role="status"` metni, `prefers-reduced-motion` desteği.
+
+### Değiştirildi
+
+- Arayüz Anthropic paletine geçti: `#D97757` terracotta vurgu, `#191919` slate zemin, `#F0EEE6` ivory metin. Zemin katmanları nötr griden değil sıcak eksenden türetildi — nötr gri terracotta yanında maviye kayıyor.
+- Durum renkleri vurgudan ayrıştırıldı: kırmızı crimson'a (hue ~353), uyarı amber'e (hue ~38) kaydırıldı. Aksi halde "sil" düğmesi birincil düğmeyle aynı renge düşüyordu.
+- Logolar `<img src="favicon.ico">` yerine inline SVG. Harici SVG `<img>` ile yüklendiğinde `currentColor`'ı devralmaz, koyu zeminde siyah kalırdı.
+
+### Düzeltildi
+
+- **Modal kapatma düğmeleri hiçbir şey yapmıyordu.** "Yeni Proje" modalında İptal'e basmak modalı kapatmıyordu; aynı boşluk beş düğmede birdenydi (`newCancelBtn`, `cloneCancelBtn`, `renameCancelBtn`, `githubCloseBtn`, `progressCloseBtn`). Bu modallar yalnızca Escape ya da dışarıya tıklama ile kapanıyordu. Kapatma artık `[data-modal-close]` üzerinden tek bir delegated dinleyiciyle yapılıyor; bu ayrıca sonradan DOM'a eklenen modalları da kapsıyor (overlay tıklaması önceden yalnızca sayfa açılışındaki modalları görüyordu). Regresyon `test/frontend-assets.test.js` ile kilitlendi: id taşıyan her düğmenin bir davranışı olmalı ve her modal tıklanabilir bir kapatma yolu sunmalı.
+- `js/docker.js` ve `js/cloudflare.js` `var(--yellow)` ve `var(--bg-darker)` kullanıyordu ama bu iki token hiçbir yerde tanımlı değildi: her çağrı sessizce fallback hex'e, yani eski palete düşüyordu.
+- Birincil düğme metni `#fff` idi; terracotta üzerinde kontrast ~3.2:1 ile WCAG AA'nın altında kalıyordu. Koyu zemin rengine çevrildi (~5.5:1).
+- `loadProjects` hata durumunda yalnızca toast atıyor, `loadSystem` ise tamamen sessiz geçiyordu (`catch (e) {}`). İskelet eklendikten sonra bu yollarda ekran sonsuza kadar parıldayacaktı; artık iskelet kalkıyor ve sebep yazılıyor.
+- Header zemini, sabitlenmiş kart parıldaması, "Aç" düğmesi hover'ı, diff satırları, log seviyeleri ve kurulum uyarıları hex/rgba olarak eski paletten kalmıştı; hepsi token'a bağlandı.
+
 ## [0.1.1] - 2026-08-14
 
 ### Düzeltildi
@@ -129,5 +154,6 @@ WSL2'de ve gerçek bir Oracle Cloud VM'inde uçtan uca doğrulandı.
 - Kabuk ayrıştırmasını devre dışı bırakmak için `lib/caddy.js`, `lib/health.js` ve `routes/logs.js` `execFile`'a çevrildi.
 - Entegrasyon token'ları bilinçli olarak şifrelenmiyor; anahtarı saklayacak ikinci bir güven alanı olmadığı için yanıltıcı vaatler kaldırılıp gerekçe `SECURITY.md` ve `docs/security.md`'ye yazıldı.
 
+[0.2.0]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.0
 [0.1.1]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.1.1
 [0.1.0]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.1.0
