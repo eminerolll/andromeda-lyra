@@ -4,8 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Launcher</title>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#D97757" />
+    <meta property="og:title" content="Lyra" />
+    <meta property="og:description" content="Self-hosted developer environment manager" />
+    <meta property="og:image" content="/brand/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="stylesheet" href="css/fonts.css" />
+    <link rel="stylesheet" href="css/tokens.css" />
     <link rel="stylesheet" href="css/base.css" />
     <link rel="stylesheet" href="css/components.css" />
     <link rel="stylesheet" href="css/tabs.css" />
@@ -14,7 +24,22 @@
     <header class="header">
       <div class="header-inner">
         <div class="header-left">
-          <div class="logo-mark"><img src="/favicon.ico" alt="" /></div>
+          <div class="logo-mark">
+            <!-- E.E isareti inline: harici SVG currentColor'i devralmaz. -->
+            <svg viewBox="0 0 32 32" role="img" aria-label="Lyra">
+              <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                <path d="M5 7V25" />
+                <path d="M5 7H13" />
+                <path d="M5 16H11.9" />
+                <path d="M5 25H13" />
+                <path d="M19.6 7V25" />
+                <path d="M19.6 7H27.6" />
+                <path d="M19.6 16H26.5" />
+                <path d="M19.6 25H27.6" />
+              </g>
+              <circle cx="16.3" cy="25" r="1.7" fill="currentColor" />
+            </svg>
+          </div>
           <span class="logo-text" id="appName">Lyra</span>
         </div>
         <div class="header-actions">
@@ -508,11 +533,11 @@
                 style="
                   margin-top: 12px;
                   padding: 10px;
-                  background: rgba(255, 184, 77, 0.08);
-                  border: 1px solid rgba(255, 184, 77, 0.2);
+                  background: var(--orange-soft);
+                  border: 1px solid rgba(224, 163, 62, 0.25);
                   border-radius: 8px;
                   font-size: 13px;
-                  color: #ffd699;
+                  color: var(--orange-text);
                   display: none;
                 "
               >

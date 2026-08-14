@@ -3,7 +3,7 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(17, 17, 25, 0.85);
+  background: rgba(var(--bg-rgb), 0.85);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
 }
@@ -33,7 +33,10 @@
   justify-content: center;
 }
 
-.logo-mark img { width: 24px; height: 24px; }
+/* Geometri (stroke 3.0, yuvarlak uclar, dolu nokta) SVG'nin kendi
+   attribute'larinda duruyor — CSS yalnizca olcu ve renk verir. stroke/fill
+   burada ezilirse marka isareti incelir ve "E.E"yi okunur kilan nokta kaybolur. */
+.logo-mark svg { width: 24px; height: 24px; color: var(--accent); }
 
 .logo-text {
   font-family: var(--mono);
@@ -87,7 +90,7 @@
 
 .btn:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
 .btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+.btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
 .btn-primary:hover { opacity: 0.88; border-color: var(--accent); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-muted); padding: 7px 8px; }
 .btn-ghost:hover { color: var(--text); background: var(--bg-card); }
@@ -172,7 +175,7 @@
 .type-python { background: var(--orange-soft); color: var(--orange); }
 .type-rust { background: var(--red-soft); color: var(--red); }
 .type-go { background: var(--accent-soft); color: var(--accent); }
-.type-bos { background: rgba(108, 108, 130, 0.1); color: var(--text-muted); }
+.type-bos { background: rgba(138, 131, 122, 0.14); color: var(--text-muted); }
 
 .card-meta {
   display: flex;
@@ -211,7 +214,7 @@
   padding: 8px 14px;
 }
 
-.card-actions .btn-open:hover { background: rgba(108, 140, 255, 0.2); }
+.card-actions .btn-open:hover { background: rgba(var(--accent-rgb), 0.2); }
 
 .card-actions .separator {
   width: 1px;
@@ -330,7 +333,7 @@ kbd {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(11, 11, 17, 0.8);
+  background: rgba(var(--bg-rgb), 0.8);
   backdrop-filter: blur(8px);
   z-index: 200;
   display: none;
@@ -658,8 +661,8 @@ kbd {
 
 .project-card.pinned {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft), 0 4px 24px rgba(108, 140, 255, 0.15);
-  background: linear-gradient(180deg, rgba(108, 140, 255, 0.04) 0%, var(--bg-card) 40%);
+  box-shadow: 0 0 0 1px var(--accent-soft), 0 4px 24px rgba(var(--accent-rgb), 0.15);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.04) 0%, var(--bg-card) 40%);
 }
 
 .project-card .card-top {

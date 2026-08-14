@@ -4,8 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Giriş</title>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#D97757" />
     <link rel="stylesheet" href="/css/fonts.css" />
+    <link rel="stylesheet" href="/css/tokens.css" />
     <style>
       *,
       *::before,
@@ -15,22 +20,7 @@
         box-sizing: border-box;
       }
 
-      :root {
-        --bg: #050508;
-        --surface: #0a0a10;
-        --card: #0f0f18;
-        --card-border: #1a1a2e;
-        --card-glow: rgba(0, 229, 255, 0.04);
-        --text: #eaeaf0;
-        --text-dim: #6b6b80;
-        --text-faint: #3d3d50;
-        --accent: #00e5ff;
-        --accent-rgb: 0, 229, 255;
-        --danger: #ff4070;
-        --success: #00d68f;
-        --mono: "JetBrains Mono", monospace;
-        --sans: "Inter", -apple-system, sans-serif;
-      }
+      /* Palet /css/tokens.css'ten gelir — bu sayfanin kendi :root'u kaldirildi. */
 
       html,
       body {
@@ -76,7 +66,7 @@
         left: -10%;
       }
       .bg-glow.b {
-        background: #7b61ff;
+        background: var(--kraft);
         bottom: -20%;
         right: -10%;
         animation-delay: -7s;
@@ -146,12 +136,13 @@
         justify-content: center;
       }
 
+      /* Marka isaretinin geometrisi SVG attribute'larinda: stroke 3.0, yuvarlak
+         uclar, dolu nokta. Buradan stroke-width/fill ezilirse isaret incelir ve
+         "E.E"yi okunur kilan nokta kaybolur — CSS yalnizca olcu ve renk verir. */
       .brand-icon svg {
-        width: 24px;
-        height: 24px;
-        stroke: var(--accent);
-        fill: none;
-        stroke-width: 1.5;
+        width: 28px;
+        height: 28px;
+        color: var(--accent);
       }
 
       .brand-name {
@@ -310,7 +301,7 @@
         display: none;
         width: 18px;
         height: 18px;
-        border: 2px solid rgba(5, 5, 8, 0.2);
+        border: 2px solid rgba(var(--bg-rgb), 0.25);
         border-top-color: var(--bg);
         border-radius: 50%;
         animation: rotate 0.6s linear infinite;
@@ -338,8 +329,8 @@
       .error-box {
         margin-top: 16px;
         padding: 12px 16px;
-        background: rgba(255, 64, 112, 0.06);
-        border: 1px solid rgba(255, 64, 112, 0.15);
+        background: var(--red-soft);
+        border: 1px solid rgba(201, 65, 79, 0.25);
         border-radius: 10px;
         font-size: 13px;
         color: var(--danger);
@@ -448,7 +439,19 @@
         <div class="brand-icon">
           <div class="ring"></div>
           <div class="inner">
-            <img src="/favicon.ico" alt="" style="width: 28px; height: 28px" />
+            <svg viewBox="0 0 32 32" role="img" aria-label="Lyra">
+              <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                <path d="M5 7V25" />
+                <path d="M5 7H13" />
+                <path d="M5 16H11.9" />
+                <path d="M5 25H13" />
+                <path d="M19.6 7V25" />
+                <path d="M19.6 7H27.6" />
+                <path d="M19.6 16H26.5" />
+                <path d="M19.6 25H27.6" />
+              </g>
+              <circle cx="16.3" cy="25" r="1.7" fill="currentColor" />
+            </svg>
           </div>
         </div>
         <div class="brand-name" id="brandName">LYRA</div>

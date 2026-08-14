@@ -172,8 +172,8 @@
 }
 
 .diff-line { padding: 0 16px; white-space: pre; }
-.diff-line.add { background: rgba(52, 211, 153, 0.08); color: var(--green); }
-.diff-line.del { background: rgba(248, 113, 113, 0.08); color: var(--red); }
+.diff-line.add { background: var(--green-soft); color: var(--green); }
+.diff-line.del { background: var(--red-soft); color: var(--red); }
 .diff-line.hunk { color: var(--purple); background: var(--purple-soft); }
 
 .log-list {
@@ -335,11 +335,11 @@
 
 .logs-source-dot.active {
   background: var(--green);
-  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
+  box-shadow: 0 0 0 3px rgba(93, 162, 113, 0.25);
 }
 .logs-source-dot.failed {
   background: var(--red);
-  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+  box-shadow: 0 0 0 3px rgba(201, 65, 79, 0.25);
 }
 .logs-source-dot.inactive { background: var(--text-faint); }
 .logs-source-dot.activating { background: var(--orange); }
@@ -432,12 +432,12 @@
 
 .log-line.log-error {
   color: var(--red);
-  background: rgba(248, 113, 113, 0.06);
+  background: var(--red-soft);
   border-left-color: var(--red);
 }
 .log-line.log-warn {
   color: var(--orange);
-  background: rgba(251, 146, 60, 0.05);
+  background: var(--orange-soft);
   border-left-color: var(--orange);
 }
 .log-line.log-info { color: var(--text-secondary); }

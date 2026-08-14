@@ -4,8 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lyra Kurulum</title>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#D97757" />
     <link rel="stylesheet" href="/css/fonts.css" />
+    <link rel="stylesheet" href="/css/tokens.css" />
     <style>
       *,
       *::before,
@@ -15,22 +20,7 @@
         box-sizing: border-box;
       }
 
-      :root {
-        --bg: #050508;
-        --surface: #0a0a10;
-        --card: #0f0f18;
-        --card-border: #1a1a2e;
-        --text: #eaeaf0;
-        --text-dim: #8b8ba0;
-        --text-faint: #4a4a5e;
-        --accent: #00e5ff;
-        --accent-rgb: 0, 229, 255;
-        --danger: #ff4070;
-        --warning: #ffb84d;
-        --success: #00d68f;
-        --mono: "JetBrains Mono", monospace;
-        --sans: "Inter", -apple-system, sans-serif;
-      }
+      /* Palet /css/tokens.css'ten gelir — bu sayfanin kendi :root'u kaldirildi. */
 
       html,
       body {
@@ -69,7 +59,7 @@
         left: -10%;
       }
       .bg-glow.b {
-        background: #7b61ff;
+        background: var(--kraft);
         bottom: -20%;
         right: -10%;
       }
@@ -97,9 +87,11 @@
         justify-content: center;
         margin-bottom: 12px;
       }
-      .brand-logo img {
+      /* Geometri SVG attribute'larinda kalir; CSS yalnizca olcu ve renk verir. */
+      .brand-logo svg {
         width: 32px;
         height: 32px;
+        color: var(--accent);
       }
       .brand-name {
         font-family: var(--mono);
@@ -320,9 +312,9 @@
         flex-shrink: 0;
       }
       .alert-error {
-        background: rgba(255, 64, 112, 0.08);
-        border: 1px solid rgba(255, 64, 112, 0.2);
-        color: #ffb0c5;
+        background: var(--red-soft);
+        border: 1px solid rgba(201, 65, 79, 0.25);
+        color: var(--red-text);
       }
       /* alert flex; metin sutununun kucultulebilmesi icin min-width:0 sart,
          yoksa uzun tek kelime kutuyu yatayda tasirir. */
@@ -344,19 +336,19 @@
         margin-bottom: 0;
       }
       .alert-success {
-        background: rgba(0, 214, 143, 0.08);
-        border: 1px solid rgba(0, 214, 143, 0.2);
-        color: #80f0c8;
+        background: var(--green-soft);
+        border: 1px solid rgba(93, 162, 113, 0.25);
+        color: var(--green-text);
       }
       .alert-warning {
-        background: rgba(255, 184, 77, 0.08);
-        border: 1px solid rgba(255, 184, 77, 0.2);
-        color: #ffd699;
+        background: var(--orange-soft);
+        border: 1px solid rgba(224, 163, 62, 0.25);
+        color: var(--orange-text);
       }
       .alert-info {
         background: rgba(var(--accent-rgb), 0.06);
         border: 1px solid rgba(var(--accent-rgb), 0.15);
-        color: #80f0ff;
+        color: var(--accent-text);
       }
 
       /* QR */
@@ -501,7 +493,7 @@
         color: var(--success);
       }
       .progress-row.failed {
-        border-color: rgba(255, 64, 112, 0.3);
+        border-color: rgba(201, 65, 79, 0.35);
       }
       .progress-row.failed .progress-mark {
         color: var(--danger);
@@ -517,7 +509,7 @@
          SINIRLI kalir ve kendi icinde kayar — sayfa uzamaz. */
       .progress-error {
         font-size: 12px;
-        color: #ffb0c5;
+        color: var(--red-text);
         margin-top: 4px;
         font-family: var(--mono);
         white-space: pre-wrap;
@@ -603,7 +595,21 @@
 
     <div class="container">
       <div class="brand">
-        <div class="brand-logo"><img src="/favicon.ico" alt="" /></div>
+        <div class="brand-logo">
+          <svg viewBox="0 0 32 32" role="img" aria-label="Lyra">
+            <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+              <path d="M5 7V25" />
+              <path d="M5 7H13" />
+              <path d="M5 16H11.9" />
+              <path d="M5 25H13" />
+              <path d="M19.6 7V25" />
+              <path d="M19.6 7H27.6" />
+              <path d="M19.6 16H26.5" />
+              <path d="M19.6 25H27.6" />
+            </g>
+            <circle cx="16.3" cy="25" r="1.7" fill="currentColor" />
+          </svg>
+        </div>
         <div class="brand-name">LYRA</div>
         <div class="brand-title">Kurulum Sihirbazı</div>
       </div>

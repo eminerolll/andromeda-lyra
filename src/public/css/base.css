@@ -1,34 +1,6 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-:root {
-  --bg: #111119;
-  --bg-raised: #181822;
-  --bg-card: #1e1e2a;
-  --bg-card-hover: #242432;
-  --bg-input: #151520;
-  --border: #2a2a3d;
-  --border-light: #33334a;
-  --text: #e4e4ed;
-  --text-secondary: #a8a8be;
-  --text-muted: #6c6c82;
-  --text-faint: #44445a;
-  --accent: #6c8cff;
-  --accent-soft: rgba(108, 140, 255, 0.12);
-  --accent-glow: rgba(108, 140, 255, 0.06);
-  --green: #34d399;
-  --green-soft: rgba(52, 211, 153, 0.1);
-  --orange: #fb923c;
-  --orange-soft: rgba(251, 146, 60, 0.1);
-  --red: #f87171;
-  --red-soft: rgba(248, 113, 113, 0.1);
-  --purple: #a78bfa;
-  --purple-soft: rgba(167, 139, 250, 0.1);
-  --cyan: #22d3ee;
-  --mono: 'JetBrains Mono', monospace;
-  --sans: 'Inter', -apple-system, sans-serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-}
+/* Token'lar css/tokens.css'te — login, setup ve dashboard ayni seti kullanir. */
 
 body {
   font-family: var(--sans);

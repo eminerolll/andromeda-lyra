@@ -1,0 +1,92 @@
+/*
+ * Lyra tasarim token'lari — TEK KAYNAK.
+ *
+ * Once uc ayri palet vardi: login.html ve setup.html kendi inline :root'larinda
+ * (#050508 zemin, #00e5ff cyan), base.css ise dashboard icin baska bir sette
+ * (#111119 zemin, #6c8cff indigo). Kullanici giris ekranindan panele gecerken
+ * zemin ve vurgu rengi degisiyordu. Bu dosya ucunu de besler; sayfalarin kendi
+ * :root'lari kaldirildi.
+ *
+ * Palet lyra-brand paketinden gelir (bkz. lyra-brand/KURULUM.md):
+ *   #D97757 Book cloth   ana isaret / vurgu
+ *   #191919 Slate dark   koyu zemin
+ *   #F0EEE6 Ivory        metin
+ *   #D4A27F Kraft        ikincil
+ *   #EBDBBC Manila       vurgu detay
+ *
+ * Zemin katmanlari notr griden degil, hafif sicak bir eksenden turetildi:
+ * terracotta'nin yaninda notr gri maviye kayik gorunuyor.
+ */
+
+:root {
+  /* ── Zeminler ─────────────────────────────────────────────── */
+  --bg: #191919;
+  --bg-rgb: 25, 25, 25; /* yari saydam header/overlay zeminleri icin */
+  --bg-raised: #1f1e1d;
+  --bg-card: #242322;
+  --bg-card-hover: #2b2a28;
+  --bg-input: #141313;
+  --border: #332f2c;
+  --border-light: #423d38;
+
+  /* ── Metin ────────────────────────────────────────────────── */
+  --text: #f0eee6;
+  --text-secondary: #bdb7ab;
+  --text-muted: #8a837a;
+  --text-faint: #5a544d;
+
+  /* ── Marka ────────────────────────────────────────────────── */
+  --accent: #d97757;
+  --accent-hover: #e28b6d;
+  --accent-rgb: 217, 119, 87;
+  --accent-soft: rgba(217, 119, 87, 0.12);
+  --accent-glow: rgba(217, 119, 87, 0.06);
+  --kraft: #d4a27f;
+  --manila: #ebdbbc;
+
+  /* ── Durum renkleri ───────────────────────────────────────────
+     Hepsi terracotta'dan (hue ~16) yeterince uzak tutuldu: kirmizi
+     crimson'a (hue ~353), uyari amber'e (hue ~38) kaydirildi. Aksi
+     halde "sil" butonu ile birincil buton ayni renge dusuyordu. */
+  --green: #5da271;
+  --green-soft: rgba(93, 162, 113, 0.12);
+  --orange: #e0a33e;
+  --orange-soft: rgba(224, 163, 62, 0.12);
+  --red: #c9414f;
+  --red-soft: rgba(201, 65, 79, 0.12);
+  --purple: #9b7ede;
+  --purple-soft: rgba(155, 126, 222, 0.12);
+  --cyan: #5ea3b0;
+
+  /* Renkli zemin uzerine yazilan metin tonlari: dolu renk koyu zeminde
+     yeterince okunur ama alert govdesinde yoruyor, bu yuzden acik turevler. */
+  --green-text: #a3d1b0;
+  --orange-text: #eecb92;
+  --red-text: #eda1a8;
+  --accent-text: #eeb096;
+
+  /* ── Tipografi ve olcu ────────────────────────────────────── */
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', -apple-system, sans-serif;
+  --serif: 'Newsreader', Georgia, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  /* ── login.html / setup.html uyumluluk adlari ─────────────────
+     O sayfalar kendi ad setiyle yazilmisti; secici'leri degistirmemek
+     icin adlar burada koprulendi. Yeni kod ustteki adlari kullanmali. */
+  --surface: var(--bg-raised);
+  --card: var(--bg-card);
+  --card-border: var(--border);
+  --card-glow: var(--accent-glow);
+  --text-dim: var(--text-muted);
+  --danger: var(--red);
+  --success: var(--green);
+  --warning: var(--orange);
+
+  /* js/docker.js ve js/cloudflare.js bu iki adi kullaniyordu ama hicbir yerde
+     tanimli degillerdi: var(--yellow, #fbbf24) sessizce eski paletin parlak
+     sarisina, var(--bg-darker, #0f1115) eski mavi-griye dusuyordu. */
+  --yellow: var(--orange);
+  --bg-darker: var(--bg-input);
+}

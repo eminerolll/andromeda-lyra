@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Lyra">
+  <g fill="none" stroke="currentColor" stroke-width="3.0" stroke-linecap="round">
+    <path d="M5.0 7.0V25.0"/>
+    <path d="M5.0 7.0H13.0"/>
+    <path d="M5.0 16.0H11.9"/>
+    <path d="M5.0 25.0H13.0"/>
+    <path d="M19.6 7.0V25.0"/>
+    <path d="M19.6 7.0H27.6"/>
+    <path d="M19.6 16.0H26.5"/>
+    <path d="M19.6 25.0H27.6"/>
+  </g>
+  <circle cx="16.3" cy="25.0" r="1.7" fill="currentColor"/>
+</svg>
