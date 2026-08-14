@@ -20,6 +20,7 @@ const config = require("./lib/config");
 const auth = require("./lib/auth");
 const ban = require("./lib/ban");
 const securityHeaders = require("./lib/security-headers");
+const blockDirectHtml = require("./lib/static-guard");
 const proxyLib = require("./lib/proxy");
 const pathProxy = require("./lib/path-proxy");
 const { bans, users } = require("./db/repos");
@@ -38,6 +39,10 @@ app.use(securityHeaders);
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(auth.buildSessionMiddleware());
+
+// HTML sayfalari yalnizca kendi route'lari uzerinden servis edilir; gerekce
+// lib/static-guard.js icinde. Statik middleware'den ONCE gelmeli.
+app.use(blockDirectHtml);
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // Public minimal endpoints (her iki modda da)
