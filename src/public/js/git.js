@@ -1,4 +1,4 @@
-import { api, toast, events, escapeHtml } from "./app.js";
+import { api, toast, events, escapeHtml, showSkeletonIfEmpty, clearBusy } from "./app.js";
 import {
   runGitOp,
   promptAndCommit,
@@ -38,6 +38,7 @@ async function loadGitData() {
     return;
   }
 
+  showSkeletonIfEmpty("gitContent", "rows", 7);
   try {
     const [status, log, diff] = await Promise.all([
       api("/api/git/" + currentProject + "/status"),
@@ -49,6 +50,7 @@ async function loadGitData() {
       }))
     ]);
 
+    clearBusy("gitContent");
     if (!status.isGit) {
       document.getElementById("gitContent").innerHTML =
         '<div style="text-align:center; padding:40px; color:var(--text-muted);">Bu proje bir git deposu degil</div>';
@@ -57,6 +59,12 @@ async function loadGitData() {
 
     renderGitDashboard(status, log, diff);
   } catch (e) {
+    // Iskelet birakilirsa ekran sonsuza kadar parildar.
+    clearBusy("gitContent");
+    document.getElementById("gitContent").innerHTML =
+      '<div style="text-align:center; padding:40px; color:var(--text-muted);">Git verisi yuklenemedi<br><span style="font-family:var(--mono); font-size:12px; color:var(--text-faint)">' +
+      escapeHtml(e.message) +
+      "</span></div>";
     toast(e.message, "error");
   }
 }

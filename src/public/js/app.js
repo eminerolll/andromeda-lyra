@@ -118,6 +118,73 @@ export async function api(path, opts = {}) {
   return data;
 }
 
+// ── Yukleniyor gostergeleri ────────────────────────────────────────────────
+// Sekmeler veri gelene kadar bos bir alana bakiyordu. Daha kotusu: bos durum
+// mesajlari ("Henuz proje yok") istek donmeden once bir an gorunebiliyordu.
+// showSkeleton icerik gelene kadar ayni olcude bir iskelet basar, boylece
+// hem bekleme gorunur olur hem veri gelince sayfa ziplamaz.
+//
+// kind: "cards" | "rows" | "info" | "lines" | "block"
+const SKELETON_SHAPES = {
+  cards: () =>
+    '<div class="skeleton-card">' +
+    '<div class="skeleton-card-top">' +
+    '<div class="skeleton skeleton-line w-60" style="margin:0"></div>' +
+    '<div class="skeleton skeleton-chip" style="width:52px;height:16px"></div>' +
+    "</div>" +
+    '<div class="skeleton skeleton-line sm w-90"></div>' +
+    '<div class="skeleton skeleton-line sm w-40"></div>' +
+    '<div class="skeleton-card-actions">' +
+    '<div class="skeleton skeleton-chip" style="flex:1;width:auto;height:30px"></div>' +
+    '<div class="skeleton skeleton-chip" style="width:28px;height:28px"></div>' +
+    '<div class="skeleton skeleton-chip" style="width:28px;height:28px"></div>' +
+    "</div>" +
+    "</div>",
+  rows: () =>
+    '<div class="skeleton-row">' +
+    '<div class="skeleton skeleton-line w-40" style="margin:0"></div>' +
+    '<div class="skeleton skeleton-line sm w-60" style="margin:0"></div>' +
+    "</div>",
+  info: () =>
+    '<div class="skeleton-info-row">' +
+    '<div class="skeleton skeleton-line sm" style="width:84px;margin:0"></div>' +
+    '<div class="skeleton skeleton-line sm" style="width:56px;margin:0"></div>' +
+    "</div>",
+  lines: () => '<div class="skeleton skeleton-line w-90"></div>',
+  block: () => '<div class="skeleton skeleton-block"></div>'
+};
+
+export function showSkeleton(target, kind = "lines", count = 3) {
+  const el = typeof target === "string" ? document.getElementById(target) : target;
+  if (!el) return null;
+  const shape = SKELETON_SHAPES[kind] || SKELETON_SHAPES.lines;
+  // Ayni anda iki yukleme baslarsa ikincisi birincinin iskeletini ezmesin diye
+  // isaretliyoruz; clearSkeleton yalnizca kendi bastigi iskeleti temizler.
+  el.setAttribute("aria-busy", "true");
+  el.innerHTML =
+    '<span class="sr-only" role="status">Yukleniyor</span>' +
+    Array.from({ length: count }, shape).join("");
+  return el;
+}
+
+// Ayni yukleme tekrar tekrar cagrilan yerlerde (docker 10 sn, sistem karti
+// 30 sn, sekme her aktif olusunda) iskeleti dolu bir ekranin uzerine basmak
+// icerigi kaybettirir ve ekrani titretir. Bu surumu oralarda kullan: yalnizca
+// kutu gercekten bosken iskelet gosterir.
+export function showSkeletonIfEmpty(target, kind = "lines", count = 3) {
+  const el = typeof target === "string" ? document.getElementById(target) : target;
+  if (!el || el.children.length) return null;
+  return showSkeleton(el, kind, count);
+}
+
+// Iskeleti kaldirmak icin ayrica cagirmak gerekmez: icerik innerHTML ile
+// degistirildiginde iskelet zaten gider. Bu yalnizca aria-busy'yi indirir —
+// icerigi yazan her yol bunu cagirmali, yoksa ekran okuyucu "mesgul" der.
+export function clearBusy(target) {
+  const el = typeof target === "string" ? document.getElementById(target) : target;
+  if (el) el.removeAttribute("aria-busy");
+}
+
 // Toast notifications
 export function toast(msg, type = "success") {
   const el = document.createElement("div");

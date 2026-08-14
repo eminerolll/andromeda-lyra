@@ -5,7 +5,9 @@ import {
   serviceUrl,
   servicePort,
   hasService,
-  escapeHtml
+  escapeHtml,
+  showSkeletonIfEmpty,
+  clearBusy
 } from "./app.js";
 
 let ws = null;
@@ -43,6 +45,7 @@ function updateBadge() {
 function render() {
   const container = document.getElementById("portsContent");
   if (!container) return;
+  clearBusy(container);
 
   let html = "";
 
@@ -131,6 +134,8 @@ function render() {
 }
 
 export function init() {
+  // Port verisi WebSocket'ten geliyor; ilk mesaj gelene kadar tablo bombostu.
+  showSkeletonIfEmpty("portsContent", "rows", 5);
   connectWs();
 }
 

@@ -1,4 +1,4 @@
-import { api, toast, events, escapeHtml } from "./app.js";
+import { api, toast, events, escapeHtml, showSkeletonIfEmpty, clearBusy } from "./app.js";
 
 let currentProject = null;
 let globalVars = [];
@@ -28,6 +28,7 @@ async function loadProjectList() {
 }
 
 async function loadEnvData() {
+  showSkeletonIfEmpty("envContent", "rows", 6);
   try {
     globalVars = await api("/api/env/global");
   } catch (e) {
@@ -45,6 +46,7 @@ async function loadEnvData() {
   }
 
   revealedKeys.clear();
+  clearBusy("envContent");
   render();
 }
 

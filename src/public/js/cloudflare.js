@@ -1,4 +1,4 @@
-import { api, toast, escapeHtml } from "./app.js";
+import { api, toast, escapeHtml, showSkeletonIfEmpty, clearBusy } from "./app.js";
 
 // Tunnel sekmesi. Uc mod var, hangisinde oldugumuzu sunucu soyler
 // (/api/cf/status -> detectMode):
@@ -41,6 +41,7 @@ async function cfFetch(path, opts = {}) {
 }
 
 async function loadAll() {
+  showSkeletonIfEmpty("cfContent", "rows", 5);
   try {
     status = await api("/api/cf/status");
     settings = await api("/api/cf/settings");
@@ -54,10 +55,12 @@ async function loadAll() {
       readOnly = !!i.readOnly;
       ingressSource = i.source || null;
     }
+    clearBusy("cfContent");
     render();
     if (status.canManage && status.integrationEnabled) loadHealth();
   } catch (e) {
     const container = document.getElementById("cfContent");
+    clearBusy(container);
     if (container) {
       container.innerHTML =
         '<div style="padding:40px; text-align:center; color:var(--red);">Yuklenemedi: ' +
@@ -76,9 +79,9 @@ async function loadHealth() {
 }
 
 function healthColor(level) {
-  if (level === "green") return "var(--green, #4ade80)";
-  if (level === "yellow") return "var(--yellow, #fbbf24)";
-  if (level === "red") return "var(--red, #f87171)";
+  if (level === "green") return "var(--green)";
+  if (level === "yellow") return "var(--orange)";
+  if (level === "red") return "var(--red)";
   return "var(--text-muted)";
 }
 
@@ -108,7 +111,7 @@ function infoBox(text, color) {
   return (
     '<div style="font-size:12px; color:' +
     (color || "var(--text-muted)") +
-    '; margin-bottom:16px; padding:10px 12px; background:var(--bg-darker, #0f1115); border-radius:6px;">' +
+    '; margin-bottom:16px; padding:10px 12px; background:var(--bg-input); border-radius:6px;">' +
     text +
     "</div>"
   );
@@ -116,8 +119,8 @@ function infoBox(text, color) {
 
 function renderHeader() {
   const dot = status.active
-    ? '<span style="color:var(--green, #4ade80);">●</span>'
-    : '<span style="color:var(--red, #f87171);">●</span>';
+    ? '<span style="color:var(--green);">●</span>'
+    : '<span style="color:var(--red);">●</span>';
   const statusText = status.active ? "Cloudflare tunnel aktif" : "Tunnel calismiyor";
 
   let html = "";
@@ -165,7 +168,7 @@ function renderTokenPanel(alwaysOpen) {
       "</span>";
     if (settings.zoneDomain) {
       html +=
-        ' &middot; Zone: <span style="color:var(--green, #4ade80);">' +
+        ' &middot; Zone: <span style="color:var(--green);">' +
         escapeHtml(settings.zoneDomain) +
         "</span>";
     }
@@ -186,7 +189,7 @@ function renderTokenPanel(alwaysOpen) {
 // Mod C: durumu oldugu gibi anlat, sahte bir duzenleme arayuzu gosterme.
 function renderRemote() {
   let html = renderHeader();
-  html += infoBox(escapeHtml(status.note || ""), "var(--yellow, #fbbf24)");
+  html += infoBox(escapeHtml(status.note || ""), "var(--orange)");
   html += renderTokenPanel(true);
 
   html += '<div class="section-label" style="margin-bottom:12px;">Baglantiyi Kesfet</div>';
@@ -242,10 +245,10 @@ function renderTable() {
           ? "korumali"
           : "normal";
     const tipColor = e.isProtected
-      ? "var(--yellow, #fbbf24)"
+      ? "var(--orange)"
       : e.isCatchAll || e.isWildcard
         ? "var(--text-muted)"
-        : "var(--green, #4ade80)";
+        : "var(--green)";
     const pingable =
       e.hostname &&
       !e.isCatchAll &&
@@ -293,7 +296,7 @@ function renderManaged() {
   if (!status.integrationEnabled) {
     html += infoBox(
       "Cloudflare entegrasyonu kapali; ingress goruntulenemez. Ayarlar &gt; Entegrasyonlar'dan ac.",
-      "var(--yellow, #fbbf24)"
+      "var(--orange)"
     );
     return html;
   }
@@ -305,7 +308,7 @@ function renderManaged() {
       "Uyari: Cloudflare bu tunnel'in yapilandirmasini &quot;" +
         escapeHtml(ingressSource) +
         "&quot; olarak bildiriyor. Buradan yazilan ingress cloudflared tarafindan yok sayilabilir.",
-      "var(--yellow, #fbbf24)"
+      "var(--orange)"
     );
   }
 

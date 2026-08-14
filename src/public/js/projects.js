@@ -9,7 +9,10 @@ import {
   serviceUrl,
   hasService,
   markServiceUnavailable,
-  escapeHtml
+  escapeHtml,
+  showSkeleton,
+  showSkeletonIfEmpty,
+  clearBusy
 } from "./app.js";
 import { openNotes } from "./notes.js";
 import { runGitOp } from "./git-ops.js";
@@ -31,9 +34,13 @@ function typeBadge(type) {
 }
 
 async function loadProjects() {
+  const grid = document.getElementById("projectsGrid");
+  // Iskelet istekten ONCE basilir: "Henuz proje yok" bos durumu, istek
+  // donmeden bir an gorunup kaybolmasin.
+  showSkeletonIfEmpty(grid, "cards", 6);
   try {
     const projects = await api("/api/projects");
-    const grid = document.getElementById("projectsGrid");
+    clearBusy(grid);
     if (!projects.length) {
       grid.innerHTML =
         '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><p>Henuz proje yok</p><span class="hint">Ctrl+N ile yeni proje olustur</span></div>';
@@ -104,6 +111,13 @@ async function loadProjects() {
       grid.querySelectorAll("[data-code-link]").forEach((el) => markServiceUnavailable(el, "code"));
     }
   } catch (e) {
+    // Iskelet burada mutlaka kaldirilmali: aksi halde hata durumunda ekran
+    // sonsuza kadar "yukleniyor" gibi parildar.
+    clearBusy(grid);
+    grid.innerHTML =
+      '<div class="empty-state"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>Projeler yuklenemedi</p><span class="hint">' +
+      escapeHtml(e.message) +
+      "</span></div>";
     toast(e.message, "error");
   }
 }
@@ -162,8 +176,13 @@ function pctColor(pct) {
 }
 
 async function loadSystem() {
+  const sysEl = document.getElementById("systemInfo");
+  // Bu fonksiyon 30 saniyede bir tekrar cagriliyor: iskelet yalnizca kart
+  // henuz bosken basilir, yoksa sistem kutusu her donguda parildardi.
+  showSkeletonIfEmpty(sysEl, "info", 8);
   try {
     const s = await api("/api/system");
+    clearBusy(sysEl);
     const cpuTempVal = parseFloat(s.cpuTemp);
     const cpuClass = tempClass(cpuTempVal);
     const memPct = parseInt(s.memory.percent);
@@ -206,7 +225,15 @@ async function loadSystem() {
     html += `<div class="info-row" style="margin-top:6px"><span class="info-label">Uptime</span><span class="info-value">${s.uptime}</span></div>`;
 
     document.getElementById("systemInfo").innerHTML = html;
-  } catch (e) {}
+  } catch (e) {
+    // Sessiz gecmek iskeleti ekranda birakirdi; ilk yukleme basarisizsa
+    // kutuyu sebebiyle birlikte kapatiyoruz.
+    clearBusy(sysEl);
+    if (sysEl && sysEl.querySelector(".skeleton")) {
+      sysEl.innerHTML =
+        '<div class="info-row"><span class="info-label">Sistem bilgisi alinamadi</span></div>';
+    }
+  }
 }
 
 // Git operations — use new modal with conflict resolution
@@ -341,8 +368,10 @@ async function loadGithubBadge() {
 
 async function loadGithubRepos() {
   const list = document.getElementById("repoList");
+  showSkeleton(list, "rows", 6);
   try {
     const s = await api("/api/settings");
+    clearBusy(list);
     if (!s.githubUser) {
       list.innerHTML =
         '<div style="text-align:center; padding:30px; color:var(--text-muted)"><p>GitHub bagli degil</p><button class="btn btn-primary" id="goToSettingsBtn" style="margin-top:10px">Ayarlardan Baglan</button></div>';
@@ -353,9 +382,9 @@ async function loadGithubRepos() {
       return;
     }
     document.getElementById("githubModalSubtitle").textContent = "@" + s.githubUser + " depolari";
-    list.innerHTML =
-      '<div style="text-align:center; color:var(--text-muted); padding:20px;">Yukleniyor...</div>';
+    showSkeleton(list, "rows", 6);
     githubRepos = await api("/api/github/repos");
+    clearBusy(list);
     renderRepos(githubRepos);
   } catch (e) {
     list.innerHTML =

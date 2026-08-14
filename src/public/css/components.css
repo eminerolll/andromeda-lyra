@@ -811,3 +811,138 @@ kbd {
 .git-op-actions .btn {
   justify-content: flex-start;
 }
+
+/* ── SKELETON / YUKLENIYOR ────────────────────────────────────────────────
+   Once veri gelene kadar container bombostu; daha kotusu, bos durum
+   ("Henuz proje yok") istek donmeden bir an gorunup kayboluyordu — kullanici
+   projesi yokmus gibi bir an paniklyordu. Skeleton hem bekleme suresini
+   doldurur hem bu yanlis bos durumu onler.
+
+   Olculer gercek icerige yakin tutuldu: skeleton kart gercek proje kartiyla
+   ayni kutu, ayni padding. Aksi halde veri gelince sayfa zipliyor. */
+
+@keyframes skeletonShimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 0%,
+    var(--bg-card-hover) 50%,
+    var(--bg-card) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 200% 0;
+  animation: skeletonShimmer 1.4s linear infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Metin satiri taklidi. Genislikler esit olmamali — esit bloklar tabloya
+   benziyor, metne benzemiyor. */
+.skeleton-line {
+  height: 10px;
+  margin-bottom: 8px;
+}
+.skeleton-line:last-child {
+  margin-bottom: 0;
+}
+.skeleton-line.w-40 {
+  width: 40%;
+}
+.skeleton-line.w-60 {
+  width: 60%;
+}
+.skeleton-line.w-75 {
+  width: 75%;
+}
+.skeleton-line.w-90 {
+  width: 90%;
+}
+.skeleton-line.sm {
+  height: 8px;
+}
+
+/* Proje kartinin iskeleti — .project-card ile ayni kutu. */
+.skeleton-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.skeleton-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.skeleton-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-top: 12px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* Liste/tablo satiri iskeleti. */
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.skeleton-row + .skeleton-row {
+  border-top: 1px solid var(--border);
+}
+
+/* Kenar cubugu bilgi satiri (.info-row olculeri). */
+.skeleton-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+}
+.skeleton-info-row + .skeleton-info-row {
+  border-top: 1px solid var(--border);
+}
+
+/* Tek parca govde — log/diff gibi serbest alanlar icin. */
+.skeleton-block {
+  height: 120px;
+}
+
+/* Satir ici kucuk gosterge: buton icinde, rozet yerinde. */
+.skeleton-chip {
+  display: inline-block;
+  height: 20px;
+  width: 64px;
+  border-radius: 5px;
+  vertical-align: middle;
+}
+
+/* Ekran okuyucu metni: skeleton gorsel bir vaat, sesli okunmasi gereken sey
+   "yukleniyor" bilgisi. Container'a ayrica aria-busy="true" konur. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background-position: 0 0;
+  }
+}

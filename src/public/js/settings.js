@@ -1,6 +1,6 @@
 // Settings modal — 6 sekme: Genel / Erişim / Servisler / Güvenlik / Entegrasyonlar / Hesap
 
-import { api, toast, closeModals, escapeHtml } from "./app.js";
+import { api, toast, closeModals, escapeHtml, showSkeleton, clearBusy } from "./app.js";
 
 let initialized = false;
 let currentTab = "general";
@@ -80,8 +80,10 @@ function bindForm(id, handler) {
 async function loadHealthSummary() {
   const el = document.getElementById("healthSummary");
   if (!el) return;
+  showSkeleton(el, "info", 9);
   try {
     const h = await api("/api/health-summary");
+    clearBusy(el);
     const rows = [
       ["Sürüm", `v${h.lyra.version} (Node ${h.lyra.nodeVersion})`],
       ["Lyra servisi", `${h.lyra.serviceName} — ${h.lyra.serviceStatus || "bilinmiyor"}`],
@@ -107,6 +109,7 @@ async function loadHealthSummary() {
           serviceRows.map(([k, v]) => infoRow(escapeHtml(k), v)).join("")
         : "");
   } catch (e) {
+    clearBusy(el);
     el.innerHTML = `<div style="color:var(--red)">${escapeHtml(e.message)}</div>`;
   }
 }
@@ -209,8 +212,10 @@ async function saveAccess() {
 async function loadServices() {
   const list = document.getElementById("servicesList");
   if (!list) return;
+  showSkeleton(list, "rows", 4);
   try {
     const data = await api("/api/services");
+    clearBusy(list);
     if (!data.services.length) {
       list.innerHTML =
         '<div style="text-align:center; padding:20px; color:var(--text-muted);">Henüz servis kayıtlı değil.</div>';
@@ -331,8 +336,10 @@ async function saveSecurity() {
 async function loadBans() {
   const list = document.getElementById("bansList");
   if (!list) return;
+  showSkeleton(list, "rows", 3);
   try {
     const data = await api("/api/bans");
+    clearBusy(list);
     if (!data.bans.length) {
       list.innerHTML = '<div style="padding:12px 0; color:var(--text-muted);">Banlı IP yok.</div>';
       return;
@@ -359,6 +366,7 @@ async function loadBans() {
       el.addEventListener("click", () => removeBan(el.dataset.unbanIp));
     });
   } catch (e) {
+    clearBusy(list);
     list.innerHTML = `<div style="color:var(--red)">${escapeHtml(e.message)}</div>`;
   }
 }
@@ -399,10 +407,11 @@ async function loadAuditLog() {
   const el = document.getElementById("auditLogList");
   if (!el) return;
   const eventType = getVal("auditFilter");
-  el.textContent = "Yükleniyor...";
+  showSkeleton(el, "rows", 5);
   try {
     const query = eventType ? `?limit=50&event_type=${encodeURIComponent(eventType)}` : "?limit=50";
     const data = await api("/api/audit-log" + query);
+    clearBusy(el);
     if (!data.events.length) {
       el.innerHTML = '<div style="color:var(--text-muted);">Kayıt yok.</div>';
       return;
@@ -420,6 +429,7 @@ async function loadAuditLog() {
       )
       .join("");
   } catch (e) {
+    clearBusy(el);
     el.innerHTML = `<div style="color:var(--red)">${escapeHtml(e.message)}</div>`;
   }
 }
@@ -456,8 +466,10 @@ async function loadIntegrations() {
 async function loadIntegration(name, containerId, opts) {
   const el = document.getElementById(containerId);
   if (!el) return;
+  showSkeleton(el, "lines", 3);
   try {
     const data = await api(`/api/integrations/${name}`);
+    clearBusy(el);
     const cfg = data.config || {};
     const inputs = opts.fields
       .map(
@@ -488,6 +500,7 @@ async function loadIntegration(name, containerId, opts) {
       removeIntegration(name)
     );
   } catch (e) {
+    clearBusy(el);
     el.innerHTML = `<div style="color:var(--red)">${escapeHtml(e.message)}</div>`;
   }
 }

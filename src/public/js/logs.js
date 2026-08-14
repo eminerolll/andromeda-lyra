@@ -1,4 +1,4 @@
-import { api, toast, escapeHtml } from "./app.js";
+import { api, toast, escapeHtml, showSkeletonIfEmpty, clearBusy } from "./app.js";
 
 const MAX_LINES = 2000;
 const PAUSE_QUEUE_LIMIT = 500;
@@ -158,8 +158,11 @@ function openWebSocket(source) {
 }
 
 async function loadSources() {
+  showSkeletonIfEmpty("logsSources", "rows", 4);
+  showSkeletonIfEmpty("logsView", "block", 1);
   try {
     sources = await api("/api/logs/sources");
+    clearBusy("logsSources");
     renderSources();
 
     if (sources.length > 0 && !activeSource) {
@@ -171,6 +174,13 @@ async function loadSources() {
           '<div style="padding:20px; text-align:center; color:var(--text-muted);">Sistemde log okunabilecek servis bulunamadi</div>';
     }
   } catch (e) {
+    clearBusy("logsSources");
+    clearBusy("logsView");
+    const srcEl = document.getElementById("logsSources");
+    if (srcEl && srcEl.querySelector(".skeleton")) {
+      srcEl.innerHTML =
+        '<div style="padding:12px; color:var(--text-muted); font-size:12px;">Servis listesi alinamadi</div>';
+    }
     toast(e.message, "error");
   }
 }
@@ -178,6 +188,7 @@ async function loadSources() {
 function renderSources() {
   const container = document.getElementById("logsSources");
   if (!container) return;
+  clearBusy(container);
   const items = sources
     .map((s) => {
       const dotClass =

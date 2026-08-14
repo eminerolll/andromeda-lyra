@@ -1,4 +1,4 @@
-import { api, toast, escapeHtml } from "./app.js";
+import { api, toast, escapeHtml, showSkeletonIfEmpty, clearBusy } from "./app.js";
 
 let projects = [];
 let containers = [];
@@ -7,6 +7,8 @@ let health = {};
 let refreshTimer = null;
 
 async function loadAll() {
+  // 10 saniyede bir tekrar cagriliyor: iskelet yalnizca ilk kez, bos ekranda.
+  showSkeletonIfEmpty("dockerContent", "rows", 5);
   try {
     const [pData, cData, iData] = await Promise.all([
       api("/api/docker/projects"),
@@ -16,10 +18,12 @@ async function loadAll() {
     projects = pData.projects || [];
     containers = cData.containers || [];
     ingress = (iData.entries || []).filter((e) => e.hostname && !e.isCatchAll && !e.isWildcard);
+    clearBusy("dockerContent");
     render();
     loadHealth();
   } catch (e) {
     const container = document.getElementById("dockerContent");
+    clearBusy(container);
     if (container)
       container.innerHTML =
         '<div style="text-align:center; padding:40px; color:var(--red);">Docker yuklenemedi: ' +
@@ -41,10 +45,10 @@ async function loadHealth() {
       }
       el.style.color =
         hs.level === "green"
-          ? "var(--green, #4ade80)"
+          ? "var(--green)"
           : hs.level === "yellow"
-            ? "var(--yellow, #fbbf24)"
-            : "var(--red, #f87171)";
+            ? "var(--orange)"
+            : "var(--red)";
       el.title = hs.code ? hs.code + " (" + (hs.latency || "?") + "ms)" : hs.reason || "";
     });
   } catch (e) {}
@@ -72,9 +76,9 @@ function ingressForProject(project) {
 }
 
 function stateColor(state) {
-  if (state === "running") return "var(--green, #4ade80)";
-  if (state === "exited" || state === "dead") return "var(--red, #f87171)";
-  if (state === "paused") return "var(--yellow, #fbbf24)";
+  if (state === "running") return "var(--green)";
+  if (state === "exited" || state === "dead") return "var(--red)";
+  if (state === "paused") return "var(--orange)";
   return "var(--text-muted)";
 }
 
@@ -122,7 +126,7 @@ function render() {
           '<span style="margin-right:8px;">✓ ' + escapeHtml(p.composeFile || "compose") + "</span>";
       if (p.hasDockerfile) html += "<span>✓ Dockerfile</span>";
       if (!p.hasCompose && !p.hasDockerfile)
-        html += '<span style="color:var(--yellow, #fbbf24)">⚠ compose/Dockerfile yok</span>';
+        html += '<span style="color:var(--orange)">⚠ compose/Dockerfile yok</span>';
       html += "</div>";
 
       const tunnels = ingressForProject(p);
@@ -137,7 +141,7 @@ function render() {
           html +=
             '<a href="https://' +
             escapeHtml(t.hostname) +
-            '" target="_blank" style="color:var(--accent, #60a5fa); text-decoration:none;">' +
+            '" target="_blank" style="color:var(--accent); text-decoration:none;">' +
             escapeHtml(t.hostname) +
             "</a>";
           html += "</div>";
@@ -332,7 +336,7 @@ function showOutput(title, text) {
     modal.innerHTML =
       '<div class="modal wide">' +
       '<div class="modal-title" id="dockerOutputTitle"></div>' +
-      '<pre id="dockerOutputBody" style="max-height:60vh; overflow:auto; background:var(--bg-darker, #0f1115); padding:12px; border-radius:6px; font-size:12px; font-family:JetBrains Mono, monospace; white-space:pre-wrap; word-break:break-all;"></pre>' +
+      '<pre id="dockerOutputBody" style="max-height:60vh; overflow:auto; background:var(--bg-input); padding:12px; border-radius:6px; font-size:12px; font-family:JetBrains Mono, monospace; white-space:pre-wrap; word-break:break-all;"></pre>' +
       '<div class="modal-actions"><button class="btn" id="dockerOutputClose">Kapat</button></div>' +
       "</div>";
     document.body.appendChild(modal);
