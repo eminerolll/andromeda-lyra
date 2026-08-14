@@ -6,6 +6,21 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temel alınarak
 hazırlanmıştır ve proje [Semantic Versioning](https://semver.org/lang/tr/)
 kurallarına uyar.
 
+## [0.2.3] - 2026-08-14
+
+### Düzeltildi
+
+- **Git sekmesi yanlış dosya adı ve yanlış staged sayısı gösteriyordu.** `routes/git.js` içindeki `gitCmd()` tüm git çıktısına `.trim()` uyguluyordu. `git status --porcelain` formatında ilk iki sütun durum kodudur ve **boşluk da bir değerdir**: `"M  a.js"` staged, `" M a.js"` yalnızca çalışma ağacında. Çıktının başındaki boşluk silinince tüm sütunlar bir kaydı — `" M src/cart.js"` önce `"M src/cart.js"` oldu, dosya adı `"rc/cart.js"` olarak okundu ve X sütunu `M` göründüğü için unstaged değişiklik staged sayıldı. Panel "1 staged" derken diff başlığı "Unstaged" diyordu; dosya listesi gerçekte var olmayan bir yolu gösteriyordu. Ayrıştırma `lib/git-status.js`'e çıkarıldı (`parse` / `toFiles` / `counts`), `gitCmd` artık `{ trim: false }` kabul ediyor ve porcelain çağrılarının hepsi bunu kullanıyor. Dört ayrı yerde tekrarlanan elle sütun kırpma kaldırıldı. Regresyon `test/git-status.test.js` ile kilitlendi (13 test).
+
+### Eklendi
+
+- **Tanıtım sitesi ve dokümantasyon:** [eminerolll.github.io/andromeda-lyra](https://eminerolll.github.io/andromeda-lyra/). `site/build.js` dış bağımlılık kullanmıyor — markdown dönüştürücü olarak repoda zaten vendor'lanmış `marked` çağrılıyor, font gömülü, CDN yok; site de panelin "üçüncü tarafa istek gitmez" ilkesini koruyor. GitHub Actions ile otomatik yayınlanıyor.
+- README'ye marka kimliği, durum rozetleri ve dört ekran görüntüsü (projeler, portlar, git, giriş) eklendi.
+
+### Değiştirildi
+
+- README'deki durum ifadesi gerçeğe çekildi: "henüz birden fazla ortamda production-test edilmedi" yazıyordu, oysa Ubuntu 20.04 ve 22.04'te, Docker konteynerinde, WSL2'de ve gerçek bir Oracle Cloud VM'inde uçtan uca doğrulanmıştı. Desteklenen sürüm "Ubuntu 22.04+" yerine **20.04+** olarak düzeltildi.
+
 ## [0.2.2] - 2026-08-14
 
 ### Güvenlik
@@ -176,6 +191,7 @@ WSL2'de ve gerçek bir Oracle Cloud VM'inde uçtan uca doğrulandı.
 - Kabuk ayrıştırmasını devre dışı bırakmak için `lib/caddy.js`, `lib/health.js` ve `routes/logs.js` `execFile`'a çevrildi.
 - Entegrasyon token'ları bilinçli olarak şifrelenmiyor; anahtarı saklayacak ikinci bir güven alanı olmadığı için yanıltıcı vaatler kaldırılıp gerekçe `SECURITY.md` ve `docs/security.md`'ye yazıldı.
 
+[0.2.3]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.3
 [0.2.2]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.2
 [0.2.1]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.1
 [0.2.0]: https://github.com/eminerolll/andromeda-lyra/releases/tag/v0.2.0
